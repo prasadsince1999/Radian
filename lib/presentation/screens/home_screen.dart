@@ -8,6 +8,7 @@ import '../../core/services/android_widget_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/expressive_shapes.dart';
 import '../controllers/clock_controller.dart';
+import '../controllers/cloud_sync_controller.dart';
 import '../widgets/calendar/calendar_sheet.dart';
 import '../widgets/common/bouncy_pressable.dart';
 import '../widgets/dialogs/about_radian_dialog.dart';
@@ -26,10 +27,12 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     AndroidWidgetService.initialize(
       onAction: (action) {
         if (action == 'add_block') {
@@ -40,7 +43,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkInitialWidgetAction();
       _syncAndroidWidget();
+      ref.read(cloudSyncControllerProvider.notifier).syncNow();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(cloudSyncControllerProvider.notifier).syncNow();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   Future<void> _checkInitialWidgetAction() async {

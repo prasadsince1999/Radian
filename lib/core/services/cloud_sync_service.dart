@@ -50,7 +50,8 @@ class CloudSyncService {
 
   void _init() {
     if (prefs != null) {
-      _serverUrl = prefs!.getString(_serverUrlKey) ?? _serverUrl ?? defaultServerUrl;
+      _serverUrl =
+          prefs!.getString(_serverUrlKey) ?? _serverUrl ?? defaultServerUrl;
       final lastStr = prefs!.getString(_lastSyncKey);
       if (lastStr != null) {
         _lastSyncTime = DateTime.tryParse(lastStr);
@@ -69,6 +70,43 @@ class CloudSyncService {
     }
   }
 
+  final List<Map<String, dynamic>> _pendingMutations = [];
+
+  List<Map<String, dynamic>> get pendingMutations =>
+      List.unmodifiable(_pendingMutations);
+
+  void queueUpsert(SectorEvent event) {
+    _pendingMutations.removeWhere(
+      (m) => m['event']?['id'] == event.id || m['id'] == event.id,
+    );
+    _pendingMutations.add({
+      'action': 'upsert',
+      'event': {
+        'id': event.id,
+        'title': event.title,
+        'start': event.start.toIso8601String(),
+        'end': event.end.toIso8601String(),
+        'category': event.category,
+        'color_hex': event.colorHex,
+        'notes': event.notes,
+        'is_all_day': event.isAllDay ? 1 : 0,
+        'icon_name': event.iconName,
+        'reminder_minutes': event.reminderMinutes,
+        'repeat_days': event.repeatDays != null
+            ? jsonEncode(event.repeatDays)
+            : null,
+        'recurrence_end_date': event.recurrenceEndDate?.toIso8601String(),
+      },
+    });
+  }
+
+  void queueDelete(String id) {
+    _pendingMutations.removeWhere(
+      (m) => m['event']?['id'] == id || m['id'] == id,
+    );
+    _pendingMutations.add({'action': 'delete', 'id': id});
+  }
+
   /// Performs a delta synchronization pass with the Cloudflare D1 server.
   Future<bool> syncNow() async {
     if (_serverUrl == null || _serverUrl!.isEmpty) {
@@ -80,31 +118,13 @@ class CloudSyncService {
 
     try {
       final syncEndpoint = Uri.parse('$_serverUrl/api/sync');
-      final allLocalEvents = await repository.getAllEvents();
+      final mutationsToSend = List<Map<String, dynamic>>.from(
+        _pendingMutations,
+      );
 
       final payload = {
         'since': _lastSyncTime?.toIso8601String(),
-        'mutations': allLocalEvents.map((e) {
-          return {
-            'action': 'upsert',
-            'event': {
-              'id': e.id,
-              'title': e.title,
-              'start': e.start.toIso8601String(),
-              'end': e.end.toIso8601String(),
-              'category': e.category,
-              'color_hex': e.colorHex,
-              'notes': e.notes,
-              'is_all_day': e.isAllDay ? 1 : 0,
-              'icon_name': e.iconName,
-              'reminder_minutes': e.reminderMinutes,
-              'repeat_days': e.repeatDays != null
-                  ? jsonEncode(e.repeatDays)
-                  : null,
-              'recurrence_end_date': e.recurrenceEndDate?.toIso8601String(),
-            },
-          };
-        }).toList(),
+        'mutations': mutationsToSend,
       };
 
       final response = await _transport(syncEndpoint, {
@@ -112,6 +132,7 @@ class CloudSyncService {
       }, jsonEncode(payload));
 
       if (response.statusCode == 200) {
+        _pendingMutations.removeWhere((m) => mutationsToSend.contains(m));
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final List<dynamic>? delta = data['delta'] as List<dynamic>?;
 

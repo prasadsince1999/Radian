@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/constants/app_strings.dart';
 import 'core/theme/expressive_theme.dart';
 import 'presentation/controllers/clock_controller.dart';
+import 'presentation/controllers/cloud_sync_controller.dart';
 import 'presentation/controllers/mcp_server_controller.dart';
 import 'presentation/screens/splash_screen.dart';
 
@@ -27,6 +28,7 @@ class SectographApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(mcpServerControllerProvider);
+    ref.watch(cloudSyncControllerProvider);
     final settings = ref.watch(dialSettingsProvider);
 
     return MaterialApp(

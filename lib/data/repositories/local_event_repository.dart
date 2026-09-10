@@ -177,7 +177,14 @@ class LocalEventRepository implements EventRepository {
 
   @override
   Future<void> bulkAddEvents(List<SectorEvent> events) async {
-    _events.addAll(events);
+    for (final event in events) {
+      final idx = _events.indexWhere((e) => e.id == event.id);
+      if (idx != -1) {
+        _events[idx] = event;
+      } else {
+        _events.add(event);
+      }
+    }
     await _saveToDisk();
     _notify();
     unawaited(ReminderNotificationService.syncAllReminders(_events));
