@@ -489,25 +489,88 @@ class SectographPainter extends CustomPainter {
       return !effectiveTime.isBefore(e.start) && effectiveTime.isBefore(e.end);
     }
 
-    // Resolve focused event for 2-ring Focused Block mode
-    SectorEvent? focusedEvent = activeEvent;
+    // Resolve outer ring events for 2-ring Focused Block mode:
+    // Outer ring features: Previous block + Current active block + Upcoming block (+ selected block)
+    final outerEventIds = <String>{};
+    SectorEvent? focusedActive = activeEvent;
     if (isFocusedBlockMode) {
-      if (focusedEvent == null) {
+      if (focusedActive == null) {
         for (final e in events) {
           if (isEventActive(e)) {
-            focusedEvent = e;
+            focusedActive = e;
             break;
           }
         }
       }
-      focusedEvent ??= selectedEvent;
-      if (focusedEvent == null) {
+      focusedActive ??= selectedEvent;
+      if (focusedActive == null) {
         for (final e in events) {
           if (e.start.isAfter(effectiveTime)) {
-            focusedEvent = e;
-            break;
+            if (focusedActive == null ||
+                e.start.isBefore(focusedActive.start)) {
+              focusedActive = e;
+            }
           }
         }
+      }
+      if (focusedActive != null) {
+        outerEventIds.add(focusedActive.id);
+      }
+
+      final refStart = focusedActive?.start ?? effectiveTime;
+      final refEnd = focusedActive?.end ?? effectiveTime;
+
+      // 1. Previous block: block that ended latest before refStart
+      SectorEvent? prevEvent;
+      for (final e in events) {
+        if (outerEventIds.contains(e.id)) continue;
+        if (!e.end.isAfter(refStart)) {
+          if (prevEvent == null || e.end.isAfter(prevEvent.end)) {
+            prevEvent = e;
+          }
+        }
+      }
+      if (prevEvent == null) {
+        for (final e in events) {
+          if (outerEventIds.contains(e.id)) continue;
+          if (e.end.isBefore(effectiveTime)) {
+            if (prevEvent == null || e.end.isAfter(prevEvent.end)) {
+              prevEvent = e;
+            }
+          }
+        }
+      }
+      if (prevEvent != null) {
+        outerEventIds.add(prevEvent.id);
+      }
+
+      // 2. Upcoming block: block that starts earliest after refEnd
+      SectorEvent? nextEvent;
+      for (final e in events) {
+        if (outerEventIds.contains(e.id)) continue;
+        if (!e.start.isBefore(refEnd)) {
+          if (nextEvent == null || e.start.isBefore(nextEvent.start)) {
+            nextEvent = e;
+          }
+        }
+      }
+      if (nextEvent == null) {
+        for (final e in events) {
+          if (outerEventIds.contains(e.id)) continue;
+          if (e.start.isAfter(effectiveTime)) {
+            if (nextEvent == null || e.start.isBefore(nextEvent.start)) {
+              nextEvent = e;
+            }
+          }
+        }
+      }
+      if (nextEvent != null) {
+        outerEventIds.add(nextEvent.id);
+      }
+
+      final sel = selectedEvent;
+      if (sel != null) {
+        outerEventIds.add(sel.id);
       }
     }
 
@@ -523,8 +586,8 @@ class SectographPainter extends CustomPainter {
     final innerROut = innerRIn + innerRingThickness;
 
     ({double rIn, double rOut}) getEventRadii(SectorEvent event) {
-      if (isFocusedBlockMode && focusedEvent != null) {
-        final isOuter = event.id == focusedEvent.id;
+      if (isFocusedBlockMode && outerEventIds.isNotEmpty) {
+        final isOuter = outerEventIds.contains(event.id);
         final trackOut = isOuter ? outerROut : innerROut;
         final trackIn = isOuter ? outerRIn : innerRIn;
         final trackW = trackOut - trackIn;
@@ -585,9 +648,9 @@ class SectographPainter extends CustomPainter {
             event.bottomLevel == other.bottomLevel;
         if (!sameTier) continue;
 
-        if (isFocusedBlockMode && focusedEvent != null) {
-          final isEventOuter = (event.id == focusedEvent.id);
-          final isOtherOuter = (other.id == focusedEvent.id);
+        if (isFocusedBlockMode && outerEventIds.isNotEmpty) {
+          final isEventOuter = outerEventIds.contains(event.id);
+          final isOtherOuter = outerEventIds.contains(other.id);
           if (isEventOuter != isOtherOuter) continue;
         }
 
@@ -603,7 +666,7 @@ class SectographPainter extends CustomPainter {
     }
 
     // Draw subtle divider line between outer ring & inner ring in Focused Block mode
-    if (isFocusedBlockMode && focusedEvent != null) {
+    if (isFocusedBlockMode && outerEventIds.isNotEmpty) {
       final isDark = colorScheme.brightness == Brightness.dark;
       final dividerPaint = Paint()
         ..color =
@@ -632,6 +695,16 @@ class SectographPainter extends CustomPainter {
           isCompleted &&
           !recentCompletedIds.contains(event.id)) {
         continue;
+      }
+
+      // In 12-hour mode: skip events farther than 12 hours from effective time
+      if (!is24) {
+        if (event.start.difference(effectiveTime).inMinutes >= 720) {
+          continue;
+        }
+        if (effectiveTime.difference(event.end).inMinutes >= 720) {
+          continue;
+        }
       }
 
       double startDeg;
@@ -697,13 +770,15 @@ class SectographPainter extends CustomPainter {
       );
 
       final double fillAlpha;
-      if (isFocusedBlockMode && focusedEvent != null) {
-        if (event.id == focusedEvent.id || isSelected) {
+      if (isFocusedBlockMode && outerEventIds.isNotEmpty) {
+        if (event.id == focusedActive?.id || isSelected) {
           fillAlpha = 1.0;
+        } else if (outerEventIds.contains(event.id)) {
+          fillAlpha = 0.90;
         } else if (isCompleted) {
           fillAlpha = 0.35;
         } else {
-          fillAlpha = 0.85;
+          fillAlpha = 0.75;
         }
       } else if (warp != null) {
         fillAlpha = (warp.focusEventId == event.id || isSelected) ? 1.0 : 0.28;
@@ -752,6 +827,16 @@ class SectographPainter extends CustomPainter {
           isCompleted &&
           !recentCompletedIds.contains(event.id)) {
         continue;
+      }
+
+      // In 12-hour mode: skip events farther than 12 hours from effective time
+      if (!is24) {
+        if (event.start.difference(effectiveTime).inMinutes >= 720) {
+          continue;
+        }
+        if (effectiveTime.difference(event.end).inMinutes >= 720) {
+          continue;
+        }
       }
 
       final double eventStartAngle;
@@ -816,7 +901,9 @@ class SectographPainter extends CustomPainter {
 
       final isDim =
           (isCompleted && pastStyle == PastHoursStyle.birdsEye) ||
-          (isCompleted && isFocusedBlockMode && event.id != focusedEvent?.id);
+          (isCompleted &&
+              isFocusedBlockMode &&
+              !outerEventIds.contains(event.id));
       final capAlpha = isDim ? 0.38 : 1.0;
       final shadeAlpha = isDim ? 0.40 : 1.0;
       final textAlpha = isDim ? 0.50 : 1.0;
@@ -959,7 +1046,9 @@ class SectographPainter extends CustomPainter {
 
       final isDim =
           (isCompleted && pastStyle == PastHoursStyle.birdsEye) ||
-          (isCompleted && isFocusedBlockMode && event.id != focusedEvent?.id);
+          (isCompleted &&
+              isFocusedBlockMode &&
+              !outerEventIds.contains(event.id));
       final shadeAlpha = isDim ? 0.40 : 1.0;
       final textAlpha = isDim ? 0.50 : 1.0;
 
@@ -1034,6 +1123,16 @@ class SectographPainter extends CustomPainter {
         continue;
       }
 
+      // In 12-hour mode: skip events farther than 12 hours from effective time
+      if (!is24) {
+        if (event.start.difference(effectiveTime).inMinutes >= 720) {
+          continue;
+        }
+        if (effectiveTime.difference(event.end).inMinutes >= 720) {
+          continue;
+        }
+      }
+
       double contentStartDeg = event.startAngle;
       double contentSweepDeg = event.sweepAngle;
 
@@ -1077,13 +1176,15 @@ class SectographPainter extends CustomPainter {
       }
 
       final double contentAlpha;
-      if (isFocusedBlockMode && focusedEvent != null) {
-        if (event.id == focusedEvent.id || isSelected) {
+      if (isFocusedBlockMode && outerEventIds.isNotEmpty) {
+        if (event.id == focusedActive?.id || isSelected) {
           contentAlpha = 1.0;
+        } else if (outerEventIds.contains(event.id)) {
+          contentAlpha = 0.95;
         } else if (isCompleted) {
           contentAlpha = 0.40;
         } else {
-          contentAlpha = 0.85;
+          contentAlpha = 0.75;
         }
       } else if (warp != null) {
         contentAlpha = (warp.focusEventId == event.id || isSelected)

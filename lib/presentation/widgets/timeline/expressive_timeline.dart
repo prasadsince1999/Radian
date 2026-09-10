@@ -284,10 +284,6 @@ class ExpressiveTimeline extends ConsumerWidget {
                             } else {
                               ref.read(selectedEventProvider.notifier).state =
                                   ev;
-                              ref
-                                      .read(viewing12HourHalfProvider.notifier)
-                                      .state =
-                                  ev.start.hour >= 12;
                             }
                           },
                           onEdit: () {

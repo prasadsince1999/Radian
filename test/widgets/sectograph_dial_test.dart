@@ -292,9 +292,17 @@ void main() {
     );
 
     testWidgets(
-      'renders 2-ring concentric layout in PastHoursStyle.focusedBlock and taps correctly',
+      'renders 2-ring concentric layout in PastHoursStyle.focusedBlock with previous, active, and upcoming blocks',
       (tester) async {
         final focusedRepo = FakeEventRepository([
+          SectorEvent(
+            id: 'prev-block',
+            title: 'Morning Standup',
+            start: DateTime(2026, 9, 7, 13, 0),
+            end: DateTime(2026, 9, 7, 14, 0),
+            colorHex: '#6366F1',
+            category: 'Work',
+          ),
           SectorEvent(
             id: 'active-block',
             title: 'Active Coding',
@@ -311,6 +319,14 @@ void main() {
             end: DateTime(2026, 9, 7, 18, 30),
             colorHex: '#10B981',
             category: 'Health',
+          ),
+          SectorEvent(
+            id: 'far-block',
+            title: 'Late Study',
+            start: DateTime(2026, 9, 7, 20, 0),
+            end: DateTime(2026, 9, 7, 22, 0),
+            colorHex: '#F59E0B',
+            category: 'Study',
           ),
         ]);
 
@@ -349,6 +365,11 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
         expect(tester.takeException(), isNull);
         expect(find.byType(SectographDial), findsOneWidget);
+
+        // Verify footer shows 12H button and does NOT show AM/PM toggle badge
+        expect(find.text('12H'), findsOneWidget);
+        expect(find.text('AM'), findsNothing);
+        expect(find.text('PM'), findsNothing);
       },
     );
   });
