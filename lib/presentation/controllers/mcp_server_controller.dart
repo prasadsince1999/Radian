@@ -22,14 +22,15 @@ class McpServerState {
     this.logs = const [],
   });
 
-  /// The effective MCP URL: if a public HTTPS tunnel is configured, use it; otherwise local Wi-Fi.
+  /// The effective MCP URL: if a custom public tunnel is configured, use it;
+  /// otherwise default to the 24/7 hosted Cloudflare Edge endpoint.
   String get effectiveMcpUrl {
     if (publicTunnelUrl.trim().isNotEmpty) {
       final trimmed = publicTunnelUrl.trim();
       if (trimmed.endsWith('/mcp')) return trimmed;
       return trimmed.endsWith('/') ? '${trimmed}mcp' : '$trimmed/mcp';
     }
-    return localMcpUrl;
+    return AppStrings.cloudflareMcpEndpoint;
   }
 
   /// Local Wi-Fi network MCP endpoint (e.g., http://192.168.1.7:8080/mcp)
@@ -44,7 +45,7 @@ class McpServerState {
       ? (publicTunnelUrl.trim().endsWith('/')
             ? '${publicTunnelUrl.trim()}api/openapi.json'
             : '${publicTunnelUrl.trim()}/api/openapi.json')
-      : 'http://$localIp:$port/api/openapi.json';
+      : AppStrings.cloudflareOpenApiEndpoint;
   String get grokToolsUrl => 'http://$localIp:$port/api/grok/tools.json';
 
   McpServerState copyWith({

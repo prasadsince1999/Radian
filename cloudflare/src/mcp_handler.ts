@@ -197,7 +197,7 @@ export class McpHandler {
                 resources: { subscribe: false, listChanged: false },
               },
               serverInfo: {
-                name: 'sectograph-cloudflare-mcp',
+                name: 'Radian',
                 version: '1.0.0',
               },
             },

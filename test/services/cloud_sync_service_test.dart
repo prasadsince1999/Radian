@@ -14,7 +14,10 @@ void main() {
     });
 
     test('returns false and stays idle if serverUrl is not set', () async {
-      final syncService = CloudSyncService(repository: repo);
+      final syncService = CloudSyncService(
+        repository: repo,
+        initialServerUrl: null,
+      );
       final result = await syncService.syncNow();
 
       expect(result, isFalse);

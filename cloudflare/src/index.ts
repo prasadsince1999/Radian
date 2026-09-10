@@ -20,10 +20,54 @@ export default {
     const repo = new D1Repository(env.DB);
     const mcp = new McpHandler(repo);
 
-    // 1. JSON-RPC 2.0 MCP Endpoint (ChatGPT & Claude HTTP Transport)
+    // 1. GET /mcp or GET /rpc: MCP Discovery / Manifest Endpoint (for Gemini Custom Connector, Claude, etc.)
+    if (request.method === 'GET' && (url.pathname === '/mcp' || url.pathname === '/rpc')) {
+      const manifest = {
+        name: 'Radian',
+        protocol: 'Model Context Protocol (MCP)',
+        protocolVersion: '2024-11-05',
+        status: 'online',
+        transport: 'StreamableHTTP',
+        endpoints: {
+          mcp: `${url.origin}/mcp`,
+          rpc: `${url.origin}/rpc`,
+          sse: `${url.origin}/sse`,
+          events: `${url.origin}/api/events`,
+          sync: `${url.origin}/api/sync`,
+        },
+        capabilities: {
+          tools: { listChanged: true },
+          resources: {},
+          prompts: {},
+          logging: {},
+        },
+        tools: McpHandler.getToolDefinitions(),
+      };
+      return new Response(JSON.stringify(manifest, null, 2), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 2. POST /mcp or POST /rpc: JSON-RPC 2.0 MCP Endpoint (Gemini, ChatGPT, Claude HTTP Transport)
     if (request.method === 'POST' && (url.pathname === '/mcp' || url.pathname === '/rpc')) {
       try {
-        const body: JsonRpcRequest = await request.json();
+        const text = await request.text();
+        if (!text || text.trim() === '' || text.trim() === '{}') {
+          return new Response(
+            JSON.stringify({
+              jsonrpc: '2.0',
+              id: null,
+              result: {
+                protocolVersion: '2024-11-05',
+                capabilities: { tools: { listChanged: false } },
+                serverInfo: { name: 'Radian', version: '1.0.0' },
+                tools: McpHandler.getToolDefinitions(),
+              },
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        const body: JsonRpcRequest = JSON.parse(text);
         const response = await mcp.handleJsonRpc(body);
         return new Response(JSON.stringify(response), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

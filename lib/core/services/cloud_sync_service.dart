@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../constants/app_strings.dart';
 import '../../domain/models/sector_event.dart';
 import '../../domain/repositories/event_repository.dart';
 
@@ -19,6 +20,7 @@ typedef SyncHttpTransport = Future<({int statusCode, String body})> Function(
 /// Background synchronization service connecting the local Sectograph repository
 /// to Cloudflare D1 via the remote Cloudflare Worker API.
 class CloudSyncService {
+  static const String defaultServerUrl = AppStrings.cloudflareMcpBaseUrl;
   static const String _lastSyncKey = 'sectograph_cf_last_sync';
   static const String _serverUrlKey = 'sectograph_cf_server_url';
 
@@ -34,8 +36,10 @@ class CloudSyncService {
   CloudSyncService({
     required this.repository,
     this.prefs,
+    String? initialServerUrl = defaultServerUrl,
     SyncHttpTransport? transport,
-  }) : _transport = transport ?? _defaultHttpTransport {
+  }) : _serverUrl = initialServerUrl,
+       _transport = transport ?? _defaultHttpTransport {
     _init();
   }
 
@@ -46,7 +50,7 @@ class CloudSyncService {
 
   void _init() {
     if (prefs != null) {
-      _serverUrl = prefs!.getString(_serverUrlKey);
+      _serverUrl = prefs!.getString(_serverUrlKey) ?? _serverUrl ?? defaultServerUrl;
       final lastStr = prefs!.getString(_lastSyncKey);
       if (lastStr != null) {
         _lastSyncTime = DateTime.tryParse(lastStr);

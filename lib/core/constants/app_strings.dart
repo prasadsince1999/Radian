@@ -17,6 +17,11 @@ abstract final class AppStrings {
   static const String mcpServerName = 'radian-mcp';
   static const String mcpServerVersion = '1.0.0';
 
+  // --- Cloudflare Hosted Server Defaults ---
+  static const String cloudflareMcpBaseUrl = 'https://sectograph-mcp.kpr25121999.workers.dev';
+  static const String cloudflareMcpEndpoint = '$cloudflareMcpBaseUrl/mcp';
+  static const String cloudflareOpenApiEndpoint = '$cloudflareMcpBaseUrl/api/openapi.json';
+
   // --- Common UI Copy ---
   static const String emptyTimelineTitle = 'No events scheduled for this day';
   static const String emptyTimelineSubtitle =
