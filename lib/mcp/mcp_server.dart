@@ -44,8 +44,10 @@ class McpServer {
 
     final router = Router();
 
-    // 1. JSON-RPC 2.0 (Standard MCP endpoint)
+    // 1. Unified MCP Endpoint (StreamableHTTP & JSON-RPC 2.0 for Gemini Spark, Claude, Cursor)
+    router.get('/mcp', _handleMcpGet);
     router.post('/mcp', _handleJsonRpc);
+    router.get('/rpc', _handleMcpGet);
     router.post('/rpc', _handleJsonRpc);
 
     // 2. Server-Sent Events (SSE for Grok Bot & Claude Desktop)
@@ -61,8 +63,15 @@ class McpServer {
     router.get('/api/openapi.json', _handleOpenApiSchema);
     router.get('/api/grok/tools.json', _handleGrokToolsSchema);
 
-    final handler = const Pipeline()
-        .addMiddleware(corsHeaders())
+    final corsOptions = {
+      ACCESS_CONTROL_ALLOW_ORIGIN: '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, HEAD, PUT, DELETE',
+      'Access-Control-Allow-Headers': 'Origin, Content-Type, Accept, Authorization, Mcp-Session-Id, mcp-session-id',
+      'Access-Control-Expose-Headers': 'Mcp-Session-Id, mcp-session-id',
+    };
+
+    final handler = Pipeline()
+        .addMiddleware(corsHeaders(headers: corsOptions))
         .addMiddleware(logRequests(logger: (msg, isError) => _log(msg)))
         .addHandler(router.call);
 
@@ -96,8 +105,61 @@ class McpServer {
     _log('Sectograph MCP Server stopped.');
   }
 
+  // --- Unified MCP GET Handler (StreamableHTTP & Server Discovery) ---
+  Future<Response> _handleMcpGet(Request request) async {
+    final accept = request.headers['accept'] ?? '';
+    if (accept.contains('text/event-stream')) {
+      return _handleSse(request);
+    }
+
+    final sessionId =
+        request.headers['mcp-session-id'] ??
+        request.headers['Mcp-Session-Id'] ??
+        const Uuid().v4();
+
+    final tools = McpTools.getToolDefinitions();
+    final toolNames = tools.map((t) => t['name'] as String).toList();
+
+    final info = {
+      'name': AppStrings.appName,
+      'protocol': 'Model Context Protocol (MCP)',
+      'protocolVersion': '2024-11-05',
+      'status': 'online',
+      'transport': 'StreamableHTTP & JSON-RPC 2.0',
+      'serverInfo': {
+        'name': AppStrings.appName,
+        'version': AppStrings.appVersion,
+      },
+      'capabilities': {
+        'tools': {'listChanged': false},
+        'resources': {'subscribe': false},
+      },
+      'endpoints': {
+        'mcp': '/mcp',
+        'sse': '/sse',
+        'messages': '/messages',
+        'openapi': '/api/openapi.json',
+      },
+      'tools': toolNames,
+    };
+
+    return Response.ok(
+      const JsonEncoder.withIndent('  ').convert(info),
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        'access-control-allow-origin': '*',
+        'mcp-session-id': sessionId,
+      },
+    );
+  }
+
   // --- JSON-RPC 2.0 MCP Handler ---
   Future<Response> _handleJsonRpc(Request request) async {
+    final sessionId =
+        request.headers['mcp-session-id'] ??
+        request.headers['Mcp-Session-Id'] ??
+        const Uuid().v4();
+
     try {
       final bodyStr = await request.readAsString();
       final dynamic body = jsonDecode(bodyStr);
@@ -109,7 +171,10 @@ class McpServer {
             'error': {'code': -32600, 'message': 'Invalid Request'},
             'id': null,
           }),
-          headers: {'content-type': 'application/json'},
+          headers: {
+            'content-type': 'application/json',
+            'mcp-session-id': sessionId,
+          },
         );
       }
 
@@ -129,8 +194,8 @@ class McpServer {
               'resources': {'subscribe': false},
             },
             'serverInfo': {
-              'name': AppStrings.mcpServerName,
-              'version': AppStrings.mcpServerVersion,
+              'name': AppStrings.appName,
+              'version': AppStrings.appVersion,
             },
           };
           break;

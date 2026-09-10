@@ -16,6 +16,7 @@ import '../widgets/editor/dial_settings_modal.dart';
 import '../widgets/editor/event_edit_modal.dart';
 import '../widgets/fab/expressive_speed_dial_fab.dart';
 import '../widgets/health/health_insights_sheet.dart';
+import '../widgets/mcp/mcp_status_sheet.dart';
 import '../widgets/timeline/expressive_timeline.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -279,7 +280,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(width: 5),
 
-          // 4. About Radian Squircle Button
+          // 4. AI Agent & MCP Hub Squircle Button
+          BouncyPressable.standard(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                showDragHandle: false,
+                constraints: const BoxConstraints(
+                  maxWidth: AppLayoutConstants.modalMaxWidth,
+                ),
+                shape: ExpressiveShapes.modalSheet,
+                builder: (_) => const McpStatusSheet(),
+              );
+            },
+            child: Container(
+              width: AppLayoutConstants.actionButtonSize,
+              height: AppLayoutConstants.actionButtonSize,
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(
+                  color: colorScheme.outlineVariant,
+                  width: 1.2,
+                ),
+              ),
+              child: Icon(
+                Icons.hub_rounded,
+                size: 17,
+                color: colorScheme.primary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 5),
+
+          // 5. About Radian Squircle Button
           BouncyPressable.standard(
             onTap: () {
               HapticFeedback.lightImpact();

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sectograph_mcp/core/constants/app_strings.dart';
 import 'package:sectograph_mcp/data/repositories/local_event_repository.dart';
 import 'package:sectograph_mcp/domain/models/dial_settings.dart';
 import 'package:sectograph_mcp/domain/models/sector_event.dart';
@@ -55,7 +56,7 @@ void main() {
         expect(decoded['jsonrpc'], '2.0');
         expect(decoded['id'], 1);
         final result = decoded['result'] as Map<String, dynamic>;
-        expect(result['serverInfo']['name'], 'radian-mcp');
+        expect(result['serverInfo']['name'], AppStrings.appName);
         expect(result['protocolVersion'], '2024-11-05');
         client.close();
       },
@@ -466,6 +467,30 @@ void main() {
         final tools = decoded['tools'] as List<dynamic>;
         expect(tools.length, 13);
         expect(tools.first['type'], 'function');
+        client.close();
+      },
+    );
+
+    test(
+      'GET /mcp returns valid server discovery info and tools catalog',
+      () async {
+        final client = HttpClient();
+        final request = await client.getUrl(
+          Uri.parse('http://127.0.0.1:$testPort/mcp'),
+        );
+        final response = await request.close();
+        expect(response.statusCode, HttpStatus.ok);
+        expect(
+          response.headers.value('content-type'),
+          contains('application/json'),
+        );
+
+        final respBody = await response.transform(utf8.decoder).join();
+        final decoded = jsonDecode(respBody) as Map<String, dynamic>;
+        expect(decoded['name'], AppStrings.appName);
+        expect(decoded['protocolVersion'], '2024-11-05');
+        expect(decoded['status'], 'online');
+        expect(decoded['tools'], hasLength(13));
         client.close();
       },
     );

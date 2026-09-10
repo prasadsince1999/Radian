@@ -426,7 +426,7 @@ class DialSystemIntegrationsSection extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
-                      Icons.bar_chart_rounded,
+                      Icons.hub_rounded,
                       size: 16,
                       color: AppColors.mcpViolet,
                     ),
@@ -434,7 +434,7 @@ class DialSystemIntegrationsSection extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Model Context Protocol (MCP)',
+                      'AI Agent & MCP Hub',
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 14,
@@ -456,7 +456,7 @@ class DialSystemIntegrationsSection extends ConsumerWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Connect external AI assistants (ChatGPT, Claude, Grok) via open MCP endpoints to manage and plan your dial schedule.',
+                'Connect AI assistants (Gemini Spark, Claude Desktop, Cursor, Grok) via open MCP endpoints to manage and plan your dial schedule.',
                 style: TextStyle(
                   fontSize: 12,
                   color: secondaryText,

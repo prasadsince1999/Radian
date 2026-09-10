@@ -9,6 +9,7 @@ abstract final class AppStrings {
 
   // --- Storage Keys ---
   static const String eventsStorageKey = 'radian_events_v1';
+  static const String mcpPublicTunnelUrlKey = 'mcp_public_tunnel_url';
 
   // --- MCP Network Defaults ---
   static const int mcpDefaultPort = 8080;
