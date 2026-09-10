@@ -80,24 +80,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
     _syncAndroidWidget();
     if (mounted) {
+      final colorScheme = Theme.of(context).colorScheme;
+      ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
-              Icon(icon, color: Colors.white, size: 18),
+              Icon(icon, color: colorScheme.primary, size: 18),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Scheduled: $title (${duration.inMinutes}m)',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    color: colorScheme.brightness == Brightness.dark
+                        ? colorScheme.onSurface
+                        : colorScheme.onInverseSurface,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13.5,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          backgroundColor: Theme.of(context).colorScheme.inverseSurface,
-          behavior: SnackBarBehavior.floating,
-          shape: ExpressiveShapes.full,
-          duration: const Duration(seconds: 2),
+          backgroundColor: colorScheme.brightness == Brightness.dark
+              ? colorScheme.surfaceContainerHighest
+              : colorScheme.inverseSurface,
+          behavior: SnackBarBehavior.fixed,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          duration: const Duration(seconds: 3),
         ),
       );
     }

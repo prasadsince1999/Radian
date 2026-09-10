@@ -1314,12 +1314,18 @@ class SectographPainter extends CustomPainter {
       );
     }
 
-    // 3. Measure elements for balanced vertical centering (Enlarged to fill available space)
-    final amPmFontSize = (innerRadius * 0.23).clamp(11.0, 14.5);
-    final timeFontSize = (innerRadius * 0.55).clamp(28.0, 36.0);
-    final dateFontSize = (innerRadius * 0.21).clamp(10.5, 13.5);
-    final statusFontSize = (innerRadius * 0.18).clamp(9.5, 12.0);
-    final pillH = (innerRadius * 0.28).clamp(15.0, 18.0);
+    // 3. Measure elements for balanced vertical centering inside the circular boundary
+    canvas.save();
+    canvas.clipPath(
+      Path()
+        ..addOval(Rect.fromCircle(center: center, radius: innerRadius - 2.0)),
+    );
+
+    final amPmFontSize = (innerRadius * 0.16).clamp(9.0, 11.0);
+    final timeFontSize = (innerRadius * 0.44).clamp(22.0, 30.0);
+    final dateFontSize = (innerRadius * 0.17).clamp(8.5, 11.0);
+    final statusFontSize = (innerRadius * 0.14).clamp(8.0, 9.5);
+    final pillH = (innerRadius * 0.20).clamp(12.0, 15.0);
 
     TextPainter? amPmPainter;
     if (!is24) {
@@ -1372,8 +1378,13 @@ class SectographPainter extends CustomPainter {
       textAlign: TextAlign.center,
     )..layout();
 
-    final statusText = activeEvent?.title ?? 'Sectograph';
+    final statusText = activeEvent?.title ?? 'Radian';
     final statusColor = activeEvent?.color ?? colorScheme.primary;
+
+    // Constrain pill and text to circular chord width so it never overflows
+    final maxPillW = innerRadius * 1.25;
+    final maxTextW = maxPillW - 14.0;
+
     final statusPainter = TextPainter(
       text: TextSpan(
         text: statusText,
@@ -1385,17 +1396,19 @@ class SectographPainter extends CustomPainter {
           height: 1.0,
         ),
       ),
+      maxLines: 1,
+      ellipsis: '...',
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
-    )..layout();
+    )..layout(maxWidth: maxTextW);
 
-    // Vertical layout
+    // Vertical layout - perfectly balanced around center.dy
     final totalHeight =
-        (amPmPainter != null ? amPmPainter.height + 1.5 : 0.0) +
+        (amPmPainter != null ? amPmPainter.height + 1.0 : 0.0) +
         timePainter.height +
-        3.0 +
+        2.0 +
         datePainter.height +
-        4.0 +
+        3.0 +
         pillH;
 
     var currY = center.dy - (totalHeight / 2.0);
@@ -1405,17 +1418,17 @@ class SectographPainter extends CustomPainter {
         canvas,
         Offset(center.dx - amPmPainter.width / 2, currY),
       );
-      currY += amPmPainter.height + 1.5;
+      currY += amPmPainter.height + 1.0;
     }
 
     timePainter.paint(canvas, Offset(center.dx - timePainter.width / 2, currY));
-    currY += timePainter.height + 3.0;
+    currY += timePainter.height + 2.0;
 
     datePainter.paint(canvas, Offset(center.dx - datePainter.width / 2, currY));
-    currY += datePainter.height + 4.0;
+    currY += datePainter.height + 3.0;
 
-    // Compact status pill
-    final pillW = math.min(statusPainter.width + 16.0, innerRadius * 1.55);
+    // Compact status pill with guaranteed chord fit
+    final pillW = math.min(statusPainter.width + 14.0, maxPillW);
     final pillRect = RRect.fromRectAndRadius(
       Rect.fromCenter(
         center: Offset(center.dx, currY + pillH / 2),
@@ -1443,6 +1456,8 @@ class SectographPainter extends CustomPainter {
         currY + (pillH - statusPainter.height) / 2,
       ),
     );
+
+    canvas.restore();
   }
 
   @override

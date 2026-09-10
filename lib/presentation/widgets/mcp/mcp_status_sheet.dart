@@ -33,13 +33,27 @@ class _McpStatusSheetState extends ConsumerState<McpStatusSheet>
 
   void _copyToClipboard(String text, String label, ColorScheme colorScheme) {
     Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           'Copied $label to clipboard!',
-          style: TextStyle(color: colorScheme.onPrimaryContainer),
+          style: TextStyle(
+            color: colorScheme.brightness == Brightness.dark
+                ? colorScheme.onSurface
+                : colorScheme.onInverseSurface,
+            fontWeight: FontWeight.w600,
+            fontSize: 13.5,
+          ),
         ),
-        backgroundColor: colorScheme.primaryContainer,
+        backgroundColor: colorScheme.brightness == Brightness.dark
+            ? colorScheme.surfaceContainerHighest
+            : colorScheme.inverseSurface,
+        behavior: SnackBarBehavior.fixed,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        duration: const Duration(seconds: 3),
       ),
     );
   }

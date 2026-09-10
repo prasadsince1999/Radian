@@ -79,8 +79,20 @@ class ExpressiveTheme {
         ),
       ),
       snackBarTheme: SnackBarThemeData(
-        behavior: SnackBarBehavior.floating,
-        shape: ExpressiveShapes.md,
+        behavior: SnackBarBehavior.fixed,
+        backgroundColor: isDark
+            ? colorScheme.surfaceContainerHighest
+            : colorScheme.inverseSurface,
+        contentTextStyle: TextStyle(
+          color: isDark ? colorScheme.onSurface : colorScheme.onInverseSurface,
+          fontSize: 13.5,
+          fontWeight: FontWeight.w600,
+        ),
+        actionTextColor: colorScheme.primary,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        insetPadding: EdgeInsets.zero,
       ),
       popupMenuTheme: PopupMenuThemeData(
         color: colorScheme.surfaceContainerHigh,

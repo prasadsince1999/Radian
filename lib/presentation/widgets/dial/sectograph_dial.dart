@@ -280,18 +280,22 @@ class SectographDial extends ConsumerWidget {
                               colorScheme: colorScheme,
                             ),
                           ),
-                          SizedBox(
-                            width: innerRadius * 2 * 0.9,
-                            height: innerRadius * 2 * 0.9,
-                            child: CenterSummary(
-                              currentTime: effectiveTime,
-                              activeEvent: effectiveActive,
-                              selectedEvent: selectedEvent,
-                              is24HourMode: settings.is24HourMode,
-                              onDismissSelected: () {
-                                ref.read(selectedEventProvider.notifier).state =
-                                    null;
-                              },
+                          ClipOval(
+                            child: SizedBox(
+                              width: innerRadius * 2 * 0.88,
+                              height: innerRadius * 2 * 0.88,
+                              child: CenterSummary(
+                                currentTime: effectiveTime,
+                                activeEvent: effectiveActive,
+                                selectedEvent: selectedEvent,
+                                is24HourMode: settings.is24HourMode,
+                                onDismissSelected: () {
+                                  ref
+                                          .read(selectedEventProvider.notifier)
+                                          .state =
+                                      null;
+                                },
+                              ),
                             ),
                           ),
                         ],

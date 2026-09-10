@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/theme/expressive_shapes.dart';
 import '../common/bouncy_pressable.dart';
+import '../common/radian_app_logo.dart';
 
 /// Expressive Material 3 About Dialog for Radian.
 class AboutRadianDialog extends StatelessWidget {
@@ -20,11 +20,27 @@ class AboutRadianDialog extends StatelessWidget {
   Future<void> _copyUrl(BuildContext context, String urlString) async {
     await Clipboard.setData(ClipboardData(text: urlString));
     if (context.mounted) {
+      final colorScheme = Theme.of(context).colorScheme;
+      ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('GitHub link copied: $urlString'),
-          behavior: SnackBarBehavior.floating,
-          shape: ExpressiveShapes.full,
+          content: Text(
+            'GitHub link copied: $urlString',
+            style: TextStyle(
+              color: colorScheme.brightness == Brightness.dark
+                  ? colorScheme.onSurface
+                  : colorScheme.onInverseSurface,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          backgroundColor: colorScheme.brightness == Brightness.dark
+              ? colorScheme.surfaceContainerHighest
+              : colorScheme.inverseSurface,
+          behavior: SnackBarBehavior.fixed,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
           duration: const Duration(seconds: 3),
         ),
       );
@@ -48,61 +64,8 @@ class AboutRadianDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Radiant Dial Logo Icon
-              Center(
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [colorScheme.primary, colorScheme.tertiary],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: colorScheme.primary.withValues(alpha: 0.35),
-                        blurRadius: 18,
-                        spreadRadius: 2,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Container(
-                      width: 58,
-                      height: 58,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: colorScheme.surface,
-                      ),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Icon(
-                            Icons.timelapse_rounded,
-                            size: 38,
-                            color: colorScheme.primary,
-                          ),
-                          Positioned(
-                            top: 14,
-                            right: 14,
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Color(0xFFF43F5E),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              // Official APK Logo (Flat vector, no shadow background)
+              const Center(child: RadianAppLogo(size: 76)),
               const SizedBox(height: 16),
 
               // App Name & Version Badge

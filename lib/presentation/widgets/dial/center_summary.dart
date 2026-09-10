@@ -161,7 +161,7 @@ class CenterSummary extends ConsumerWidget {
               ? Alignment.center
               : (isPureAnalog
                     ? const Alignment(0, 0.28)
-                    : const Alignment(0, 0.10)),
+                    : const Alignment(0, 0.04)),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0),
             child: FittedBox(
@@ -212,15 +212,16 @@ class CenterSummary extends ConsumerWidget {
                     ),
                   ),
                   if (activeEvent != null) ...[
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 4),
                     Container(
+                      constraints: const BoxConstraints(maxWidth: 130),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 3.0,
+                        horizontal: 8,
+                        vertical: 2.5,
                       ),
                       decoration: BoxDecoration(
                         color: colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: colorScheme.secondary.withValues(alpha: 0.3),
                           width: 1.0,
@@ -231,20 +232,22 @@ class CenterSummary extends ConsumerWidget {
                         children: [
                           Icon(
                             Icons.spa_rounded,
-                            size: 12,
+                            size: 11,
                             color: colorScheme.onSecondaryContainer,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            activeEvent!.title,
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: colorScheme.onSecondaryContainer,
-                              fontSize: 11.0,
-                              letterSpacing: 0.2,
+                          const SizedBox(width: 3),
+                          Flexible(
+                            child: Text(
+                              activeEvent!.title,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: colorScheme.onSecondaryContainer,
+                                fontSize: 10.5,
+                                letterSpacing: 0.2,
+                              ),
                             ),
                           ),
                         ],

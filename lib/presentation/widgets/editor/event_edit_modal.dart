@@ -5,7 +5,6 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/constants/app_presets.dart';
 import '../../../core/constants/app_strings.dart';
-import '../../../core/theme/expressive_shapes.dart';
 import '../../../domain/models/sector_event.dart';
 import '../../controllers/clock_controller.dart';
 import '../common/bouncy_pressable.dart';
@@ -394,11 +393,28 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
       messenger.clearSnackBars();
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Deleted "${ev.title}"'),
-          behavior: SnackBarBehavior.floating,
-          shape: ExpressiveShapes.full,
+          content: Text(
+            'Deleted "${ev.title}"',
+            style: TextStyle(
+              color: colorScheme.brightness == Brightness.dark
+                  ? colorScheme.onSurface
+                  : colorScheme.onInverseSurface,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          backgroundColor: colorScheme.brightness == Brightness.dark
+              ? colorScheme.surfaceContainerHighest
+              : colorScheme.inverseSurface,
+          behavior: SnackBarBehavior.fixed,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          duration: const Duration(seconds: 4),
           action: SnackBarAction(
-            label: 'UNDO',
+            label: 'Undo',
             textColor: colorScheme.primary,
             onPressed: () {
               HapticFeedback.lightImpact();
