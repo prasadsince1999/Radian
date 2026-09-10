@@ -282,8 +282,8 @@ class SectographDial extends ConsumerWidget {
                           ),
                           ClipOval(
                             child: SizedBox(
-                              width: innerRadius * 2 * 0.88,
-                              height: innerRadius * 2 * 0.88,
+                              width: innerRadius * 2 * 0.94,
+                              height: innerRadius * 2 * 0.94,
                               child: CenterSummary(
                                 currentTime: effectiveTime,
                                 activeEvent: effectiveActive,

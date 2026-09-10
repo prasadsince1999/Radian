@@ -201,19 +201,26 @@ class _ExpressiveSpeedDialFabState extends State<ExpressiveSpeedDialFab>
           mainAxisSize: MainAxisSize.min,
           children: [
             // Action Label Pill
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: ShapeDecoration(
-                shape: ExpressiveShapes.full,
-                color: colorScheme.surface.withValues(alpha: 0.88),
-              ),
-              child: Text(
-                action.label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onSurface,
-                  letterSpacing: 0.2,
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _selectAction(action.id),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: ShapeDecoration(
+                  shape: ExpressiveShapes.full,
+                  color: colorScheme.surface.withValues(alpha: 0.88),
+                ),
+                child: Text(
+                  action.label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                    letterSpacing: 0.2,
+                  ),
                 ),
               ),
             ),

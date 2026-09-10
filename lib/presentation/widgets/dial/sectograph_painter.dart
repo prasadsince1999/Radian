@@ -1382,25 +1382,47 @@ class SectographPainter extends CustomPainter {
     final statusColor = activeEvent?.color ?? colorScheme.primary;
 
     // Constrain pill and text to circular chord width so it never overflows
-    final maxPillW = innerRadius * 1.25;
+    final maxPillW = innerRadius * 1.35;
     final maxTextW = maxPillW - 14.0;
 
-    final statusPainter = TextPainter(
+    var effectiveStatusFontSize = statusFontSize;
+    var statusPainter = TextPainter(
       text: TextSpan(
         text: statusText,
         style: TextStyle(
-          fontSize: statusFontSize,
+          fontSize: effectiveStatusFontSize,
           fontWeight: FontWeight.w800,
           color: statusColor,
-          letterSpacing: 0.2,
+          letterSpacing: 0.1,
           height: 1.0,
         ),
       ),
       maxLines: 1,
-      ellipsis: '...',
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
-    )..layout(maxWidth: maxTextW);
+    )..layout();
+
+    // Dynamically scale down font size so the title fits without hiding words in ellipsis
+    if (statusPainter.width > maxTextW) {
+      final scaleFactor = (maxTextW / statusPainter.width).clamp(0.68, 1.0);
+      effectiveStatusFontSize = statusFontSize * scaleFactor;
+      statusPainter = TextPainter(
+        text: TextSpan(
+          text: statusText,
+          style: TextStyle(
+            fontSize: effectiveStatusFontSize,
+            fontWeight: FontWeight.w800,
+            color: statusColor,
+            letterSpacing: 0.1,
+            height: 1.0,
+          ),
+        ),
+        maxLines: 1,
+        ellipsis: '...',
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      )..layout(maxWidth: maxTextW);
+    }
 
     // Vertical layout - perfectly balanced around center.dy
     final totalHeight =
