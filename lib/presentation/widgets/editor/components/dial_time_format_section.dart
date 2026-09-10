@@ -205,46 +205,10 @@ class DialTimeFormatSection extends ConsumerWidget {
                 builder: (context, constraints) {
                   return Column(
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _PastHoursOptionTile(
-                              style: PastHoursStyle.disappear,
-                              title: 'Disappear',
-                              subtitle: 'Hide past blocks',
-                              icon: Icons.timelapse_rounded,
-                              isSelected:
-                                  settings.pastHoursStyle ==
-                                  PastHoursStyle.disappear,
-                              onTap: () => ref
-                                  .read(dialSettingsProvider.notifier)
-                                  .setPastHoursStyle(PastHoursStyle.disappear),
-                              colorScheme: colorScheme,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _PastHoursOptionTile(
-                              style: PastHoursStyle.birdsEye,
-                              title: "Bird's Eye",
-                              subtitle: 'Active + 2 past & 2 next',
-                              icon: Icons.travel_explore_rounded,
-                              isSelected:
-                                  settings.pastHoursStyle ==
-                                  PastHoursStyle.birdsEye,
-                              onTap: () => ref
-                                  .read(dialSettingsProvider.notifier)
-                                  .setPastHoursStyle(PastHoursStyle.birdsEye),
-                              colorScheme: colorScheme,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
                       _PastHoursOptionTile(
                         style: PastHoursStyle.focusedBlock,
                         title: 'Focused Blocks',
-                        subtitle: 'Zoom in on active block & expand circle for subtasks',
+                        subtitle: 'Smart 7-block horizon (3 past + active + 3 upcoming)',
                         icon: Icons.center_focus_strong_rounded,
                         isSelected:
                             settings.pastHoursStyle ==
@@ -252,6 +216,20 @@ class DialTimeFormatSection extends ConsumerWidget {
                         onTap: () => ref
                             .read(dialSettingsProvider.notifier)
                             .setPastHoursStyle(PastHoursStyle.focusedBlock),
+                        colorScheme: colorScheme,
+                        isFullWidth: true,
+                      ),
+                      const SizedBox(height: 8),
+                      _PastHoursOptionTile(
+                        style: PastHoursStyle.disappear,
+                        title: 'Disappear',
+                        subtitle: 'Real-time clock sweep hides past blocks',
+                        icon: Icons.timelapse_rounded,
+                        isSelected:
+                            settings.pastHoursStyle == PastHoursStyle.disappear,
+                        onTap: () => ref
+                            .read(dialSettingsProvider.notifier)
+                            .setPastHoursStyle(PastHoursStyle.disappear),
                         colorScheme: colorScheme,
                         isFullWidth: true,
                       ),

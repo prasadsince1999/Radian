@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../core/constants/app_layout_constants.dart';
+import '../../../core/geometry/focused_block_layout_resolver.dart';
 import '../../../core/geometry/sector_math.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/time_formatters.dart';
@@ -369,33 +370,71 @@ class SectographPainter extends CustomPainter {
     final nowAngle = warp != null ? warp.warp(rawNowAngle) : rawNowAngle;
     final nowRad = SectorMath.dialAngleToCanvasRadians(nowAngle);
 
-    // 1. "NOW" sweep line (high-contrast Sectograph crimson needle)
     const sweepColor = Color(0xFFEF4444);
     final pIn = Offset(
       center.dx + rIn * math.cos(nowRad),
       center.dy + rIn * math.sin(nowRad),
     );
 
-    // Circular pointer node at tip of hand (Sectograph signature marker with Day/Night glyph inside)
     const double nodeRadius = 8.0;
     final tipPos = Offset(
       center.dx + (baseRadius - nodeRadius - 1.0) * math.cos(nowRad),
       center.dy + (baseRadius - nodeRadius - 1.0) * math.sin(nowRad),
     );
 
-    // Subtle ambient glow
-    final glowPaint = Paint()
-      ..color = sweepColor.withValues(alpha: 0.35)
-      ..strokeWidth = 5.0
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(pIn, tipPos, glowPaint);
+    final isFocusedBlockMode =
+        settings.pastHoursStyle == PastHoursStyle.focusedBlock;
 
-    // Core crisp sweep line
-    final linePaint = Paint()
-      ..color = sweepColor
-      ..strokeWidth = 3.0
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(pIn, tipPos, linePaint);
+    if (isFocusedBlockMode) {
+      final totalTrackThickness = rOut - rIn;
+      const ringGap = 3.5;
+      final outerRingThickness = (totalTrackThickness - ringGap) * 0.56;
+      final outerRIn = rOut - outerRingThickness;
+
+      final pMid = Offset(
+        center.dx + outerRIn * math.cos(nowRad),
+        center.dy + outerRIn * math.sin(nowRad),
+      );
+
+      // Stage 1: Inner ring segment (fine hairline, 1.5dp, 50% alpha)
+      final innerLinePaint = Paint()
+        ..color = sweepColor.withValues(alpha: 0.50)
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(pIn, pMid, innerLinePaint);
+
+      // Stage 2: Outer ring segment across active block (bold crimson 3.2dp + ambient glow)
+      final glowPaint = Paint()
+        ..color = sweepColor.withValues(alpha: 0.35)
+        ..strokeWidth = 5.0
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(pMid, tipPos, glowPaint);
+
+      final outerLinePaint = Paint()
+        ..color = sweepColor
+        ..strokeWidth = 3.2
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(pMid, tipPos, outerLinePaint);
+
+      // Subtle junction accent dot between inner context and outer active focus ring
+      final junctionPaint = Paint()
+        ..color = sweepColor.withValues(alpha: 0.75)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(pMid, 2.0, junctionPaint);
+    } else {
+      // Single continuous sweep line
+      final glowPaint = Paint()
+        ..color = sweepColor.withValues(alpha: 0.35)
+        ..strokeWidth = 5.0
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(pIn, tipPos, glowPaint);
+
+      final linePaint = Paint()
+        ..color = sweepColor
+        ..strokeWidth = 3.0
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(pIn, tipPos, linePaint);
+    }
 
     // Circular pointer node: SOLID RED fill (Sectograph signature) with crisp white rim
     final nodeBgPaint = Paint()
@@ -410,7 +449,7 @@ class SectographPainter extends CustomPainter {
 
     // Inner pivot accent ring
     final pivotRingPaint = Paint()
-      ..color = sweepColor
+      ..color = sweepColor.withValues(alpha: isFocusedBlockMode ? 0.60 : 1.0)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
     canvas.drawArc(
@@ -490,89 +529,16 @@ class SectographPainter extends CustomPainter {
     }
 
     // Resolve outer ring events for 2-ring Focused Block mode:
-    // Outer ring features: Previous block + Current active block + Upcoming block (+ selected block)
-    final outerEventIds = <String>{};
-    SectorEvent? focusedActive = activeEvent;
-    if (isFocusedBlockMode) {
-      if (focusedActive == null) {
-        for (final e in events) {
-          if (isEventActive(e)) {
-            focusedActive = e;
-            break;
-          }
-        }
-      }
-      focusedActive ??= selectedEvent;
-      if (focusedActive == null) {
-        for (final e in events) {
-          if (e.start.isAfter(effectiveTime)) {
-            if (focusedActive == null ||
-                e.start.isBefore(focusedActive.start)) {
-              focusedActive = e;
-            }
-          }
-        }
-      }
-      if (focusedActive != null) {
-        outerEventIds.add(focusedActive.id);
-      }
-
-      final refStart = focusedActive?.start ?? effectiveTime;
-      final refEnd = focusedActive?.end ?? effectiveTime;
-
-      // 1. Previous block: block that ended latest before refStart
-      SectorEvent? prevEvent;
-      for (final e in events) {
-        if (outerEventIds.contains(e.id)) continue;
-        if (!e.end.isAfter(refStart)) {
-          if (prevEvent == null || e.end.isAfter(prevEvent.end)) {
-            prevEvent = e;
-          }
-        }
-      }
-      if (prevEvent == null) {
-        for (final e in events) {
-          if (outerEventIds.contains(e.id)) continue;
-          if (e.end.isBefore(effectiveTime)) {
-            if (prevEvent == null || e.end.isAfter(prevEvent.end)) {
-              prevEvent = e;
-            }
-          }
-        }
-      }
-      if (prevEvent != null) {
-        outerEventIds.add(prevEvent.id);
-      }
-
-      // 2. Upcoming block: block that starts earliest after refEnd
-      SectorEvent? nextEvent;
-      for (final e in events) {
-        if (outerEventIds.contains(e.id)) continue;
-        if (!e.start.isBefore(refEnd)) {
-          if (nextEvent == null || e.start.isBefore(nextEvent.start)) {
-            nextEvent = e;
-          }
-        }
-      }
-      if (nextEvent == null) {
-        for (final e in events) {
-          if (outerEventIds.contains(e.id)) continue;
-          if (e.start.isAfter(effectiveTime)) {
-            if (nextEvent == null || e.start.isBefore(nextEvent.start)) {
-              nextEvent = e;
-            }
-          }
-        }
-      }
-      if (nextEvent != null) {
-        outerEventIds.add(nextEvent.id);
-      }
-
-      final sel = selectedEvent;
-      if (sel != null) {
-        outerEventIds.add(sel.id);
-      }
-    }
+    // Outer ring features: Previous 1 + Current active + Upcoming 1 (+ selected)
+    final FocusedHorizonResult? horizonResult = isFocusedBlockMode
+        ? FocusedBlockLayoutResolver.resolve(
+            events: events,
+            effectiveTime: effectiveTime,
+            selectedEvent: selectedEvent,
+          )
+        : null;
+    final outerEventIds = horizonResult?.outerEventIds ?? const <String>{};
+    final focusedActive = horizonResult?.activeEvent ?? activeEvent;
 
     // Concentric 2-Ring geometry for Focused Block mode:
     final totalTrackThickness = routineTrackOut - routineTrackIn;
@@ -612,22 +578,6 @@ class SectographPainter extends CustomPainter {
         return (rIn: rIn, rOut: rOut);
       }
     }
-
-    // Bird's Eye Dynamic Horizon Analysis
-    final completedEvents =
-        events.where((e) => !effectiveTime.isBefore(e.end)).toList()
-          ..sort((a, b) => a.end.compareTo(b.end));
-    final recentCompletedIds = completedEvents.length <= 2
-        ? completedEvents.map((e) => e.id).toSet()
-        : completedEvents
-              .sublist(completedEvents.length - 2)
-              .map((e) => e.id)
-              .toSet();
-
-    final upcomingEvents =
-        events.where((e) => effectiveTime.isBefore(e.start)).toList()
-          ..sort((a, b) => a.start.compareTo(b.start));
-    final nextUpcomingIds = upcomingEvents.take(2).map((e) => e.id).toSet();
 
     // Pre-analyze contiguous relationships
     final hasContiguousPredecessor = List<bool>.filled(events.length, false);
@@ -688,12 +638,6 @@ class SectographPainter extends CustomPainter {
 
       // In disappear mode: skip completed events completely
       if (pastStyle == PastHoursStyle.disappear && isCompleted) {
-        continue;
-      }
-      // In Bird's Eye mode: older completed blocks disappear completely!
-      if (pastStyle == PastHoursStyle.birdsEye &&
-          isCompleted &&
-          !recentCompletedIds.contains(event.id)) {
         continue;
       }
 
@@ -782,16 +726,6 @@ class SectographPainter extends CustomPainter {
         }
       } else if (warp != null) {
         fillAlpha = (warp.focusEventId == event.id || isSelected) ? 1.0 : 0.28;
-      } else if (pastStyle == PastHoursStyle.birdsEye) {
-        if (isCompleted) {
-          fillAlpha = 0.38;
-        } else if (isActive ||
-            isSelected ||
-            nextUpcomingIds.contains(event.id)) {
-          fillAlpha = 1.0;
-        } else {
-          fillAlpha = 0.48;
-        }
       } else if (isSelected) {
         fillAlpha = 1.0;
       } else {
@@ -821,11 +755,6 @@ class SectographPainter extends CustomPainter {
 
       final isCompleted = isEventCompleted(event);
       if (pastStyle == PastHoursStyle.disappear && isCompleted) {
-        continue;
-      }
-      if (pastStyle == PastHoursStyle.birdsEye &&
-          isCompleted &&
-          !recentCompletedIds.contains(event.id)) {
         continue;
       }
 
@@ -900,10 +829,9 @@ class SectographPainter extends CustomPainter {
       );
 
       final isDim =
-          (isCompleted && pastStyle == PastHoursStyle.birdsEye) ||
-          (isCompleted &&
-              isFocusedBlockMode &&
-              !outerEventIds.contains(event.id));
+          isCompleted &&
+          isFocusedBlockMode &&
+          !outerEventIds.contains(event.id);
       final capAlpha = isDim ? 0.38 : 1.0;
       final shadeAlpha = isDim ? 0.40 : 1.0;
       final textAlpha = isDim ? 0.50 : 1.0;
@@ -982,11 +910,6 @@ class SectographPainter extends CustomPainter {
       if (pastStyle == PastHoursStyle.disappear && (isCompleted || isActive)) {
         continue;
       }
-      if (pastStyle == PastHoursStyle.birdsEye &&
-          isCompleted &&
-          !recentCompletedIds.contains(event.id)) {
-        continue;
-      }
 
       final double startCapAngle;
       final double startCapSweep;
@@ -1045,10 +968,9 @@ class SectographPainter extends CustomPainter {
       );
 
       final isDim =
-          (isCompleted && pastStyle == PastHoursStyle.birdsEye) ||
-          (isCompleted &&
-              isFocusedBlockMode &&
-              !outerEventIds.contains(event.id));
+          isCompleted &&
+          isFocusedBlockMode &&
+          !outerEventIds.contains(event.id);
       final shadeAlpha = isDim ? 0.40 : 1.0;
       final textAlpha = isDim ? 0.50 : 1.0;
 
@@ -1115,11 +1037,6 @@ class SectographPainter extends CustomPainter {
       final isActive = isEventActive(event);
 
       if (pastStyle == PastHoursStyle.disappear && isCompleted) {
-        continue;
-      }
-      if (pastStyle == PastHoursStyle.birdsEye &&
-          isCompleted &&
-          !recentCompletedIds.contains(event.id)) {
         continue;
       }
 
@@ -1190,16 +1107,6 @@ class SectographPainter extends CustomPainter {
         contentAlpha = (warp.focusEventId == event.id || isSelected)
             ? 1.0
             : 0.35;
-      } else if (pastStyle == PastHoursStyle.birdsEye) {
-        if (isCompleted) {
-          contentAlpha = 0.40;
-        } else if (isActive ||
-            isSelected ||
-            nextUpcomingIds.contains(event.id)) {
-          contentAlpha = 1.0;
-        } else {
-          contentAlpha = 0.50;
-        }
       } else {
         contentAlpha = 1.0;
       }

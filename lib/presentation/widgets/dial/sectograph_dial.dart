@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_layout_constants.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/geometry/concentric_solver.dart';
+import '../../../core/geometry/focused_block_layout_resolver.dart';
 import '../../../core/geometry/polar_hit_test.dart';
 import '../../../core/geometry/sector_math.dart';
 import '../../../domain/models/dial_settings.dart';
@@ -215,91 +216,21 @@ class SectographDial extends ConsumerWidget {
 
                     final isFocusedBlockMode =
                         settings.pastHoursStyle == PastHoursStyle.focusedBlock;
-                    final outerEventIds = <String>{};
-                    if (isFocusedBlockMode) {
-                      SectorEvent? focusedActive = effectiveActive;
-                      if (focusedActive == null) {
-                        for (final e in computedEvents) {
-                          if (!effectiveTime.isBefore(e.start) &&
-                              effectiveTime.isBefore(e.end)) {
-                            focusedActive = e;
-                            break;
-                          }
-                        }
-                      }
-                      focusedActive ??= selectedEvent;
-                      if (focusedActive == null) {
-                        for (final e in computedEvents) {
-                          if (e.start.isAfter(effectiveTime)) {
-                            if (focusedActive == null ||
-                                e.start.isBefore(focusedActive.start)) {
-                              focusedActive = e;
-                            }
-                          }
-                        }
-                      }
-                      if (focusedActive != null) {
-                        outerEventIds.add(focusedActive.id);
-                      }
-
-                      final refStart = focusedActive?.start ?? effectiveTime;
-                      final refEnd = focusedActive?.end ?? effectiveTime;
-
-                      // 1. Previous block
-                      SectorEvent? prevEvent;
-                      for (final e in computedEvents) {
-                        if (outerEventIds.contains(e.id)) continue;
-                        if (!e.end.isAfter(refStart)) {
-                          if (prevEvent == null ||
-                              e.end.isAfter(prevEvent.end)) {
-                            prevEvent = e;
-                          }
-                        }
-                      }
-                      if (prevEvent == null) {
-                        for (final e in computedEvents) {
-                          if (outerEventIds.contains(e.id)) continue;
-                          if (e.end.isBefore(effectiveTime)) {
-                            if (prevEvent == null ||
-                                e.end.isAfter(prevEvent.end)) {
-                              prevEvent = e;
-                            }
-                          }
-                        }
-                      }
-                      if (prevEvent != null) {
-                        outerEventIds.add(prevEvent.id);
-                      }
-
-                      // 2. Upcoming block
-                      SectorEvent? nextEvent;
-                      for (final e in computedEvents) {
-                        if (outerEventIds.contains(e.id)) continue;
-                        if (!e.start.isBefore(refEnd)) {
-                          if (nextEvent == null ||
-                              e.start.isBefore(nextEvent.start)) {
-                            nextEvent = e;
-                          }
-                        }
-                      }
-                      if (nextEvent == null) {
-                        for (final e in computedEvents) {
-                          if (outerEventIds.contains(e.id)) continue;
-                          if (e.start.isAfter(effectiveTime)) {
-                            if (nextEvent == null ||
-                                e.start.isBefore(nextEvent.start)) {
-                              nextEvent = e;
-                            }
-                          }
-                        }
-                      }
-                      if (nextEvent != null) {
-                        outerEventIds.add(nextEvent.id);
-                      }
-
-                      if (selectedEvent != null) {
-                        outerEventIds.add(selectedEvent.id);
-                      }
+                    final FocusedHorizonResult? horizonResult =
+                        isFocusedBlockMode
+                        ? FocusedBlockLayoutResolver.resolve(
+                            events: computedEvents,
+                            effectiveTime: effectiveTime,
+                            selectedEvent: selectedEvent,
+                          )
+                        : null;
+                    final outerEventIds =
+                        horizonResult?.outerEventIds ?? const <String>{};
+                    final displayEvents = horizonResult != null
+                        ? horizonResult.visibleEvents
+                        : computedEvents;
+                    if (horizonResult?.activeEvent != null) {
+                      effectiveActive = horizonResult!.activeEvent;
                     }
 
                     final totalTrackThickness =
@@ -339,7 +270,7 @@ class SectographDial extends ConsumerWidget {
                               center: center,
                               innerRadius: routineTrackIn,
                               outerRadius: routineTrackOut,
-                              sectors: computedEvents,
+                              sectors: displayEvents,
                               angleOverride: screenAngle,
                               getRadii:
                                   (isFocusedBlockMode &&
@@ -393,7 +324,7 @@ class SectographDial extends ConsumerWidget {
                           CustomPaint(
                             size: Size(dialSize, dialSize),
                             painter: SectographPainter(
-                              events: computedEvents,
+                              events: displayEvents,
                               selectedEvent: selectedEvent,
                               activeEvent: effectiveActive,
                               currentTime: effectiveTime,
