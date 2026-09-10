@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS events (
     reminder_minutes INTEGER,
     repeat_days TEXT, -- JSON array string e.g. '[1,2,3,4,5]'
     recurrence_end_date TEXT,
+    subtasks TEXT, -- JSON array string e.g. '["subtask 1","subtask 2"]'
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     deleted_at TEXT
 );

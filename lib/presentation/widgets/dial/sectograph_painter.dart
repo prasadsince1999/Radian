@@ -1289,7 +1289,9 @@ class SectographPainter extends CustomPainter {
       return;
     }
 
-    final isNarrow = sweepDeg < (is24 ? 36.0 : 45.0);
+    final isNarrow =
+        (event.subtasks.isEmpty && sweepDeg < (is24 ? 36.0 : 45.0)) ||
+        (sweepDeg < (is24 ? 18.0 : 26.0));
 
     if (isNarrow) {
       // Narrow sector: dynamically orient straight along the radial spoke
@@ -1348,6 +1350,21 @@ class SectographPainter extends CustomPainter {
 
       canvas.restore();
     } else {
+      // Organic subtask bubbles settling around main title in available space
+      if (event.subtasks.isNotEmpty && sweepDeg >= (is24 ? 18.0 : 26.0)) {
+        _drawOrganicSubtasks(
+          canvas: canvas,
+          center: center,
+          event: event,
+          rIn: rIn,
+          rOut: rOut,
+          startDeg: startDeg,
+          sweepDeg: sweepDeg,
+          isDarkSector: isDarkSector,
+          contentAlpha: contentAlpha,
+        );
+      }
+
       // Full stack: Icon on top, Title, Duration underneath (all upright!)
       final arcWidth = midR * (sweepDeg * math.pi / 180.0) - 10.0;
       var effectiveScale = 1.0;
@@ -1363,6 +1380,137 @@ class SectographPainter extends CustomPainter {
       titlePainter.paint(canvas, Offset(-titlePainter.width / 2, 0.5));
       durationPainter.paint(canvas, Offset(-durationPainter.width / 2, 13.5));
       canvas.restore();
+    }
+  }
+
+  void _drawOrganicSubtasks({
+    required Canvas canvas,
+    required Offset center,
+    required SectorEvent event,
+    required double rIn,
+    required double rOut,
+    required double startDeg,
+    required double sweepDeg,
+    required bool isDarkSector,
+    required double contentAlpha,
+  }) {
+    if (event.subtasks.isEmpty) return;
+
+    final subtasks = event.subtasks;
+    final count = math.min(subtasks.length, 6);
+    final trackThickness = rOut - rIn;
+    final midR = (rIn + rOut) / 2.0;
+
+    // Relative anchor slots in (angleFrac, radialFrac) around the sector center
+    // Avoiding (0, 0) where the main title & icon sit
+    final candidateSlots = const [
+      (angleFrac: -0.58, radialFrac: 0.52),
+      (angleFrac: 0.55, radialFrac: -0.48),
+      (angleFrac: 0.60, radialFrac: 0.50),
+      (angleFrac: -0.52, radialFrac: -0.50),
+      (angleFrac: -0.78, radialFrac: 0.05),
+      (angleFrac: 0.78, radialFrac: -0.05),
+    ];
+
+    final basePillBg = isDarkSector
+        ? Colors.white.withValues(alpha: 0.15 * contentAlpha)
+        : Colors.black.withValues(alpha: 0.10 * contentAlpha);
+    final baseBorderColor = isDarkSector
+        ? Colors.white.withValues(alpha: 0.30 * contentAlpha)
+        : Colors.black.withValues(alpha: 0.20 * contentAlpha);
+    final baseTextColor = isDarkSector
+        ? const Color(0xFFF7F3EE).withValues(alpha: 0.90 * contentAlpha)
+        : const Color(0xFF1E1A16).withValues(alpha: 0.88 * contentAlpha);
+
+    for (int i = 0; i < count; i++) {
+      final subtask = subtasks[i];
+      final slot = candidateSlots[i % candidateSlots.length];
+
+      // Organic deterministic size variation: some small, some big
+      final hash = (subtask.hashCode ^ (i * 37)).abs();
+      final fontSize = 6.5 + (hash % 4) * 0.9;
+      final jitterAngle = ((hash % 11) - 5) * 0.025;
+      final jitterR = (((hash ~/ 11) % 9) - 4) * 0.035;
+
+      final targetAngleFrac = (slot.angleFrac + jitterAngle).clamp(-0.84, 0.84);
+      final targetRadialFrac = (slot.radialFrac + jitterR).clamp(-0.76, 0.76);
+
+      final bubbleAngleDeg =
+          (startDeg + sweepDeg / 2.0) + targetAngleFrac * (sweepDeg * 0.42);
+      final bubbleR = midR + targetRadialFrac * (trackThickness * 0.38);
+
+      final bubbleRad = SectorMath.dialAngleToCanvasRadians(bubbleAngleDeg);
+      final bubblePos = Offset(
+        center.dx + bubbleR * math.cos(bubbleRad),
+        center.dy + bubbleR * math.sin(bubbleRad),
+      );
+
+      String text = subtask;
+      if (text.length > 11) {
+        text = '${text.substring(0, 10)}…';
+      }
+
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: FontWeight.w700,
+            color: baseTextColor,
+            letterSpacing: -0.1,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      )..layout();
+
+      final pillPadH = 4.5 + (hash % 3);
+      final pillPadV = 2.0 + (hash % 2) * 0.5;
+      final pillW = textPainter.width + pillPadH * 2;
+      final pillH = textPainter.height + pillPadV * 2;
+
+      final pillRect = Rect.fromCenter(
+        center: bubblePos,
+        width: pillW,
+        height: pillH,
+      );
+
+      // Subtle drop shadow for organic depth
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          pillRect.shift(const Offset(0, 1.0)),
+          Radius.circular(pillH / 2.0),
+        ),
+        Paint()
+          ..color = Colors.black.withValues(alpha: 0.14 * contentAlpha)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5),
+      );
+
+      // Pill capsule background
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(pillRect, Radius.circular(pillH / 2.0)),
+        Paint()
+          ..color = basePillBg
+          ..style = PaintingStyle.fill,
+      );
+
+      // Pill capsule border
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(pillRect, Radius.circular(pillH / 2.0)),
+        Paint()
+          ..color = baseBorderColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.8,
+      );
+
+      // Pill text
+      textPainter.paint(
+        canvas,
+        Offset(
+          bubblePos.dx - textPainter.width / 2.0,
+          bubblePos.dy - textPainter.height / 2.0,
+        ),
+      );
     }
   }
 

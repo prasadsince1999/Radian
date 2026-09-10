@@ -96,6 +96,9 @@ class CloudSyncService {
             ? jsonEncode(event.repeatDays)
             : null,
         'recurrence_end_date': event.recurrenceEndDate?.toIso8601String(),
+        'subtasks': event.subtasks.isNotEmpty
+            ? jsonEncode(event.subtasks)
+            : null,
       },
     });
   }
@@ -151,6 +154,16 @@ class CloudSyncService {
                 } catch (_) {}
               }
 
+              List<String> subtasks = const [];
+              if (map['subtasks'] != null) {
+                try {
+                  final decoded = jsonDecode(map['subtasks'] as String);
+                  subtasks = (decoded as List)
+                      .map((i) => i.toString())
+                      .toList();
+                } catch (_) {}
+              }
+
               incomingEvents.add(
                 SectorEvent(
                   id: map['id'] as String,
@@ -167,6 +180,7 @@ class CloudSyncService {
                   recurrenceEndDate: map['recurrence_end_date'] != null
                       ? DateTime.parse(map['recurrence_end_date'] as String)
                       : null,
+                  subtasks: subtasks,
                 ),
               );
             }

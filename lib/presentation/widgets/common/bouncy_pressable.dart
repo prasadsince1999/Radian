@@ -132,7 +132,6 @@ class _BouncyPressableState extends State<BouncyPressable>
   void _handleTapUp(TapUpDetails details) {
     if (widget.onTap == null && widget.onLongPress == null) return;
     _controller.reverse();
-    widget.onTap?.call();
   }
 
   void _handleTapCancel() {
@@ -151,6 +150,7 @@ class _BouncyPressableState extends State<BouncyPressable>
       onTapDown: _handleTapDown,
       onTapUp: _handleTapUp,
       onTapCancel: _handleTapCancel,
+      onTap: widget.onTap,
       onLongPress: widget.onLongPress != null
           ? () {
               if (widget.enableHaptic) {

@@ -24,6 +24,7 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
   final int? reminderMinutes;
   final List<int>? repeatDays;
   final DateTime? recurrenceEndDate;
+  final List<String> subtasks;
 
   @override
   final int topLevel;
@@ -48,6 +49,7 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
     this.reminderMinutes,
     this.repeatDays,
     this.recurrenceEndDate,
+    this.subtasks = const [],
     this.topLevel = 0,
     this.bottomLevel = 1000,
     this.startAngle = 0.0,
@@ -55,6 +57,17 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
   });
 
   IconData get iconData => AppPresets.getIconById(iconName);
+
+  /// Returns the explicit or intelligently inferred preset ID for this event's icon.
+  String get effectiveIconName {
+    if (iconName != null &&
+        iconName!.isNotEmpty &&
+        iconName != 'schedule' &&
+        iconName != 'routine') {
+      return iconName!;
+    }
+    return AppPresets.getIdByIcon(resolvedIcon);
+  }
 
   /// Resolved icon for this event, utilizing [iconName] or intelligently inferring
   /// from category & title to ensure consistent iconography across dial & schedule list.
@@ -176,6 +189,7 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
     bool clearRepeatDays = false,
     DateTime? recurrenceEndDate,
     bool clearRecurrenceEndDate = false,
+    List<String>? subtasks,
     int? topLevel,
     int? bottomLevel,
     double? startAngle,
@@ -198,6 +212,7 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
       recurrenceEndDate: clearRecurrenceEndDate
           ? null
           : (recurrenceEndDate ?? this.recurrenceEndDate),
+      subtasks: subtasks ?? this.subtasks,
       topLevel: topLevel ?? this.topLevel,
       bottomLevel: bottomLevel ?? this.bottomLevel,
       startAngle: startAngle ?? this.startAngle,
@@ -218,6 +233,7 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
     'reminderMinutes': reminderMinutes,
     'repeatDays': repeatDays,
     'recurrenceEndDate': recurrenceEndDate?.toIso8601String(),
+    'subtasks': subtasks,
     'topLevel': topLevel,
     'bottomLevel': bottomLevel,
     'startAngle': startAngle,
@@ -242,6 +258,11 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
       recurrenceEndDate: json['recurrenceEndDate'] != null
           ? DateTime.parse(json['recurrenceEndDate'] as String)
           : null,
+      subtasks:
+          (json['subtasks'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
       topLevel: json['topLevel'] as int? ?? 0,
       bottomLevel: json['bottomLevel'] as int? ?? 1000,
       startAngle: (json['startAngle'] as num?)?.toDouble() ?? 0.0,

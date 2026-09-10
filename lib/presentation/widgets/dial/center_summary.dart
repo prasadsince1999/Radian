@@ -54,6 +54,26 @@ class CenterSummary extends ConsumerWidget {
     final ev = selectedEvent!;
     final isActive = ev.isCurrentlyActive(currentTime);
     final remainingMinutes = ev.end.difference(currentTime).inMinutes;
+    final String statusLabel;
+    if (isActive) {
+      statusLabel = remainingMinutes > 0
+          ? 'REMAINING ${remainingMinutes}m'
+          : 'ENDING NOW';
+    } else if (currentTime.isBefore(ev.start)) {
+      final diff = ev.start.difference(currentTime);
+      if (diff.inHours > 0) {
+        statusLabel = 'STARTS IN ${diff.inHours}h ${diff.inMinutes % 60}m';
+      } else {
+        statusLabel = 'STARTS IN ${diff.inMinutes}m';
+      }
+    } else {
+      final ago = currentTime.difference(ev.end);
+      if (ago.inMinutes < 60) {
+        statusLabel = 'ENDED ${ago.inMinutes}m AGO';
+      } else {
+        statusLabel = 'COMPLETED';
+      }
+    }
 
     return Center(
       key: ValueKey('event_${ev.id}'),
@@ -76,9 +96,7 @@ class CenterSummary extends ConsumerWidget {
                   ),
                 ),
                 child: Text(
-                  isActive
-                      ? 'REMAINING ${remainingMinutes > 0 ? '${remainingMinutes}m' : '0m'}'
-                      : 'FOCUSED',
+                  statusLabel,
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: ev.color,
@@ -89,19 +107,18 @@ class CenterSummary extends ConsumerWidget {
               ),
               const SizedBox(height: 3),
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 105),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    ev.title,
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: colorScheme.onSurface,
-                      height: 1.15,
-                    ),
+                constraints: const BoxConstraints(maxWidth: 110),
+                child: Text(
+                  ev.title.replaceAll('+', ' + ').replaceAll('-', ' - '),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  softWrap: true,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.onSurface,
+                    fontSize: 12,
+                    height: 1.15,
                   ),
                 ),
               ),
@@ -220,10 +237,10 @@ class CenterSummary extends ConsumerWidget {
                   if (activeEvent != null) ...[
                     const SizedBox(height: 4),
                     Container(
-                      constraints: const BoxConstraints(maxWidth: 100),
+                      constraints: const BoxConstraints(maxWidth: 110),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 7,
-                        vertical: 2.0,
+                        vertical: 2.5,
                       ),
                       decoration: BoxDecoration(
                         color: colorScheme.secondaryContainer,
@@ -237,22 +254,26 @@ class CenterSummary extends ConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.spa_rounded,
-                            size: 10,
+                            activeEvent!.resolvedIcon,
+                            size: 10.5,
                             color: colorScheme.onSecondaryContainer,
                           ),
-                          const SizedBox(width: 3.5),
+                          const SizedBox(width: 4),
                           Flexible(
                             child: Text(
-                              activeEvent!.title,
+                              activeEvent!.title
+                                  .replaceAll('+', ' + ')
+                                  .replaceAll('-', ' - '),
                               textAlign: TextAlign.center,
-                              maxLines: 1,
+                              maxLines: 2,
+                              softWrap: true,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontWeight: FontWeight.w800,
                                 color: colorScheme.onSecondaryContainer,
-                                fontSize: 10,
-                                letterSpacing: 0.2,
+                                fontSize: 9.5,
+                                height: 1.12,
+                                letterSpacing: 0.1,
                               ),
                             ),
                           ),

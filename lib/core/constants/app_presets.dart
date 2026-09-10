@@ -104,4 +104,12 @@ abstract final class AppPresets {
     }
     return Icons.schedule_rounded;
   }
+
+  /// Returns the corresponding preset string ID for an [icon], falling back to 'schedule'.
+  static String getIdByIcon(IconData icon) {
+    for (final preset in defaultIconPresets) {
+      if (preset.$2.codePoint == icon.codePoint) return preset.$1;
+    }
+    return 'schedule';
+  }
 }

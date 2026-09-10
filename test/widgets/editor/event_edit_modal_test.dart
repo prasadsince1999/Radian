@@ -37,7 +37,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('New Time Block'), findsOneWidget);
-      expect(find.byType(TextField), findsOneWidget); // Title (Notes removed)
+      expect(find.byType(TextField), findsNWidgets(2)); // Title & Subtasks
       expect(find.text('Deep Focus'), findsOneWidget);
       expect(find.text('Create Block'), findsOneWidget);
       expect(find.byKey(const ValueKey('select_icon_button')), findsOneWidget);
@@ -514,5 +514,62 @@ void main() {
         expect(allEvents.first.iconName, equals('medication'));
       },
     );
+
+    testWidgets('adding and removing subtasks persists in repository', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(800, 1200);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
+          child: MaterialApp(
+            home: Scaffold(body: EventEditModal(initialDate: testDate)),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Enter title
+      final titleField = find.byType(TextField).first;
+      await tester.enterText(titleField, 'Cook Dinner');
+      await tester.pumpAndSettle();
+
+      // Enter subtask in subtask field
+      final subtaskField = find.byType(TextField).last;
+      await tester.ensureVisible(subtaskField);
+      await tester.enterText(subtaskField, 'Chop Onions');
+      await tester.pumpAndSettle();
+
+      // Tap 'Add' button
+      await tester.tap(find.text('Add'));
+      await tester.pumpAndSettle();
+
+      // Enter second subtask
+      await tester.enterText(subtaskField, 'Boil Pasta');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Chop Onions'), findsOneWidget);
+      expect(find.text('Boil Pasta'), findsOneWidget);
+      expect(find.text('Subtasks (2)'), findsOneWidget);
+
+      // Save
+      await tester.ensureVisible(find.text('Create Block'));
+      await tester.tap(find.text('Create Block'));
+      await tester.pumpAndSettle();
+
+      final allEvents = await fakeRepo.getAllEvents();
+      expect(allEvents.length, equals(1));
+      expect(allEvents.first.title, equals('Cook Dinner'));
+      expect(allEvents.first.subtasks, equals(['Chop Onions', 'Boil Pasta']));
+    });
   });
 }

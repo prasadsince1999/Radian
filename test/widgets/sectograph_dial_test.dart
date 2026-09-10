@@ -246,6 +246,50 @@ void main() {
         expect(find.byType(SectographDial), findsOneWidget);
       },
     );
+
+    testWidgets(
+      'renders sector events with organic subtasks on dial without exceptions',
+      (tester) async {
+        final subtasksRepo = FakeEventRepository([
+          SectorEvent(
+            id: 'subtask-event-1',
+            title: 'Study Time',
+            start: DateTime(2026, 9, 7, 14, 0),
+            end: DateTime(2026, 9, 7, 18, 0),
+            colorHex: '#F97316',
+            category: 'Deep Focus',
+            subtasks: ['Math revision', 'Physics notes', 'Formulas'],
+          ),
+        ]);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              eventRepositoryProvider.overrideWithValue(subtasksRepo),
+              currentTimeProvider.overrideWith(
+                (ref) => Stream.value(DateTime(2026, 9, 7, 15, 0)),
+              ),
+              selectedDayProvider.overrideWith((ref) => DateTime(2026, 9, 7)),
+            ],
+            child: const MaterialApp(
+              home: Scaffold(
+                body: SizedBox(
+                  width: 400,
+                  height: 500,
+                  child: SectographDial(),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(SectographDial), findsOneWidget);
+      },
+    );
   });
 }
 

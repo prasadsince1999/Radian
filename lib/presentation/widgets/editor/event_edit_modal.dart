@@ -7,6 +7,7 @@ import '../../../core/constants/app_presets.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/models/sector_event.dart';
 import '../../controllers/clock_controller.dart';
+import '../../controllers/cloud_sync_controller.dart';
 import '../common/bouncy_pressable.dart';
 import 'components/event_category_selector.dart';
 import 'components/event_date_repeat_card.dart';
@@ -35,6 +36,8 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
   late String _selectedCategory;
   late String _selectedColorHex;
   late String _selectedIconName;
+  late List<String> _subtasks;
+  late TextEditingController _subtaskInputController;
   bool _isAllDay = false;
   int? _selectedReminderMinutes;
   late Set<int> _selectedWeeklyDays;
@@ -52,6 +55,8 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
 
     _titleController = TextEditingController(text: ev?.title ?? '');
     _notesController = TextEditingController(text: ev?.notes ?? '');
+    _subtasks = List<String>.from(ev?.subtasks ?? const []);
+    _subtaskInputController = TextEditingController();
 
     _startDate = ev?.start ?? widget.initialDate;
 
@@ -78,7 +83,7 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
 
     _selectedCategory = ev?.category ?? 'Work';
     _selectedColorHex = ev?.colorHex ?? '#6366F1';
-    _selectedIconName = ev?.iconName ?? '';
+    _selectedIconName = ev?.effectiveIconName ?? '';
     _selectedReminderMinutes = ev?.reminderMinutes;
 
     _selectedWeeklyDays = ev?.repeatDays != null
@@ -86,6 +91,16 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
         : <int>{};
     _isUnlimitedEndDate = ev?.recurrenceEndDate == null;
     _recurrenceEndDate = ev?.recurrenceEndDate;
+  }
+
+  void _addSubtask() {
+    final text = _subtaskInputController.text.trim();
+    if (text.isNotEmpty) {
+      setState(() {
+        _subtasks.add(text);
+        _subtaskInputController.clear();
+      });
+    }
   }
 
   IconData? get _selectedIconData {
@@ -115,6 +130,7 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
   void dispose() {
     _titleController.dispose();
     _notesController.dispose();
+    _subtaskInputController.dispose();
     super.dispose();
   }
 
@@ -457,6 +473,7 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
           ? null
           : _selectedWeeklyDays.toList(),
       recurrenceEndDate: _isUnlimitedEndDate ? null : _recurrenceEndDate,
+      subtasks: _subtasks,
     );
 
     if (widget.event == null) {
@@ -464,6 +481,9 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
     } else {
       repo.updateEvent(newEvent);
     }
+
+    ref.read(cloudSyncServiceProvider).queueUpsert(newEvent);
+    ref.read(cloudSyncControllerProvider.notifier).syncNow();
 
     Navigator.of(context).pop();
   }
@@ -496,7 +516,7 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
       ),
       padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + bottomInset),
       child: SafeArea(
-        top: false,
+        top: true,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -553,7 +573,7 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
                       ),
                     ),
                   ),
-                  if (widget.event != null)
+                  if (widget.event != null) ...[
                     Tooltip(
                       message: 'Delete',
                       child: BouncyPressable(
@@ -578,6 +598,32 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
                         ),
                       ),
                     ),
+                    const SizedBox(width: 8),
+                  ],
+                  Tooltip(
+                    message: 'Save',
+                    child: BouncyPressable(
+                      scaleDownFactor: 0.90,
+                      onTap: _save,
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: currentColor.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: currentColor.withValues(alpha: 0.4),
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.check_rounded,
+                          size: 20,
+                          color: currentColor,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 14),
@@ -702,6 +748,170 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
                 cardBorder: cardBorder,
                 onReminderSelected: (mins) =>
                     setState(() => _selectedReminderMinutes = mins),
+              ),
+              const SizedBox(height: 12),
+
+              // Subtasks Card
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: cardBorder, width: 1.2),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.checklist_rounded,
+                          size: 18,
+                          color: currentColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Subtasks (${_subtasks.length})',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 40,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.05)
+                                  : Colors.black.withValues(alpha: 0.04),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isDark ? Colors.white12 : Colors.black12,
+                              ),
+                            ),
+                            child: TextField(
+                              controller: _subtaskInputController,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colorScheme.onSurface,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Add a subtask...',
+                                hintStyle: TextStyle(
+                                  fontSize: 12,
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.4,
+                                  ),
+                                ),
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                              ),
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => _addSubtask(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        BouncyPressable(
+                          onTap: _addSubtask,
+                          child: Container(
+                            height: 40,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            decoration: BoxDecoration(
+                              color: currentColor.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: currentColor.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.add_rounded,
+                                    size: 16,
+                                    color: currentColor,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Add',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: currentColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_subtasks.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: _subtasks.asMap().entries.map((entry) {
+                          final idx = entry.key;
+                          final sub = entry.value;
+                          return Container(
+                            padding: const EdgeInsets.only(
+                              left: 10,
+                              right: 6,
+                              top: 5,
+                              bottom: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: currentColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: currentColor.withValues(alpha: 0.25),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  sub,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                GestureDetector(
+                                  onTap: () =>
+                                      setState(() => _subtasks.removeAt(idx)),
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    size: 14,
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.6,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
 

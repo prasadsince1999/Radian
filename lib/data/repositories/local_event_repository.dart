@@ -153,13 +153,15 @@ class LocalEventRepository implements EventRepository {
     final idx = _events.indexWhere((e) => e.id == event.id);
     if (idx != -1) {
       _events[idx] = event;
-      await _saveToDisk();
-      _notify();
-      if (event.reminderMinutes != null) {
-        unawaited(ReminderNotificationService.scheduleReminder(event));
-      } else {
-        unawaited(ReminderNotificationService.cancelReminder(event.id));
-      }
+    } else {
+      _events.add(event);
+    }
+    await _saveToDisk();
+    _notify();
+    if (event.reminderMinutes != null) {
+      unawaited(ReminderNotificationService.scheduleReminder(event));
+    } else {
+      unawaited(ReminderNotificationService.cancelReminder(event.id));
     }
   }
 

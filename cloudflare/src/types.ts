@@ -16,6 +16,7 @@ export interface SectorEventRecord {
   reminder_minutes: number | null;
   repeat_days: string | null; // JSON array string e.g. '[1,2,3,4,5]'
   recurrence_end_date: string | null;
+  subtasks?: string | null; // JSON array string e.g. '["subtask 1"]'
   updated_at: string;
   deleted_at: string | null;
 }
