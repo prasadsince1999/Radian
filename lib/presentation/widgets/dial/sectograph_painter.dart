@@ -64,6 +64,56 @@ class SectographPainter extends CustomPainter {
         innerRadius + AppLayoutConstants.routineTrackInnerOffset;
     final routineTrackOut = baseRadius - 28.0;
 
+    final is24 = settings.is24HourMode;
+    final pastStyle = settings.pastHoursStyle;
+
+    FocusedWarp? warp;
+    if (pastStyle == PastHoursStyle.focusedBlock) {
+      DateTime effectiveTime = currentTime;
+      if (scrubAngle != null) {
+        final currentAngle = SectorMath.timeToDialAngle(
+          currentTime,
+          is24HourMode: is24,
+        );
+        final degPerMin = is24
+            ? SectorMath.degreesPerMinute24H
+            : SectorMath.degreesPerMinute12H;
+        var diff = scrubAngle! - currentAngle;
+        if (diff > 180.0) diff -= 360.0;
+        if (diff < -180.0) diff += 360.0;
+        final deltaMinutes = (diff / degPerMin).round();
+        effectiveTime = currentTime.add(Duration(minutes: deltaMinutes));
+      }
+
+      SectorEvent? focusEv = activeEvent;
+      if (focusEv == null) {
+        for (final e in events) {
+          if (e.start.isBefore(effectiveTime) && e.end.isAfter(effectiveTime)) {
+            focusEv = e;
+            break;
+          }
+        }
+      }
+      focusEv ??= selectedEvent;
+      if (focusEv == null) {
+        for (final e in events) {
+          if (e.start.isAfter(effectiveTime)) {
+            focusEv = e;
+            break;
+          }
+        }
+      }
+
+      if (focusEv != null && focusEv.sweepAngle > 1.0) {
+        warp = FocusedWarp.fromEvent(
+          eventId: focusEv.id,
+          startAngle: focusEv.startAngle,
+          sweepAngle: focusEv.sweepAngle,
+          subtaskCount: focusEv.subtasks.length,
+        );
+      }
+    }
+
     // 1. Dial chassis with radial spokes & dark slate face (Circle or Wave)
     _drawDialBackground(
       canvas,
@@ -75,7 +125,14 @@ class SectographPainter extends CustomPainter {
     );
 
     // 2. Rounded pill arc routine sectors with 3D overlap, drop shadows & icons
-    _drawSectors(canvas, center, baseRadius, innerRadius, radialThickness);
+    _drawSectors(
+      canvas,
+      center,
+      baseRadius,
+      innerRadius,
+      radialThickness,
+      warp: warp,
+    );
 
     // 3. Subtle dial bezel outline (Circle or Wave)
     _drawDialOutline(
@@ -94,6 +151,7 @@ class SectographPainter extends CustomPainter {
       innerRadius,
       isWave: isWave,
       scallopAmp: scallopAmp,
+      warp: warp,
     );
 
     // 5. Day / Night "NOW" sweep needle & moon/sun node (stay ABOVE ALL numbers, ticks, and sectors)
@@ -104,6 +162,7 @@ class SectographPainter extends CustomPainter {
       innerRadius,
       routineTrackIn,
       routineTrackOut,
+      warp: warp,
     );
 
     // 6. Dual analog clock hands (olive hour hand, lavender minute hand, cream pivot)
@@ -220,6 +279,7 @@ class SectographPainter extends CustomPainter {
     double innerRadius, {
     required bool isWave,
     required double scallopAmp,
+    FocusedWarp? warp,
   }) {
     final isDark = colorScheme.brightness == Brightness.dark;
     final is24 = settings.is24HourMode;
@@ -262,11 +322,13 @@ class SectographPainter extends CustomPainter {
           ? (hourIndex % 6 == 0) // 0, 6, 12, 18
           : (hourIndex % 3 == 0); // 12, 3, 6, 9
 
+      final rawTickDeg = i * tickStepDeg;
+      final tickDeg = warp != null ? warp.warp(rawTickDeg) : rawTickDeg;
+      final tickRad = SectorMath.dialAngleToCanvasRadians(tickDeg);
+
       if (isMajorHour) {
         // If we are in minimal mode (no numbers), draw prominent hour bars with cardinal accents
         if (isMinimal) {
-          final tickDeg = i * tickStepDeg;
-          final tickRad = SectorMath.dialAngleToCanvasRadians(tickDeg);
           final tickLength = isCardinal ? 9.0 : 6.0;
           final currentBaseR = isWave
               ? baseRadius +
@@ -295,8 +357,6 @@ class SectographPainter extends CustomPainter {
         continue;
       }
 
-      final tickDeg = i * tickStepDeg;
-      final tickRad = SectorMath.dialAngleToCanvasRadians(tickDeg);
       const tickLength = 3.5;
       final currentBaseR = isWave
           ? baseRadius +
@@ -325,7 +385,8 @@ class SectographPainter extends CustomPainter {
           : colorScheme.onSurfaceVariant;
 
       for (var h = 0; h < totalHours; h++) {
-        final deg = h * stepAngle;
+        final rawDeg = h * stepAngle;
+        final deg = warp != null ? warp.warp(rawDeg) : rawDeg;
         final rad = SectorMath.dialAngleToCanvasRadians(deg);
 
         final bool isMajor = !is24 || (h % 2 == 0);
@@ -412,13 +473,15 @@ class SectographPainter extends CustomPainter {
     double baseRadius,
     double innerRadius,
     double rIn,
-    double rOut,
-  ) {
+    double rOut, {
+    FocusedWarp? warp,
+  }) {
     final is24 = settings.is24HourMode;
-    final nowAngle = SectorMath.timeToDialAngle(
+    final rawNowAngle = SectorMath.timeToDialAngle(
       currentTime,
       is24HourMode: is24,
     );
+    final nowAngle = warp != null ? warp.warp(rawNowAngle) : rawNowAngle;
     final nowRad = SectorMath.dialAngleToCanvasRadians(nowAngle);
 
     // 1. "NOW" sweep line (high-contrast Sectograph crimson needle)
@@ -497,8 +560,9 @@ class SectographPainter extends CustomPainter {
     Offset center,
     double baseRadius,
     double innerRadius,
-    double radialThickness,
-  ) {
+    double radialThickness, {
+    FocusedWarp? warp,
+  }) {
     final routineTrackIn =
         innerRadius + AppLayoutConstants.routineTrackInnerOffset;
     final routineTrackOut = baseRadius - 28.0;
@@ -545,14 +609,28 @@ class SectographPainter extends CustomPainter {
     }
 
     bool isEventCompleted(SectorEvent e) {
-      if (pastStyle == PastHoursStyle.normal) return false;
       return !effectiveTime.isBefore(e.end);
     }
 
     bool isEventActive(SectorEvent e) {
-      if (pastStyle == PastHoursStyle.normal) return false;
       return e.start.isBefore(effectiveTime) && e.end.isAfter(effectiveTime);
     }
+
+    // Bird's Eye Dynamic Horizon Analysis
+    final completedEvents =
+        events.where((e) => !effectiveTime.isBefore(e.end)).toList()
+          ..sort((a, b) => a.end.compareTo(b.end));
+    final recentCompletedIds = completedEvents.length <= 2
+        ? completedEvents.map((e) => e.id).toSet()
+        : completedEvents
+              .sublist(completedEvents.length - 2)
+              .map((e) => e.id)
+              .toSet();
+
+    final upcomingEvents =
+        events.where((e) => effectiveTime.isBefore(e.start)).toList()
+          ..sort((a, b) => a.start.compareTo(b.start));
+    final nextUpcomingIds = upcomingEvents.take(2).map((e) => e.id).toSet();
 
     // Pre-analyze contiguous relationships
     final hasContiguousPredecessor = List<bool>.filled(events.length, false);
@@ -597,13 +675,34 @@ class SectographPainter extends CustomPainter {
       if (pastStyle == PastHoursStyle.disappear && isCompleted) {
         continue;
       }
+      // In Bird's Eye mode: older completed blocks disappear completely!
+      if (pastStyle == PastHoursStyle.birdsEye &&
+          isCompleted &&
+          !recentCompletedIds.contains(event.id)) {
+        continue;
+      }
 
       double startDeg;
       double sweepDeg;
       bool roundStart = !hasContiguousPredecessor[i];
       final bool roundEnd = !hasContiguousSuccessor[i];
 
-      if (pastStyle == PastHoursStyle.disappear && isActive) {
+      if (warp != null) {
+        final warpedStart = warp.warp(event.startAngle);
+        final warpedEnd = warp.warp(event.startAngle + event.sweepAngle);
+        var warpedSweep = (warpedEnd - warpedStart) % 360.0;
+        if (warpedSweep <= 0) warpedSweep += 360.0;
+
+        final startGap = hasContiguousPredecessor[i]
+            ? 0.0
+            : (defaultSectorGapDeg / 2.0);
+        final endGap = hasContiguousSuccessor[i]
+            ? 0.0
+            : (defaultSectorGapDeg / 2.0);
+
+        startDeg = warpedStart + startGap;
+        sweepDeg = (warpedSweep - startGap - endGap).clamp(4.0, 360.0);
+      } else if (pastStyle == PastHoursStyle.disappear && isActive) {
         // Active event shrinks: starts from effectiveAngle to end
         final remainingDuration = event.end.difference(effectiveTime);
         final remainingSweep = SectorMath.durationToSweepAngle(
@@ -646,8 +745,18 @@ class SectographPainter extends CustomPainter {
       );
 
       final double fillAlpha;
-      if (isCompleted && pastStyle == PastHoursStyle.shadowDim) {
-        fillAlpha = 0.28;
+      if (warp != null) {
+        fillAlpha = (warp.focusEventId == event.id || isSelected) ? 1.0 : 0.28;
+      } else if (pastStyle == PastHoursStyle.birdsEye) {
+        if (isCompleted) {
+          fillAlpha = 0.38;
+        } else if (isActive ||
+            isSelected ||
+            nextUpcomingIds.contains(event.id)) {
+          fillAlpha = 1.0;
+        } else {
+          fillAlpha = 0.48;
+        }
       } else if (isSelected) {
         fillAlpha = 1.0;
       } else {
@@ -658,29 +767,6 @@ class SectographPainter extends CustomPainter {
         ..color = event.color.withValues(alpha: fillAlpha)
         ..style = PaintingStyle.fill;
       canvas.drawPath(sectorPath, fillPaint);
-
-      // In shadowDim mode for active event: overlay dark shadow scrim on elapsed arc segment
-      if (pastStyle == PastHoursStyle.shadowDim && isActive) {
-        var elapsedDeg = (effectiveAngle - startDeg) % 360.0;
-        if (elapsedDeg < 0) elapsedDeg += 360.0;
-        final safeElapsedDeg = math.min(elapsedDeg, sweepDeg);
-        if (safeElapsedDeg > 1.5) {
-          final elapsedPath = _buildRoundedSectorPath(
-            center: center,
-            rIn: eventRIn,
-            rOut: eventROut,
-            startDeg: startDeg,
-            sweepDeg: safeElapsedDeg,
-            cornerRadius: cornerRadius,
-            roundStart: roundStart,
-            roundEnd: false,
-          );
-          final shadowScrimPaint = Paint()
-            ..color = Colors.black.withValues(alpha: 0.48)
-            ..style = PaintingStyle.fill;
-          canvas.drawPath(elapsedPath, shadowScrimPaint);
-        }
-      }
 
       if (isSelected) {
         final selectBorder = Paint()
@@ -702,10 +788,28 @@ class SectographPainter extends CustomPainter {
       if (pastStyle == PastHoursStyle.disappear && isCompleted) {
         continue;
       }
+      if (pastStyle == PastHoursStyle.birdsEye &&
+          isCompleted &&
+          !recentCompletedIds.contains(event.id)) {
+        continue;
+      }
+
+      final double eventStartAngle;
+      final double eventSweepAngle;
+      if (warp != null) {
+        eventStartAngle = warp.warp(event.startAngle);
+        final capEnd = warp.warp(event.startAngle + event.sweepAngle);
+        var sw = (capEnd - eventStartAngle) % 360.0;
+        if (sw <= 0) sw += 360.0;
+        eventSweepAngle = sw;
+      } else {
+        eventStartAngle = event.startAngle;
+        eventSweepAngle = event.sweepAngle;
+      }
 
       final minSpan = is24 ? 3.0 : 5.0;
-      final maxSpan = event.sweepAngle * 0.28;
-      if (maxSpan < minSpan || event.sweepAngle < (is24 ? 10.0 : 16.0)) {
+      final maxSpan = eventSweepAngle * 0.28;
+      if (maxSpan < minSpan || eventSweepAngle < (is24 ? 10.0 : 16.0)) {
         continue;
       }
 
@@ -721,7 +825,7 @@ class SectographPainter extends CustomPainter {
       final edgeSpanDeg = desiredSpan.clamp(minSpan, maxSpan);
       final isContiguous = hasContiguousSuccessor[i];
 
-      final endBoundaryDeg = event.startAngle + event.sweepAngle;
+      final endBoundaryDeg = eventStartAngle + eventSweepAngle;
       final capEndDeg = endBoundaryDeg + (isContiguous ? overlapDeg : 0.0);
       final capSpanDeg = edgeSpanDeg + (isContiguous ? overlapDeg : 0.0);
 
@@ -750,10 +854,10 @@ class SectographPainter extends CustomPainter {
         roundEnd: true,
       );
 
-      final isDim = isCompleted && pastStyle == PastHoursStyle.shadowDim;
-      final capAlpha = isDim ? 0.32 : 1.0;
-      final shadeAlpha = isDim ? 0.35 : 1.0;
-      final textAlpha = isDim ? 0.45 : 1.0;
+      final isDim = isCompleted && pastStyle == PastHoursStyle.birdsEye;
+      final capAlpha = isDim ? 0.38 : 1.0;
+      final shadeAlpha = isDim ? 0.40 : 1.0;
+      final textAlpha = isDim ? 0.50 : 1.0;
 
       // 1. Base sector fill on end cap
       final capFillPaint = Paint()
@@ -829,10 +933,28 @@ class SectographPainter extends CustomPainter {
       if (pastStyle == PastHoursStyle.disappear && (isCompleted || isActive)) {
         continue;
       }
+      if (pastStyle == PastHoursStyle.birdsEye &&
+          isCompleted &&
+          !recentCompletedIds.contains(event.id)) {
+        continue;
+      }
+
+      final double startCapAngle;
+      final double startCapSweep;
+      if (warp != null) {
+        startCapAngle = warp.warp(event.startAngle);
+        final capEnd = warp.warp(event.startAngle + event.sweepAngle);
+        var sw = (capEnd - startCapAngle) % 360.0;
+        if (sw <= 0) sw += 360.0;
+        startCapSweep = sw;
+      } else {
+        startCapAngle = event.startAngle;
+        startCapSweep = event.sweepAngle;
+      }
 
       final minSpan = is24 ? 3.0 : 5.0;
-      final maxSpan = event.sweepAngle * 0.28;
-      if (maxSpan < minSpan || event.sweepAngle < (is24 ? 10.0 : 16.0)) {
+      final maxSpan = startCapSweep * 0.28;
+      if (maxSpan < minSpan || startCapSweep < (is24 ? 10.0 : 16.0)) {
         continue;
       }
 
@@ -844,7 +966,7 @@ class SectographPainter extends CustomPainter {
           .clamp(3.0, 10.0);
       final isMultiTier = event.topLevel > 0 || event.bottomLevel < 1000;
 
-      final startBoundaryDeg = event.startAngle;
+      final startBoundaryDeg = startCapAngle;
 
       bool angleAlreadyDrawn(double deg) {
         for (final entry in drawnTimestampAngles) {
@@ -873,10 +995,9 @@ class SectographPainter extends CustomPainter {
         roundEnd: false,
       );
 
-      final isDim =
-          (isCompleted || isActive) && pastStyle == PastHoursStyle.shadowDim;
-      final shadeAlpha = isDim ? 0.35 : 1.0;
-      final textAlpha = isDim ? 0.45 : 1.0;
+      final isDim = isCompleted && pastStyle == PastHoursStyle.birdsEye;
+      final shadeAlpha = isDim ? 0.40 : 1.0;
+      final textAlpha = isDim ? 0.50 : 1.0;
 
       final shadeColor = Color.lerp(event.color, Colors.black, 0.32)!;
       final shadePaint = Paint()
@@ -934,6 +1055,7 @@ class SectographPainter extends CustomPainter {
     // Pass 4: Draw vector icon + Title + Duration upright at sector center
     for (int i = 0; i < events.length; i++) {
       final event = events[i];
+      final isSelected = selectedEvent?.id == event.id;
       if (event.sweepAngle <= 1.0) continue;
 
       final isCompleted = isEventCompleted(event);
@@ -942,11 +1064,31 @@ class SectographPainter extends CustomPainter {
       if (pastStyle == PastHoursStyle.disappear && isCompleted) {
         continue;
       }
+      if (pastStyle == PastHoursStyle.birdsEye &&
+          isCompleted &&
+          !recentCompletedIds.contains(event.id)) {
+        continue;
+      }
 
       double contentStartDeg = event.startAngle;
       double contentSweepDeg = event.sweepAngle;
 
-      if (pastStyle == PastHoursStyle.disappear && isActive) {
+      if (warp != null) {
+        final warpedStart = warp.warp(event.startAngle);
+        final warpedEnd = warp.warp(event.startAngle + event.sweepAngle);
+        var warpedSweep = (warpedEnd - warpedStart) % 360.0;
+        if (warpedSweep <= 0) warpedSweep += 360.0;
+
+        final startGap = hasContiguousPredecessor[i]
+            ? 0.0
+            : (defaultSectorGapDeg / 2.0);
+        final endGap = hasContiguousSuccessor[i]
+            ? 0.0
+            : (defaultSectorGapDeg / 2.0);
+
+        contentStartDeg = warpedStart + startGap;
+        contentSweepDeg = (warpedSweep - startGap - endGap).clamp(4.0, 360.0);
+      } else if (pastStyle == PastHoursStyle.disappear && isActive) {
         final remainingDuration = event.end.difference(effectiveTime);
         final remainingSweep = SectorMath.durationToSweepAngle(
           remainingDuration,
@@ -956,28 +1098,6 @@ class SectographPainter extends CustomPainter {
 
         contentStartDeg = effectiveAngle;
         contentSweepDeg = remainingSweep;
-      } else if (pastStyle == PastHoursStyle.shadowDim && isActive) {
-        // In shadowDim mode, position content in remaining bright portion if wide enough
-        var elapsedDeg = (effectiveAngle - event.startAngle) % 360.0;
-        if (elapsedDeg < 0) elapsedDeg += 360.0;
-        final safeElapsedDeg = math.min(elapsedDeg, event.sweepAngle);
-        final remainingSweep = event.sweepAngle - safeElapsedDeg;
-        if (remainingSweep >= (is24 ? 20.0 : 30.0)) {
-          contentStartDeg = event.startAngle + safeElapsedDeg;
-          contentSweepDeg = remainingSweep;
-        } else {
-          final startGap = hasContiguousPredecessor[i]
-              ? 0.0
-              : (defaultSectorGapDeg / 2.0);
-          final endGap = hasContiguousSuccessor[i]
-              ? 0.0
-              : (defaultSectorGapDeg / 2.0);
-          contentStartDeg = event.startAngle + startGap;
-          contentSweepDeg = (event.sweepAngle - startGap - endGap).clamp(
-            4.0,
-            360.0,
-          );
-        }
       } else {
         final startGap = hasContiguousPredecessor[i]
             ? 0.0
@@ -992,8 +1112,24 @@ class SectographPainter extends CustomPainter {
         );
       }
 
-      final contentAlpha =
-          (isCompleted && pastStyle == PastHoursStyle.shadowDim) ? 0.35 : 1.0;
+      final double contentAlpha;
+      if (warp != null) {
+        contentAlpha = (warp.focusEventId == event.id || isSelected)
+            ? 1.0
+            : 0.35;
+      } else if (pastStyle == PastHoursStyle.birdsEye) {
+        if (isCompleted) {
+          contentAlpha = 0.40;
+        } else if (isActive ||
+            isSelected ||
+            nextUpcomingIds.contains(event.id)) {
+          contentAlpha = 1.0;
+        } else {
+          contentAlpha = 0.50;
+        }
+      } else {
+        contentAlpha = 1.0;
+      }
 
       final radii = getEventRadii(event);
       final cornerRadius = math
@@ -1190,29 +1326,24 @@ class SectographPainter extends CustomPainter {
       return;
     }
 
-    String displayTitle = event.title;
-    final delims = RegExp(r'[\s+\-_/:]');
-    final match = delims.firstMatch(displayTitle);
-    if (match != null && match.start > 0) {
-      displayTitle = displayTitle.substring(0, match.start);
-    }
-    if (displayTitle.length > 8) {
-      displayTitle = '${displayTitle.substring(0, 7)}…';
-    }
-
+    final arcWidth = midR * (sweepDeg * math.pi / 180.0) - 10.0;
+    final maxTitleWidth = math.max(arcWidth * 0.90, 48.0);
     final titlePainter = TextPainter(
       text: TextSpan(
-        text: displayTitle,
+        text: event.title.trim(),
         style: TextStyle(
           fontSize: titleFontSize,
           fontWeight: FontWeight.w900,
           color: textColor,
           letterSpacing: 0.1,
+          height: 1.12,
         ),
       ),
+      maxLines: 2,
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
-    )..layout();
+      ellipsis: '…',
+    )..layout(maxWidth: maxTitleWidth);
 
     final durationStr = TimeFormatters.formatDuration(event.duration);
     final durationPainter = TextPainter(
@@ -1350,8 +1481,94 @@ class SectographPainter extends CustomPainter {
 
       canvas.restore();
     } else {
-      // Organic subtask bubbles settling around main title in available space
-      if (event.subtasks.isNotEmpty && sweepDeg >= (is24 ? 18.0 : 26.0)) {
+      final bool showDockedSubtask =
+          event.subtasks.isNotEmpty && sweepDeg < (is24 ? 38.0 : 55.0);
+
+      TextPainter? dockedSubtaskPainter;
+      double dockedPillW = 0.0;
+      double dockedPillH = 0.0;
+
+      if (showDockedSubtask) {
+        final firstSub = event.subtasks.first.trim();
+        final subText = event.subtasks.length > 1
+            ? '$firstSub (+${event.subtasks.length - 1})'
+            : firstSub;
+        dockedSubtaskPainter = TextPainter(
+          text: TextSpan(
+            text: subText,
+            style: TextStyle(
+              fontSize: 7.2,
+              fontWeight: FontWeight.w700,
+              color: isDarkSector
+                  ? const Color(0xFFF7F3EE)
+                        .withValues(alpha: 0.92 * contentAlpha)
+                  : const Color(0xFF1E1A16)
+                        .withValues(alpha: 0.90 * contentAlpha),
+              letterSpacing: -0.1,
+            ),
+          ),
+          maxLines: 1,
+          ellipsis: '…',
+          textDirection: TextDirection.ltr,
+          textAlign: TextAlign.center,
+        )..layout(maxWidth: math.max(arcWidth * 0.85, 36.0));
+
+        dockedPillW = dockedSubtaskPainter.width + 10.0;
+        dockedPillH = dockedSubtaskPainter.height + 4.0;
+      }
+
+      const gap = 2.0;
+      final totalH =
+          iconPainter.height +
+          gap +
+          titlePainter.height +
+          gap +
+          durationPainter.height +
+          (showDockedSubtask ? (gap + 2.0 + dockedPillH) : 0.0);
+
+      var effectiveScale = 1.0;
+      final contentW = math.max(
+        dockedPillW,
+        math.max(
+          iconPainter.width,
+          math.max(titlePainter.width, durationPainter.width),
+        ),
+      );
+      if (contentW > arcWidth) {
+        effectiveScale = (arcWidth / contentW).clamp(0.65, 1.0);
+      }
+      if (totalH > (trackThickness - 6.0)) {
+        final hScale = ((trackThickness - 6.0) / totalH).clamp(0.60, 1.0);
+        effectiveScale = math.min(effectiveScale, hScale);
+      }
+
+      final startY = -(totalH / 2.0);
+      final iconY = startY;
+      final titleY = iconY + iconPainter.height + gap;
+      final durationY = titleY + titlePainter.height + gap;
+      final subtaskY = durationY + durationPainter.height + gap + 2.0;
+
+      // Organic subtask bubbles settling around main title in available space for wide sectors
+      if (event.subtasks.isNotEmpty && sweepDeg >= (is24 ? 38.0 : 55.0)) {
+        final mainLabelW =
+            math.max(
+              iconPainter.width,
+              math.max(titlePainter.width, durationPainter.width),
+            ) *
+            effectiveScale;
+        final mainLabelH =
+            (iconPainter.height +
+                gap +
+                titlePainter.height +
+                gap +
+                durationPainter.height) *
+            effectiveScale;
+        final mainLabelRect = Rect.fromCenter(
+          center: pos,
+          width: mainLabelW + 18.0,
+          height: mainLabelH + 12.0,
+        );
+
         _drawOrganicSubtasks(
           canvas: canvas,
           center: center,
@@ -1362,23 +1579,71 @@ class SectographPainter extends CustomPainter {
           sweepDeg: sweepDeg,
           isDarkSector: isDarkSector,
           contentAlpha: contentAlpha,
+          mainLabelRect: mainLabelRect,
         );
       }
 
-      // Full stack: Icon on top, Title, Duration underneath (all upright!)
-      final arcWidth = midR * (sweepDeg * math.pi / 180.0) - 10.0;
-      var effectiveScale = 1.0;
-      if (titlePainter.width > arcWidth) {
-        effectiveScale = (arcWidth / titlePainter.width).clamp(0.65, 1.0);
-      }
+      // Main stack: Icon, Title, Duration upright
       canvas.save();
       canvas.translate(pos.dx, pos.dy);
       if (effectiveScale < 1.0) {
         canvas.scale(effectiveScale, effectiveScale);
       }
-      iconPainter.paint(canvas, Offset(-iconPainter.width / 2, -15.0));
-      titlePainter.paint(canvas, Offset(-titlePainter.width / 2, 0.5));
-      durationPainter.paint(canvas, Offset(-durationPainter.width / 2, 13.5));
+
+      iconPainter.paint(canvas, Offset(-iconPainter.width / 2.0, iconY));
+      titlePainter.paint(canvas, Offset(-titlePainter.width / 2.0, titleY));
+      durationPainter.paint(
+        canvas,
+        Offset(-durationPainter.width / 2.0, durationY),
+      );
+
+      if (showDockedSubtask && dockedSubtaskPainter != null) {
+        final dockedRect = Rect.fromCenter(
+          center: Offset(0, subtaskY + dockedPillH / 2.0),
+          width: dockedPillW,
+          height: dockedPillH,
+        );
+        final pillBg = isDarkSector
+            ? Colors.white.withValues(alpha: 0.16 * contentAlpha)
+            : Colors.black.withValues(alpha: 0.10 * contentAlpha);
+        final pillBorder = isDarkSector
+            ? Colors.white.withValues(alpha: 0.32 * contentAlpha)
+            : Colors.black.withValues(alpha: 0.22 * contentAlpha);
+
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            dockedRect.shift(const Offset(0, 1.0)),
+            Radius.circular(dockedPillH / 2.0),
+          ),
+          Paint()
+            ..color = Colors.black.withValues(alpha: 0.12 * contentAlpha)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5),
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            dockedRect,
+            Radius.circular(dockedPillH / 2.0),
+          ),
+          Paint()
+            ..color = pillBg
+            ..style = PaintingStyle.fill,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            dockedRect,
+            Radius.circular(dockedPillH / 2.0),
+          ),
+          Paint()
+            ..color = pillBorder
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 0.8,
+        );
+        dockedSubtaskPainter.paint(
+          canvas,
+          Offset(-dockedSubtaskPainter.width / 2.0, subtaskY + 2.0),
+        );
+      }
+
       canvas.restore();
     }
   }
@@ -1393,6 +1658,7 @@ class SectographPainter extends CustomPainter {
     required double sweepDeg,
     required bool isDarkSector,
     required double contentAlpha,
+    required Rect mainLabelRect,
   }) {
     if (event.subtasks.isEmpty) return;
 
@@ -1401,15 +1667,19 @@ class SectographPainter extends CustomPainter {
     final trackThickness = rOut - rIn;
     final midR = (rIn + rOut) / 2.0;
 
-    // Relative anchor slots in (angleFrac, radialFrac) around the sector center
-    // Avoiding (0, 0) where the main title & icon sit
+    // Anchor candidates distributed around the wide sector:
+    // Left wing, right wing, top wing, bottom wing
     final candidateSlots = const [
-      (angleFrac: -0.58, radialFrac: 0.52),
-      (angleFrac: 0.55, radialFrac: -0.48),
-      (angleFrac: 0.60, radialFrac: 0.50),
-      (angleFrac: -0.52, radialFrac: -0.50),
+      (angleFrac: -0.62, radialFrac: 0.52),
+      (angleFrac: 0.60, radialFrac: -0.48),
+      (angleFrac: 0.65, radialFrac: 0.50),
+      (angleFrac: -0.58, radialFrac: -0.50),
       (angleFrac: -0.78, radialFrac: 0.05),
       (angleFrac: 0.78, radialFrac: -0.05),
+      (angleFrac: -0.38, radialFrac: 0.68),
+      (angleFrac: 0.38, radialFrac: -0.68),
+      (angleFrac: -0.40, radialFrac: -0.68),
+      (angleFrac: 0.40, radialFrac: 0.68),
     ];
 
     final basePillBg = isDarkSector
@@ -1422,32 +1692,16 @@ class SectographPainter extends CustomPainter {
         ? const Color(0xFFF7F3EE).withValues(alpha: 0.90 * contentAlpha)
         : const Color(0xFF1E1A16).withValues(alpha: 0.88 * contentAlpha);
 
+    final List<Rect> placedPills = [];
+
     for (int i = 0; i < count; i++) {
-      final subtask = subtasks[i];
-      final slot = candidateSlots[i % candidateSlots.length];
-
-      // Organic deterministic size variation: some small, some big
+      final subtask = subtasks[i].trim();
       final hash = (subtask.hashCode ^ (i * 37)).abs();
-      final fontSize = 6.5 + (hash % 4) * 0.9;
-      final jitterAngle = ((hash % 11) - 5) * 0.025;
-      final jitterR = (((hash ~/ 11) % 9) - 4) * 0.035;
-
-      final targetAngleFrac = (slot.angleFrac + jitterAngle).clamp(-0.84, 0.84);
-      final targetRadialFrac = (slot.radialFrac + jitterR).clamp(-0.76, 0.76);
-
-      final bubbleAngleDeg =
-          (startDeg + sweepDeg / 2.0) + targetAngleFrac * (sweepDeg * 0.42);
-      final bubbleR = midR + targetRadialFrac * (trackThickness * 0.38);
-
-      final bubbleRad = SectorMath.dialAngleToCanvasRadians(bubbleAngleDeg);
-      final bubblePos = Offset(
-        center.dx + bubbleR * math.cos(bubbleRad),
-        center.dy + bubbleR * math.sin(bubbleRad),
-      );
+      final fontSize = 6.8 + (hash % 4) * 0.9;
 
       String text = subtask;
-      if (text.length > 11) {
-        text = '${text.substring(0, 10)}…';
+      if (text.length > 13) {
+        text = '${text.substring(0, 12)}…';
       }
 
       final textPainter = TextPainter(
@@ -1464,21 +1718,65 @@ class SectographPainter extends CustomPainter {
         textAlign: TextAlign.center,
       )..layout();
 
-      final pillPadH = 4.5 + (hash % 3);
+      final pillPadH = 5.0 + (hash % 3);
       final pillPadV = 2.0 + (hash % 2) * 0.5;
       final pillW = textPainter.width + pillPadH * 2;
       final pillH = textPainter.height + pillPadV * 2;
 
-      final pillRect = Rect.fromCenter(
-        center: bubblePos,
-        width: pillW,
-        height: pillH,
-      );
+      // Try candidate slots until one does not collide with mainLabelRect or existing pills
+      Rect? selectedPillRect;
+      Offset? selectedPos;
+
+      for (int slotIdx = 0; slotIdx < candidateSlots.length; slotIdx++) {
+        final slot = candidateSlots[(i + slotIdx) % candidateSlots.length];
+        final jitterAngle = ((hash % 11) - 5) * 0.02;
+        final jitterR = (((hash ~/ 11) % 9) - 4) * 0.03;
+
+        final targetAngleFrac = (slot.angleFrac + jitterAngle).clamp(
+          -0.85,
+          0.85,
+        );
+        final targetRadialFrac = (slot.radialFrac + jitterR).clamp(-0.76, 0.76);
+
+        final bubbleAngleDeg =
+            (startDeg + sweepDeg / 2.0) + targetAngleFrac * (sweepDeg * 0.44);
+        final bubbleR = midR + targetRadialFrac * (trackThickness * 0.40);
+
+        final bubbleRad = SectorMath.dialAngleToCanvasRadians(bubbleAngleDeg);
+        final bubblePos = Offset(
+          center.dx + bubbleR * math.cos(bubbleRad),
+          center.dy + bubbleR * math.sin(bubbleRad),
+        );
+
+        final testRect = Rect.fromCenter(
+          center: bubblePos,
+          width: pillW,
+          height: pillH,
+        );
+
+        // Strict collision check against mainLabelRect (with 6px buffer) and other pills (with 3px buffer)
+        final collidesWithMain = testRect.overlaps(mainLabelRect.inflate(6.0));
+        final collidesWithPlaced = placedPills.any(
+          (p) => testRect.overlaps(p.inflate(3.0)),
+        );
+
+        if (!collidesWithMain && !collidesWithPlaced) {
+          selectedPillRect = testRect;
+          selectedPos = bubblePos;
+          break;
+        }
+      }
+
+      if (selectedPillRect == null || selectedPos == null) {
+        continue; // Could not place without overlapping - discard safely!
+      }
+
+      placedPills.add(selectedPillRect);
 
       // Subtle drop shadow for organic depth
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          pillRect.shift(const Offset(0, 1.0)),
+          selectedPillRect.shift(const Offset(0, 1.0)),
           Radius.circular(pillH / 2.0),
         ),
         Paint()
@@ -1488,7 +1786,7 @@ class SectographPainter extends CustomPainter {
 
       // Pill capsule background
       canvas.drawRRect(
-        RRect.fromRectAndRadius(pillRect, Radius.circular(pillH / 2.0)),
+        RRect.fromRectAndRadius(selectedPillRect, Radius.circular(pillH / 2.0)),
         Paint()
           ..color = basePillBg
           ..style = PaintingStyle.fill,
@@ -1496,7 +1794,7 @@ class SectographPainter extends CustomPainter {
 
       // Pill capsule border
       canvas.drawRRect(
-        RRect.fromRectAndRadius(pillRect, Radius.circular(pillH / 2.0)),
+        RRect.fromRectAndRadius(selectedPillRect, Radius.circular(pillH / 2.0)),
         Paint()
           ..color = baseBorderColor
           ..style = PaintingStyle.stroke
@@ -1507,8 +1805,8 @@ class SectographPainter extends CustomPainter {
       textPainter.paint(
         canvas,
         Offset(
-          bubblePos.dx - textPainter.width / 2.0,
-          bubblePos.dy - textPainter.height / 2.0,
+          selectedPos.dx - textPainter.width / 2.0,
+          selectedPos.dy - textPainter.height / 2.0,
         ),
       );
     }

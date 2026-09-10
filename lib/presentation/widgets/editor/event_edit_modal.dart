@@ -460,9 +460,16 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
         ? DateTime(_startDate.year, _startDate.month, _startDate.day, 0, 0)
         : _combine(_startDate, _startTime);
 
+    final isOvernight =
+        _endTime.hour * 60 + _endTime.minute <=
+        _startTime.hour * 60 + _startTime.minute;
+    final effectiveEndDate = isOvernight
+        ? _startDate.add(const Duration(days: 1))
+        : _startDate;
+
     var endDt = _isAllDay
         ? DateTime(_startDate.year, _startDate.month, _startDate.day, 23, 59)
-        : _combine(_endDate, _endTime);
+        : _combine(effectiveEndDate, _endTime);
 
     if (!_isAllDay && !endDt.isAfter(startDt)) {
       endDt = startDt.add(const Duration(hours: 1));

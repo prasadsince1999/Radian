@@ -101,40 +101,54 @@ void main() {
       expect(deserialized.pastHoursStyle, PastHoursStyle.disappear);
     });
 
-    testWidgets('renders with PastHoursStyle.shadowDim and disappear', (
-      tester,
-    ) async {
-      Uint8List? dimBytes;
-      Uint8List? disappearBytes;
+    testWidgets(
+      'renders with PastHoursStyle.birdsEye, focusedBlock, and disappear',
+      (tester) async {
+        Uint8List? birdsEyeBytes;
+        Uint8List? focusedBytes;
+        Uint8List? disappearBytes;
 
-      await tester.runAsync(() async {
-        dimBytes = await DialImageRenderer.renderDialPng(
-          events: events,
-          currentTime: now,
-          settings: const DialSettings(
-            is24HourMode: false,
-            pastHoursStyle: PastHoursStyle.shadowDim,
-          ),
-          colorScheme: colorScheme,
-          size: 200.0,
-        );
-        disappearBytes = await DialImageRenderer.renderDialPng(
-          events: events,
-          currentTime: now,
-          settings: const DialSettings(
-            is24HourMode: false,
-            pastHoursStyle: PastHoursStyle.disappear,
-          ),
-          colorScheme: colorScheme,
-          size: 200.0,
-        );
-      });
+        await tester.runAsync(() async {
+          birdsEyeBytes = await DialImageRenderer.renderDialPng(
+            events: events,
+            currentTime: now,
+            settings: const DialSettings(
+              is24HourMode: false,
+              pastHoursStyle: PastHoursStyle.birdsEye,
+            ),
+            colorScheme: colorScheme,
+            size: 200.0,
+          );
+          focusedBytes = await DialImageRenderer.renderDialPng(
+            events: events,
+            currentTime: now,
+            settings: const DialSettings(
+              is24HourMode: false,
+              pastHoursStyle: PastHoursStyle.focusedBlock,
+            ),
+            colorScheme: colorScheme,
+            size: 200.0,
+          );
+          disappearBytes = await DialImageRenderer.renderDialPng(
+            events: events,
+            currentTime: now,
+            settings: const DialSettings(
+              is24HourMode: false,
+              pastHoursStyle: PastHoursStyle.disappear,
+            ),
+            colorScheme: colorScheme,
+            size: 200.0,
+          );
+        });
 
-      expect(dimBytes, isNotNull);
-      expect(disappearBytes, isNotNull);
-      expect(dimBytes![0], 0x89);
-      expect(disappearBytes![0], 0x89);
-    });
+        expect(birdsEyeBytes, isNotNull);
+        expect(focusedBytes, isNotNull);
+        expect(disappearBytes, isNotNull);
+        expect(birdsEyeBytes![0], 0x89);
+        expect(focusedBytes![0], 0x89);
+        expect(disappearBytes![0], 0x89);
+      },
+    );
 
     test('DialSettings dialShape serialization round-trip', () {
       const settings = DialSettings(dialShape: DialShape.waveRounded);

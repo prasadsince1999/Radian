@@ -31,6 +31,7 @@ class PolarHitTest {
     required double outerRadius,
     required List<T> sectors,
     double touchSlopDegrees = 4.0,
+    double? angleOverride,
   }) {
     final dx = localOffset.dx - center.dx;
     final dy = localOffset.dy - center.dy;
@@ -41,7 +42,8 @@ class PolarHitTest {
       return null;
     }
 
-    final touchAngle = SectorMath.touchDeltaToDialAngle(dx, dy);
+    final touchAngle =
+        angleOverride ?? SectorMath.touchDeltaToDialAngle(dx, dy);
     final radialThickness = outerRadius - innerRadius;
     if (radialThickness <= 0) return null;
 

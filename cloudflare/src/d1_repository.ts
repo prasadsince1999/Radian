@@ -204,7 +204,7 @@ export class D1Repository {
       face_style: 'classicTicks',
       sector_style: 'softGradient',
       hand_style: 'sleekNeedle',
-      past_hours_style: 'shadowDim',
+      past_hours_style: 'birdsEye',
       center_clock_display: 'digitalTimeOnly',
       updated_at: new Date().toISOString(),
     };

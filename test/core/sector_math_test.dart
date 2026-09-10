@@ -117,4 +117,66 @@ void main() {
       expect(split.day2Start.minute, 0);
     });
   });
+
+  group('FocusedWarp Tests', () {
+    test(
+      'scales active sector based on subtask count and clamps correctly',
+      () {
+        final warp0 = FocusedWarp.fromEvent(
+          eventId: 'ev1',
+          startAngle: 30.0,
+          sweepAngle: 30.0,
+          subtaskCount: 0,
+        );
+        expect(warp0.targetSweep, 140.0);
+
+        final warp2 = FocusedWarp.fromEvent(
+          eventId: 'ev1',
+          startAngle: 30.0,
+          sweepAngle: 30.0,
+          subtaskCount: 2,
+        );
+        expect(warp2.targetSweep, 190.0); // 140 + 2 * 25 = 190
+
+        final warp10 = FocusedWarp.fromEvent(
+          eventId: 'ev1',
+          startAngle: 30.0,
+          sweepAngle: 30.0,
+          subtaskCount: 10,
+        );
+        expect(warp10.targetSweep, 270.0); // clamped to 270
+      },
+    );
+
+    test(
+      'is strictly bijective: unwarp(warp(deg)) == deg across full circle',
+      () {
+        final warp = FocusedWarp.fromEvent(
+          eventId: 'ev1',
+          startAngle: 45.0,
+          sweepAngle: 60.0,
+          subtaskCount: 3,
+        );
+
+        for (var deg = 0.0; deg < 360.0; deg += 7.5) {
+          final warped = warp.warp(deg);
+          final unwarped = warp.unwarp(warped);
+          expect(unwarped, closeTo(deg, 0.001));
+        }
+      },
+    );
+
+    test('centers warped focus sector around original event midpoint', () {
+      final warp = FocusedWarp.fromEvent(
+        eventId: 'ev1',
+        startAngle: 60.0,
+        sweepAngle: 30.0,
+        subtaskCount: 1,
+      );
+      // Event center is 75°
+      // Midpoint warped should be 75°
+      expect(warp.warp(75.0), closeTo(75.0, 0.001));
+      expect(warp.unwarp(75.0), closeTo(75.0, 0.001));
+    });
+  });
 }

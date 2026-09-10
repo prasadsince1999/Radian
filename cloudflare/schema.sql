@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS dial_settings (
     face_style TEXT DEFAULT 'classicTicks',
     sector_style TEXT DEFAULT 'softGradient',
     hand_style TEXT DEFAULT 'sleekNeedle',
-    past_hours_style TEXT DEFAULT 'shadowDim',
+    past_hours_style TEXT DEFAULT 'birdsEye',
     center_clock_display TEXT DEFAULT 'digitalTimeOnly',
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );

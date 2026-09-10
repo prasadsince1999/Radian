@@ -121,3 +121,86 @@ class SectorMath {
     );
   }
 }
+
+/// Dynamic non-linear angular warping engine for Focused Blocks mode.
+///
+/// Expands the active block to occupy a prominent fraction of the dial (140°-270°,
+/// proportional to subtask count) while smoothly compressing the remaining dial angles.
+class FocusedWarp {
+  final String focusEventId;
+  final double startDeg; // natural start of focus event [0, 360)
+  final double naturalSweep; // natural sweep of focus event (e.g. 37.5)
+  final double targetSweep; // expanded sweep of focus event (e.g. 165.0)
+  final double targetStart; // expanded start of focus event [0, 360)
+
+  const FocusedWarp({
+    required this.focusEventId,
+    required this.startDeg,
+    required this.naturalSweep,
+    required this.targetSweep,
+    required this.targetStart,
+  });
+
+  /// Factory that builds a FocusedWarp from a target focus event and subtask count.
+  factory FocusedWarp.fromEvent({
+    required String eventId,
+    required double startAngle,
+    required double sweepAngle,
+    required int subtaskCount,
+  }) {
+    final natStart = SectorMath.normalizeDegrees(startAngle);
+    final natSweep = sweepAngle.clamp(4.0, 350.0);
+    // Base 140° zoom, + 25° per subtask, clamped to [140°, 270°]
+    final tgtSweep = math.max(
+      natSweep,
+      (140.0 + subtaskCount * 25.0).clamp(140.0, 270.0),
+    );
+    // Center the target sweep roughly around the original mid angle
+    final tgtStart = SectorMath.normalizeDegrees(
+      natStart - (tgtSweep - natSweep) / 2.0,
+    );
+    return FocusedWarp(
+      focusEventId: eventId,
+      startDeg: natStart,
+      naturalSweep: natSweep,
+      targetSweep: tgtSweep,
+      targetStart: tgtStart,
+    );
+  }
+
+  /// Transforms any natural dial angle [deg] into its warped position on the focused dial.
+  double warp(double deg) {
+    var d = (deg - startDeg) % 360.0;
+    if (d < 0) d += 360.0;
+
+    if (d <= naturalSweep) {
+      final frac = naturalSweep > 0 ? d / naturalSweep : 0.0;
+      return SectorMath.normalizeDegrees(targetStart + frac * targetSweep);
+    } else {
+      final outsideOrig = 360.0 - naturalSweep;
+      final outsideTarget = 360.0 - targetSweep;
+      final frac = (d - naturalSweep) / outsideOrig;
+      return SectorMath.normalizeDegrees(
+        targetStart + targetSweep + frac * outsideTarget,
+      );
+    }
+  }
+
+  /// Inverse transform from warped dial angle back to natural dial angle.
+  double unwarp(double warpedDeg) {
+    var d = (warpedDeg - targetStart) % 360.0;
+    if (d < 0) d += 360.0;
+
+    if (d <= targetSweep) {
+      final frac = targetSweep > 0 ? d / targetSweep : 0.0;
+      return SectorMath.normalizeDegrees(startDeg + frac * naturalSweep);
+    } else {
+      final outsideOrig = 360.0 - naturalSweep;
+      final outsideTarget = 360.0 - targetSweep;
+      final frac = (d - targetSweep) / outsideTarget;
+      return SectorMath.normalizeDegrees(
+        startDeg + naturalSweep + frac * outsideOrig,
+      );
+    }
+  }
+}

@@ -10,7 +10,7 @@ enum CenterClockDisplay { digital, analog, both }
 
 enum DialShape { circle, waveRounded }
 
-enum PastHoursStyle { normal, shadowDim, disappear }
+enum PastHoursStyle { disappear, birdsEye, focusedBlock }
 
 /// Dial and aesthetic preferences that can be customized via UI or AI/MCP.
 @immutable
@@ -36,7 +36,7 @@ class DialSettings {
     this.handStyle = HandStyle.sleekNeedle,
     this.centerClockDisplay = CenterClockDisplay.both,
     this.dialShape = DialShape.circle,
-    this.pastHoursStyle = PastHoursStyle.shadowDim,
+    this.pastHoursStyle = PastHoursStyle.birdsEye,
     this.showAllDayEvents = true,
     this.startHour = 0,
   });
@@ -123,7 +123,7 @@ class DialSettings {
       ),
       pastHoursStyle: PastHoursStyle.values.firstWhere(
         (e) => e.name == json['pastHoursStyle'],
-        orElse: () => PastHoursStyle.shadowDim,
+        orElse: () => PastHoursStyle.birdsEye,
       ),
       showAllDayEvents: json['showAllDayEvents'] as bool? ?? true,
       startHour: json['startHour'] as int? ?? 0,
