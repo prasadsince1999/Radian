@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Radian</string>
+    <string name="widget_name">Radian Dial</string>
+    <string name="widget_description">360° visual routine clock &amp; AI schedule tracker</string>
+    <string name="widget_no_events">Dial is clear</string>
+    <string name="widget_add_block">+ Block</string>
+    <string name="shortcut_new_block_short">New Block</string>
+    <string name="shortcut_new_block_long">Add New Time Block</string>
+    <string name="shortcut_dial_short">360° Dial</string>
+    <string name="shortcut_dial_long">View Today\'s Circular Dial</string>
+</resources>

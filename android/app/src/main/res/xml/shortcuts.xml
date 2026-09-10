@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_block"
+        android:enabled="true"
+        android:icon="@drawable/ic_launcher_monochrome"
+        android:shortcutShortLabel="@string/shortcut_new_block_short"
+        android:shortcutLongLabel="@string/shortcut_new_block_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.ksmxtech.sectograph_mcp"
+            android:targetClass="com.ksmxtech.sectograph_mcp.MainActivity"
+            android:data="radian://new_block" />
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="view_dial"
+        android:enabled="true"
+        android:icon="@drawable/ic_launcher_monochrome"
+        android:shortcutShortLabel="@string/shortcut_dial_short"
+        android:shortcutLongLabel="@string/shortcut_dial_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.ksmxtech.sectograph_mcp"
+            android:targetClass="com.ksmxtech.sectograph_mcp.MainActivity"
+            android:data="radian://dial" />
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+</shortcuts>

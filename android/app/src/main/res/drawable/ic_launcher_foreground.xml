@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer Dial Track Ring -->
+    <path
+        android:strokeColor="#1E293B"
+        android:strokeWidth="3"
+        android:pathData="M54,24 A30,30 0 1,0 54,84 A30,30 0 1,0 54,24 Z" />
+
+    <!-- Cardinal Hour Tick Marks -->
+    <path
+        android:strokeColor="#475569"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M54,24 L54,28 M84,54 L80,54 M54,84 L54,80 M24,54 L28,54" />
+
+    <!-- Primary Time Block Sector (Indigo: 12:00 to 4:00) -->
+    <path
+        android:fillColor="#6366F1"
+        android:pathData="M54,54 L54,24 A30,30 0 0,1 80,69 Z" />
+
+    <!-- Secondary Time Block Sector (Sky Cyan: 4:00 to 6:30) -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M54,54 L80,69 A30,30 0 0,1 46.2,83 Z" />
+
+    <!-- Center Core Knockout (Donut Dial) -->
+    <path
+        android:fillColor="#0B0F19"
+        android:pathData="M54,38 A16,16 0 1,0 54,70 A16,16 0 1,0 54,38 Z" />
+
+    <!-- Inner Core Rim Guide -->
+    <path
+        android:strokeColor="#334155"
+        android:strokeWidth="1.2"
+        android:pathData="M54,38 A16,16 0 1,0 54,70 A16,16 0 1,0 54,38 Z" />
+
+    <!-- Active Time Needle (Coral / Rose) -->
+    <path
+        android:strokeColor="#F43F5E"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M54,54 L80.8,69.5" />
+
+    <!-- Center Pivot Hub -->
+    <path
+        android:fillColor="#0B0F19"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:pathData="M54,48.5 A5.5,5.5 0 1,0 54,59.5 A5.5,5.5 0 1,0 54,48.5 Z" />
+
+    <path
+        android:fillColor="#F43F5E"
+        android:pathData="M54,51.5 A2.5,2.5 0 1,0 54,56.5 A2.5,2.5 0 1,0 54,51.5 Z" />
+</vector>

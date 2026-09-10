@@ -1,0 +1,1 @@
+This folder contains the built output assets for the worker "sectograph-mcp" generated at 2026-09-09T12:34:26.142Z.

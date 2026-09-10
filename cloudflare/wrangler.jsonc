@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sectograph-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2024-09-23",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sectograph-db",
+      "database_id": "d3df8b73-4ff4-4ea5-a1f4-86c9c472c7ee"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
