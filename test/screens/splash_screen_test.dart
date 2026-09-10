@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sectograph_mcp/core/constants/app_strings.dart';
@@ -11,12 +11,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   group('SplashScreen Widget Tests', () {
     setUp(() {
-      SharedPreferences.setMockInitialValues({'has_completed_onboarding': true});
+      SharedPreferences.setMockInitialValues({
+        'has_completed_onboarding': true,
+      });
     });
 
-    testWidgets('renders RadianAppLogo, app name, and tagline', (
-      tester,
-    ) async {
+    testWidgets('renders RadianAppLogo, app name, and tagline', (tester) async {
       final prefs = await SharedPreferences.getInstance();
       final fixedTime = DateTime(2026, 9, 7, 10, 30);
 

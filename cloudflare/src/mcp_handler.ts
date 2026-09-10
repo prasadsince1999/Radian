@@ -356,6 +356,9 @@ export class McpHandler {
           category: args.category || 'General',
           color_hex: args.colorHex || '#3B82F6',
           notes: args.notes || '',
+          subtasks: args.subtasks
+            ? (typeof args.subtasks === 'string' ? args.subtasks : JSON.stringify(args.subtasks))
+            : null,
         };
         await this.repo.upsertEvent(event);
         return { success: true, eventId: id, message: `Scheduled '${args.title}'` };
@@ -370,6 +373,9 @@ export class McpHandler {
           category: e.category || 'General',
           color_hex: e.colorHex || '#3B82F6',
           notes: e.notes || '',
+          subtasks: e.subtasks
+            ? (typeof e.subtasks === 'string' ? e.subtasks : JSON.stringify(e.subtasks))
+            : null,
         }));
         await this.repo.bulkUpsertEvents(events);
         return { success: true, scheduledCount: events.length };
@@ -385,6 +391,9 @@ export class McpHandler {
           category: e.category || 'General',
           color_hex: e.colorHex || '#3B82F6',
           notes: e.notes || '',
+          subtasks: e.subtasks
+            ? (typeof e.subtasks === 'string' ? e.subtasks : JSON.stringify(e.subtasks))
+            : null,
         }));
         await this.repo.replaceDaySchedule(date, events);
         return { success: true, date, scheduledCount: events.length };

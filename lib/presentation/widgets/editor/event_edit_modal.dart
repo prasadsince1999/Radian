@@ -446,6 +446,15 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
     final title = _titleController.text.trim();
     if (title.isEmpty) return;
 
+    // Auto-commit any pending subtask still in the input field
+    final pendingSubtask = _subtaskInputController.text.trim();
+    final effectiveSubtasks = List<String>.from(_subtasks);
+    if (pendingSubtask.isNotEmpty) {
+      effectiveSubtasks.add(pendingSubtask);
+      _subtasks.add(pendingSubtask);
+      _subtaskInputController.clear();
+    }
+
     final repo = ref.read(eventRepositoryProvider);
     final startDt = _isAllDay
         ? DateTime(_startDate.year, _startDate.month, _startDate.day, 0, 0)
@@ -473,13 +482,18 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
           ? null
           : _selectedWeeklyDays.toList(),
       recurrenceEndDate: _isUnlimitedEndDate ? null : _recurrenceEndDate,
-      subtasks: _subtasks,
+      subtasks: effectiveSubtasks,
     );
 
     if (widget.event == null) {
       repo.addEvent(newEvent);
+      ref.read(selectedEventProvider.notifier).state = newEvent;
     } else {
       repo.updateEvent(newEvent);
+      final currentSelected = ref.read(selectedEventProvider);
+      if (currentSelected?.id == newEvent.id) {
+        ref.read(selectedEventProvider.notifier).state = newEvent;
+      }
     }
 
     ref.read(cloudSyncServiceProvider).queueUpsert(newEvent);

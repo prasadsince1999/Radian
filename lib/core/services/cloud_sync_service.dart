@@ -157,11 +157,25 @@ class CloudSyncService {
               List<String> subtasks = const [];
               if (map['subtasks'] != null) {
                 try {
-                  final decoded = jsonDecode(map['subtasks'] as String);
-                  subtasks = (decoded as List)
-                      .map((i) => i.toString())
-                      .toList();
+                  final dynamic rawSub = map['subtasks'];
+                  final decoded = rawSub is String
+                      ? jsonDecode(rawSub)
+                      : rawSub;
+                  if (decoded is List) {
+                    subtasks = decoded.map((i) => i.toString()).toList();
+                  }
                 } catch (_) {}
+              }
+
+              // Guard: If cloud response omitted or has empty subtasks, preserve local subtasks
+              if (subtasks.isEmpty) {
+                final allLocal = await repository.getAllEvents();
+                for (final loc in allLocal) {
+                  if (loc.id == map['id'] && loc.subtasks.isNotEmpty) {
+                    subtasks = loc.subtasks;
+                    break;
+                  }
+                }
               }
 
               incomingEvents.add(

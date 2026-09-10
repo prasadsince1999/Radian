@@ -45,8 +45,8 @@ var D1Repository = class {
       INSERT INTO events (
         id, title, start, end, category, color_hex, notes, 
         is_all_day, icon_name, reminder_minutes, repeat_days, 
-        recurrence_end_date, updated_at, deleted_at
-      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, NULL)
+        recurrence_end_date, subtasks, updated_at, deleted_at
+      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, NULL)
       ON CONFLICT(id) DO UPDATE SET
         title = excluded.title,
         start = excluded.start,
@@ -59,6 +59,7 @@ var D1Repository = class {
         reminder_minutes = excluded.reminder_minutes,
         repeat_days = excluded.repeat_days,
         recurrence_end_date = excluded.recurrence_end_date,
+        subtasks = excluded.subtasks,
         updated_at = excluded.updated_at,
         deleted_at = NULL
     `;
@@ -76,6 +77,7 @@ var D1Repository = class {
       event.reminder_minutes ?? null,
       event.repeat_days || null,
       event.recurrence_end_date || null,
+      event.subtasks || null,
       now
     ).run();
   }
@@ -90,8 +92,8 @@ var D1Repository = class {
         INSERT INTO events (
           id, title, start, end, category, color_hex, notes, 
           is_all_day, icon_name, reminder_minutes, repeat_days, 
-          recurrence_end_date, updated_at, deleted_at
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, NULL)
+          recurrence_end_date, subtasks, updated_at, deleted_at
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, NULL)
         ON CONFLICT(id) DO UPDATE SET
           title = excluded.title,
           start = excluded.start,
@@ -104,6 +106,7 @@ var D1Repository = class {
           reminder_minutes = excluded.reminder_minutes,
           repeat_days = excluded.repeat_days,
           recurrence_end_date = excluded.recurrence_end_date,
+          subtasks = excluded.subtasks,
           updated_at = excluded.updated_at,
           deleted_at = NULL
       `).bind(
@@ -119,6 +122,7 @@ var D1Repository = class {
         event.reminder_minutes ?? null,
         event.repeat_days || null,
         event.recurrence_end_date || null,
+        event.subtasks || null,
         now
       );
     });
@@ -140,8 +144,8 @@ var D1Repository = class {
         INSERT INTO events (
           id, title, start, end, category, color_hex, notes, 
           is_all_day, icon_name, reminder_minutes, repeat_days, 
-          recurrence_end_date, updated_at, deleted_at
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, NULL)
+          recurrence_end_date, subtasks, updated_at, deleted_at
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, NULL)
       `).bind(
         event.id,
         event.title,
@@ -155,6 +159,7 @@ var D1Repository = class {
         event.reminder_minutes ?? null,
         event.repeat_days || null,
         event.recurrence_end_date || null,
+        event.subtasks || null,
         now
       );
     });
@@ -580,7 +585,8 @@ var McpHandler = class {
           end: args.end,
           category: args.category || "General",
           color_hex: args.colorHex || "#3B82F6",
-          notes: args.notes || ""
+          notes: args.notes || "",
+          subtasks: args.subtasks ? typeof args.subtasks === "string" ? args.subtasks : JSON.stringify(args.subtasks) : null
         };
         await this.repo.upsertEvent(event);
         return { success: true, eventId: id, message: `Scheduled '${args.title}'` };
@@ -593,7 +599,8 @@ var McpHandler = class {
           end: e.end,
           category: e.category || "General",
           color_hex: e.colorHex || "#3B82F6",
-          notes: e.notes || ""
+          notes: e.notes || "",
+          subtasks: e.subtasks ? typeof e.subtasks === "string" ? e.subtasks : JSON.stringify(e.subtasks) : null
         }));
         await this.repo.bulkUpsertEvents(events);
         return { success: true, scheduledCount: events.length };
@@ -607,7 +614,8 @@ var McpHandler = class {
           end: e.end,
           category: e.category || "General",
           color_hex: e.colorHex || "#3B82F6",
-          notes: e.notes || ""
+          notes: e.notes || "",
+          subtasks: e.subtasks ? typeof e.subtasks === "string" ? e.subtasks : JSON.stringify(e.subtasks) : null
         }));
         await this.repo.replaceDaySchedule(date, events);
         return { success: true, date, scheduledCount: events.length };

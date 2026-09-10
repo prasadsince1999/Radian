@@ -124,7 +124,10 @@ class _McpStatusSheetState extends ConsumerState<McpStatusSheet>
                     .setPublicTunnelUrl('');
                 Navigator.of(ctx).pop();
               },
-              child: Text('Reset to Hosted', style: TextStyle(color: colorScheme.error)),
+              child: Text(
+                'Reset to Hosted',
+                style: TextStyle(color: colorScheme.error),
+              ),
             ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
@@ -150,7 +153,8 @@ class _McpStatusSheetState extends ConsumerState<McpStatusSheet>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final claudeConfig = '''
+    final claudeConfig =
+        '''
 // Claude Desktop & Cursor Configuration
 {
   "mcpServers": {
@@ -195,7 +199,9 @@ class _McpStatusSheetState extends ConsumerState<McpStatusSheet>
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer.withValues(alpha: 0.4),
+                      color: colorScheme.primaryContainer.withValues(
+                        alpha: 0.4,
+                      ),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: colorScheme.primary.withValues(alpha: 0.3),
@@ -348,8 +354,7 @@ class _McpStatusSheetState extends ConsumerState<McpStatusSheet>
                         context,
                         colorScheme: colorScheme,
                         title: 'Claude Desktop & Cursor',
-                        description:
-                            'Add Radian to your Claude Desktop or Cursor configuration to let AI inspect and plan your circular dial:',
+                        description: 'Add Radian to your Claude Desktop or Cursor configuration to let AI inspect and plan your circular dial:',
                         code: claudeConfig,
                         onCopy: () => _copyToClipboard(
                           claudeConfig,
@@ -362,8 +367,7 @@ class _McpStatusSheetState extends ConsumerState<McpStatusSheet>
                         context,
                         colorScheme: colorScheme,
                         title: 'ChatGPT Mobile & Custom Actions',
-                        description:
-                            'Paste this live OpenAPI 3.0 URL into your Custom GPT Action schema so ChatGPT can schedule your day:',
+                        description: 'Paste this live OpenAPI 3.0 URL into your Custom GPT Action schema so ChatGPT can schedule your day:',
                         code: chatGptAction,
                         onCopy: () => _copyToClipboard(
                           chatGptAction,
@@ -526,11 +530,8 @@ class _McpStatusSheetState extends ConsumerState<McpStatusSheet>
                   IconButton.filledTonal(
                     icon: const Icon(Icons.copy_rounded, size: 16),
                     tooltip: 'Copy Server URL',
-                    onPressed: () => _copyToClipboard(
-                      currentUrl,
-                      'Server URL',
-                      colorScheme,
-                    ),
+                    onPressed: () =>
+                        _copyToClipboard(currentUrl, 'Server URL', colorScheme),
                   ),
                 ],
               ),
@@ -542,11 +543,8 @@ class _McpStatusSheetState extends ConsumerState<McpStatusSheet>
         // Primary Action: 1-Tap Copy for Gemini
         BouncyPressable(
           scaleDownFactor: 0.95,
-          onTap: () => _copyToClipboard(
-            currentUrl,
-            'Gemini Connector URL',
-            colorScheme,
-          ),
+          onTap: () =>
+              _copyToClipboard(currentUrl, 'Gemini Connector URL', colorScheme),
           child: Container(
             height: 46,
             decoration: BoxDecoration(
@@ -589,10 +587,8 @@ class _McpStatusSheetState extends ConsumerState<McpStatusSheet>
                   : 'Custom Endpoint Override (Optional)',
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
             ),
-            onPressed: () => _showTunnelConfigDialog(
-              context,
-              mcpState.publicTunnelUrl,
-            ),
+            onPressed: () =>
+                _showTunnelConfigDialog(context, mcpState.publicTunnelUrl),
           ),
         ),
       ],

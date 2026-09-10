@@ -110,8 +110,8 @@ export class D1Repository {
         INSERT INTO events (
           id, title, start, end, category, color_hex, notes, 
           is_all_day, icon_name, reminder_minutes, repeat_days, 
-          recurrence_end_date, updated_at, deleted_at
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, NULL)
+          recurrence_end_date, subtasks, updated_at, deleted_at
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, NULL)
         ON CONFLICT(id) DO UPDATE SET
           title = excluded.title,
           start = excluded.start,
@@ -124,6 +124,7 @@ export class D1Repository {
           reminder_minutes = excluded.reminder_minutes,
           repeat_days = excluded.repeat_days,
           recurrence_end_date = excluded.recurrence_end_date,
+          subtasks = excluded.subtasks,
           updated_at = excluded.updated_at,
           deleted_at = NULL
       `).bind(
@@ -139,6 +140,7 @@ export class D1Repository {
         event.reminder_minutes ?? null,
         event.repeat_days || null,
         event.recurrence_end_date || null,
+        event.subtasks || null,
         now
       );
     });
@@ -164,8 +166,8 @@ export class D1Repository {
         INSERT INTO events (
           id, title, start, end, category, color_hex, notes, 
           is_all_day, icon_name, reminder_minutes, repeat_days, 
-          recurrence_end_date, updated_at, deleted_at
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, NULL)
+          recurrence_end_date, subtasks, updated_at, deleted_at
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, NULL)
       `).bind(
         event.id,
         event.title,
@@ -179,6 +181,7 @@ export class D1Repository {
         event.reminder_minutes ?? null,
         event.repeat_days || null,
         event.recurrence_end_date || null,
+        event.subtasks || null,
         now
       );
     });

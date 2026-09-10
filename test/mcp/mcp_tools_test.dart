@@ -113,23 +113,29 @@ void main() {
       'get_clock_state detects current active event and upcoming timeline',
       () async {
         final now = DateTime.now();
+        final endOfDay = DateTime(now.year, now.month, now.day, 23, 59);
+        final remainingMinutes = endOfDay.difference(now).inMinutes;
+        final activeEndMins = remainingMinutes > 10 ? 5 : 1;
+        final upcomingStartMins = remainingMinutes > 10 ? 6 : 2;
+        final upcomingEndMins = remainingMinutes > 10 ? 8 : 3;
+
         // Active event right now
         await repository.addEvent(
           SectorEvent(
             id: 'active-1',
             title: 'Current Active Focus',
-            start: now.subtract(const Duration(minutes: 15)),
-            end: now.add(const Duration(minutes: 45)),
+            start: now.subtract(const Duration(minutes: 5)),
+            end: now.add(Duration(minutes: activeEndMins)),
             category: 'Focus',
           ),
         );
-        // Upcoming event later
+        // Upcoming event later today
         await repository.addEvent(
           SectorEvent(
             id: 'upcoming-1',
             title: 'Later Workout',
-            start: now.add(const Duration(hours: 2)),
-            end: now.add(const Duration(hours: 3)),
+            start: now.add(Duration(minutes: upcomingStartMins)),
+            end: now.add(Duration(minutes: upcomingEndMins)),
             category: 'Fitness',
           ),
         );

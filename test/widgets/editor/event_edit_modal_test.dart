@@ -571,5 +571,49 @@ void main() {
       expect(allEvents.first.title, equals('Cook Dinner'));
       expect(allEvents.first.subtasks, equals(['Chop Onions', 'Boil Pasta']));
     });
+
+    testWidgets(
+      'typing subtask and directly tapping Create Block without tapping Add auto-commits subtask',
+      (tester) async {
+        tester.view.devicePixelRatio = 1.0;
+        tester.view.physicalSize = const Size(800, 1200);
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
+            child: MaterialApp(
+              home: Scaffold(body: EventEditModal(initialDate: testDate)),
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        // Enter title
+        final titleField = find.byType(TextField).first;
+        await tester.enterText(titleField, 'Study Time');
+        await tester.pumpAndSettle();
+
+        // Enter subtask in subtask field, but DO NOT tap '+ Add'
+        final subtaskField = find.byType(TextField).last;
+        await tester.ensureVisible(subtaskField);
+        await tester.enterText(subtaskField, 'Read Chapter 4');
+        await tester.pumpAndSettle();
+
+        // Directly tap 'Create Block'
+        await tester.ensureVisible(find.text('Create Block'));
+        await tester.tap(find.text('Create Block'));
+        await tester.pumpAndSettle();
+
+        final allEvents = await fakeRepo.getAllEvents();
+        expect(allEvents.length, equals(1));
+        expect(allEvents.first.title, equals('Study Time'));
+        expect(allEvents.first.subtasks, equals(['Read Chapter 4']));
+      },
+    );
   });
 }
