@@ -308,17 +308,27 @@ class SectographDial extends ConsumerWidget {
                             child: SizedBox(
                               width: innerRadius * 2 * 0.94,
                               height: innerRadius * 2 * 0.94,
-                              child: CenterSummary(
-                                currentTime: effectiveTime,
-                                activeEvent: effectiveActive,
-                                selectedEvent: selectedEvent,
-                                is24HourMode: settings.is24HourMode,
-                                onDismissSelected: () {
-                                  ref
-                                          .read(selectedEventProvider.notifier)
-                                          .state =
-                                      null;
-                                },
+                              child: Center(
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: innerRadius * 1.36,
+                                    maxHeight: innerRadius * 1.36,
+                                  ),
+                                  child: CenterSummary(
+                                    currentTime: effectiveTime,
+                                    activeEvent: effectiveActive,
+                                    selectedEvent: selectedEvent,
+                                    is24HourMode: settings.is24HourMode,
+                                    onDismissSelected: () {
+                                      ref
+                                              .read(
+                                                selectedEventProvider.notifier,
+                                              )
+                                              .state =
+                                          null;
+                                    },
+                                  ),
+                                ),
                               ),
                             ),
                           ),

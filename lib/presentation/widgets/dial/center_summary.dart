@@ -89,13 +89,14 @@ class CenterSummary extends ConsumerWidget {
               ),
               const SizedBox(height: 3),
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 160),
+                constraints: const BoxConstraints(maxWidth: 105),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
                     ev.title,
                     textAlign: TextAlign.center,
                     maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w800,
                       color: colorScheme.onSurface,
@@ -219,13 +220,14 @@ class CenterSummary extends ConsumerWidget {
                   if (activeEvent != null) ...[
                     const SizedBox(height: 4),
                     Container(
+                      constraints: const BoxConstraints(maxWidth: 100),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2.5,
+                        horizontal: 7,
+                        vertical: 2.0,
                       ),
                       decoration: BoxDecoration(
                         color: colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: colorScheme.secondary.withValues(alpha: 0.3),
                           width: 1.0,
@@ -236,24 +238,21 @@ class CenterSummary extends ConsumerWidget {
                         children: [
                           Icon(
                             Icons.spa_rounded,
-                            size: 11,
+                            size: 10,
                             color: colorScheme.onSecondaryContainer,
                           ),
-                          const SizedBox(width: 4),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 160),
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                activeEvent!.title,
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  color: colorScheme.onSecondaryContainer,
-                                  fontSize: 10.5,
-                                  letterSpacing: 0.2,
-                                ),
+                          const SizedBox(width: 3.5),
+                          Flexible(
+                            child: Text(
+                              activeEvent!.title,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: colorScheme.onSecondaryContainer,
+                                fontSize: 10,
+                                letterSpacing: 0.2,
                               ),
                             ),
                           ),

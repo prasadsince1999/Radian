@@ -996,6 +996,22 @@ class SectographPainter extends CustomPainter {
           (isCompleted && pastStyle == PastHoursStyle.shadowDim) ? 0.35 : 1.0;
 
       final radii = getEventRadii(event);
+      final cornerRadius = math
+          .min(10.0, (radii.rOut - radii.rIn) * 0.28)
+          .clamp(3.0, 10.0);
+      final sectorClipPath = _buildRoundedSectorPath(
+        center: center,
+        rIn: radii.rIn,
+        rOut: radii.rOut,
+        startDeg: contentStartDeg,
+        sweepDeg: contentSweepDeg,
+        cornerRadius: cornerRadius,
+        roundStart: true,
+        roundEnd: true,
+      );
+
+      canvas.save();
+      canvas.clipPath(sectorClipPath);
       _drawSectorPillContent(
         canvas,
         center,
@@ -1006,6 +1022,7 @@ class SectographPainter extends CustomPainter {
         contentSweepDeg,
         contentAlpha: contentAlpha,
       );
+      canvas.restore();
     }
   }
 
@@ -1174,8 +1191,13 @@ class SectographPainter extends CustomPainter {
     }
 
     String displayTitle = event.title;
-    if (displayTitle.length > 9) {
-      displayTitle = displayTitle.split(' ').first;
+    final delims = RegExp(r'[\s+\-_/:]');
+    final match = delims.firstMatch(displayTitle);
+    if (match != null && match.start > 0) {
+      displayTitle = displayTitle.substring(0, match.start);
+    }
+    if (displayTitle.length > 8) {
+      displayTitle = '${displayTitle.substring(0, 7)}…';
     }
 
     final titlePainter = TextPainter(
@@ -1281,7 +1303,7 @@ class SectographPainter extends CustomPainter {
       }
       canvas.rotate(rotation);
 
-      final maxRadialLength = (rOut - rIn) - 8.0;
+      final maxRadialLength = (rOut - rIn) - 10.0;
       final inlineWidth =
           iconPainter.width +
           4.0 +
@@ -1309,8 +1331,13 @@ class SectographPainter extends CustomPainter {
           titlePainter.width,
           durationPainter.width,
         );
-        final totalWidth = iconPainter.width + 4.0 + textBlockWidth;
-        final startX = -totalWidth / 2.0;
+        var totalWidth = iconPainter.width + 4.0 + textBlockWidth;
+        if (totalWidth > maxRadialLength) {
+          final scaleFactor = (maxRadialLength / totalWidth).clamp(0.65, 1.0);
+          canvas.scale(scaleFactor, scaleFactor);
+          totalWidth = totalWidth * scaleFactor;
+        }
+        final startX = (-totalWidth / 2.0).clamp(-maxRadialLength / 2.0, 0.0);
 
         iconPainter.paint(canvas, Offset(startX, -iconPainter.height / 2.0));
 
@@ -1322,18 +1349,20 @@ class SectographPainter extends CustomPainter {
       canvas.restore();
     } else {
       // Full stack: Icon on top, Title, Duration underneath (all upright!)
-      iconPainter.paint(
-        canvas,
-        Offset(pos.dx - iconPainter.width / 2, pos.dy - 15.0),
-      );
-      titlePainter.paint(
-        canvas,
-        Offset(pos.dx - titlePainter.width / 2, pos.dy + 0.5),
-      );
-      durationPainter.paint(
-        canvas,
-        Offset(pos.dx - durationPainter.width / 2, pos.dy + 13.5),
-      );
+      final arcWidth = midR * (sweepDeg * math.pi / 180.0) - 10.0;
+      var effectiveScale = 1.0;
+      if (titlePainter.width > arcWidth) {
+        effectiveScale = (arcWidth / titlePainter.width).clamp(0.65, 1.0);
+      }
+      canvas.save();
+      canvas.translate(pos.dx, pos.dy);
+      if (effectiveScale < 1.0) {
+        canvas.scale(effectiveScale, effectiveScale);
+      }
+      iconPainter.paint(canvas, Offset(-iconPainter.width / 2, -15.0));
+      titlePainter.paint(canvas, Offset(-titlePainter.width / 2, 0.5));
+      durationPainter.paint(canvas, Offset(-durationPainter.width / 2, 13.5));
+      canvas.restore();
     }
   }
 
