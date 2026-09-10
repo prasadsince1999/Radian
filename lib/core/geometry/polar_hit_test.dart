@@ -45,8 +45,8 @@ class PolarHitTest {
     final radialThickness = outerRadius - innerRadius;
     if (radialThickness <= 0) return null;
 
-    // Normalized radial depth: 0 = inner boundary, 1000 = outer boundary
-    final touchLevel = (((distance - innerRadius) / radialThickness) * 1000)
+    // Normalized radial depth: 0 = outer boundary, 1000 = inner boundary
+    final touchLevel = (((outerRadius - distance) / radialThickness) * 1000)
         .round()
         .clamp(0, 1000);
 

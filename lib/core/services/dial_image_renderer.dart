@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../domain/models/dial_settings.dart';
 import '../../domain/models/sector_event.dart';
 import '../../presentation/widgets/dial/sectograph_painter.dart';
+import '../geometry/concentric_solver.dart';
 import '../geometry/sector_math.dart';
 
 /// Service that renders a high-resolution offscreen image of the Sectograph dial
@@ -44,9 +45,20 @@ abstract final class DialImageRenderer {
       final dayEvents = events.where((e) {
         return e.start.isBefore(todayEnd) && e.end.isAfter(todayStart);
       }).toList();
-      positionedEvents = dayEvents
+      final withAngles = dayEvents
           .map((e) => e.withComputedAngles(is24HourMode: true))
           .toList();
+      final solved = ConcentricSolver.solve(withAngles);
+      positionedEvents = withAngles.map((e) {
+        final levels = solved[e];
+        if (levels != null) {
+          return e.copyWith(
+            topLevel: levels.topLevel,
+            bottomLevel: levels.bottomLevel,
+          );
+        }
+        return e;
+      }).toList();
     } else {
       final isPm = currentTime.hour >= 12;
       final halfStart = DateTime(
@@ -60,7 +72,7 @@ abstract final class DialImageRenderer {
         return e.start.isBefore(halfEnd) && e.end.isAfter(halfStart);
       }).toList();
 
-      positionedEvents = [];
+      final rawEvents = <SectorEvent>[];
       for (final e in halfEvents) {
         final visibleStart = e.start.isBefore(halfStart) ? halfStart : e.start;
         final visibleEnd = e.end.isAfter(halfEnd) ? halfEnd : e.end;
@@ -74,7 +86,7 @@ abstract final class DialImageRenderer {
             visibleDuration,
             is24HourMode: false,
           );
-          positionedEvents.add(
+          rawEvents.add(
             e.copyWith(
               topLevel: 0,
               bottomLevel: 1000,
@@ -84,6 +96,17 @@ abstract final class DialImageRenderer {
           );
         }
       }
+      final solved = ConcentricSolver.solve(rawEvents);
+      positionedEvents = rawEvents.map((e) {
+        final levels = solved[e];
+        if (levels != null) {
+          return e.copyWith(
+            topLevel: levels.topLevel,
+            bottomLevel: levels.bottomLevel,
+          );
+        }
+        return e;
+      }).toList();
     }
 
     final painter = SectographPainter(

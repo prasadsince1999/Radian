@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_layout_constants.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/geometry/concentric_solver.dart';
 import '../../../core/geometry/polar_hit_test.dart';
 import '../../../core/geometry/sector_math.dart';
 import '../../../domain/models/dial_settings.dart';
@@ -110,9 +111,20 @@ class SectographDial extends ConsumerWidget {
                                 e.end.isAfter(startOfDay),
                           )
                           .toList();
-                      computedEvents = dayEvents
+                      final withAngles = dayEvents
                           .map((e) => e.withComputedAngles(is24HourMode: true))
                           .toList();
+                      final solved = ConcentricSolver.solve(withAngles);
+                      computedEvents = withAngles.map((e) {
+                        final levels = solved[e];
+                        if (levels != null) {
+                          return e.copyWith(
+                            topLevel: levels.topLevel,
+                            bottomLevel: levels.bottomLevel,
+                          );
+                        }
+                        return e;
+                      }).toList();
                     } else {
                       // 12-Hour Mode:
                       // Determine current or scrubbed reference time
@@ -173,7 +185,7 @@ class SectographDial extends ConsumerWidget {
                             e.end.isAfter(halfStart);
                       }).toList();
 
-                      computedEvents = [];
+                      final rawEvents = <SectorEvent>[];
                       for (final e in halfEvents) {
                         // Visible portion within this 12H half
                         final visibleStart = e.start.isBefore(halfStart)
@@ -196,7 +208,7 @@ class SectographDial extends ConsumerWidget {
                             is24HourMode: false,
                           );
 
-                          computedEvents.add(
+                          rawEvents.add(
                             e.copyWith(
                               topLevel: 0,
                               bottomLevel: 1000,
@@ -206,6 +218,18 @@ class SectographDial extends ConsumerWidget {
                           );
                         }
                       }
+
+                      final solved = ConcentricSolver.solve(rawEvents);
+                      computedEvents = rawEvents.map((e) {
+                        final levels = solved[e];
+                        if (levels != null) {
+                          return e.copyWith(
+                            topLevel: levels.topLevel,
+                            bottomLevel: levels.bottomLevel,
+                          );
+                        }
+                        return e;
+                      }).toList();
                     }
 
                     // Compute effective time and effective active event for digital readout
@@ -243,7 +267,7 @@ class SectographDial extends ConsumerWidget {
                           innerRadius:
                               innerRadius +
                               AppLayoutConstants.routineTrackInnerOffset,
-                          outerRadius: baseRadius - 38.0,
+                          outerRadius: baseRadius - 28.0,
                           sectors: computedEvents,
                         );
                         ref.read(selectedEventProvider.notifier).state = tapped;

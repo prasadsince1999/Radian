@@ -506,6 +506,20 @@ class SectographPainter extends CustomPainter {
     const double overlapDeg =
         2.5; // 3D overlap extension over contiguous successor
 
+    ({double rIn, double rOut}) getEventRadii(SectorEvent event) {
+      final totalTrackThickness = routineTrackOut - routineTrackIn;
+      final rawROut =
+          routineTrackOut - (event.topLevel / 1000.0) * totalTrackThickness;
+      final rawRIn =
+          routineTrackOut - (event.bottomLevel / 1000.0) * totalTrackThickness;
+
+      // Concentric separator gap: 1.0dp inset on non-boundary edges (gives 2.0dp between tracks)
+      const gapHalf = 1.0;
+      final rOut = event.topLevel > 0 ? (rawROut - gapHalf) : rawROut;
+      final rIn = event.bottomLevel < 1000 ? (rawRIn + gapHalf) : rawRIn;
+      return (rIn: rIn, rOut: rOut);
+    }
+
     final is24 = settings.is24HourMode;
     final pastStyle = settings.pastHoursStyle;
 
@@ -552,6 +566,12 @@ class SectographPainter extends CustomPainter {
         if (i == j) continue;
         final other = events[j];
         if (other.sweepAngle <= 1.0) continue;
+
+        // Only events sharing the same concentric tier can be contiguous
+        final sameTier =
+            event.topLevel == other.topLevel &&
+            event.bottomLevel == other.bottomLevel;
+        if (!sameTier) continue;
 
         // Meets at start
         if ((event.start.difference(other.end).inMinutes).abs() <= 2) {
@@ -607,13 +627,20 @@ class SectographPainter extends CustomPainter {
         sweepDeg = (event.sweepAngle - startGap - endGap).clamp(4.0, 360.0);
       }
 
+      final radii = getEventRadii(event);
+      final eventRIn = radii.rIn;
+      final eventROut = radii.rOut;
+      final cornerRadius = math
+          .min(10.0, (eventROut - eventRIn) * 0.28)
+          .clamp(3.0, 10.0);
+
       final sectorPath = _buildRoundedSectorPath(
         center: center,
-        rIn: routineTrackIn,
-        rOut: routineTrackOut,
+        rIn: eventRIn,
+        rOut: eventROut,
         startDeg: startDeg,
         sweepDeg: sweepDeg,
-        cornerRadius: 10.0,
+        cornerRadius: cornerRadius,
         roundStart: roundStart,
         roundEnd: roundEnd,
       );
@@ -640,11 +667,11 @@ class SectographPainter extends CustomPainter {
         if (safeElapsedDeg > 1.5) {
           final elapsedPath = _buildRoundedSectorPath(
             center: center,
-            rIn: routineTrackIn,
-            rOut: routineTrackOut,
+            rIn: eventRIn,
+            rOut: eventROut,
             startDeg: startDeg,
             sweepDeg: safeElapsedDeg,
-            cornerRadius: 10.0,
+            cornerRadius: cornerRadius,
             roundStart: roundStart,
             roundEnd: false,
           );
@@ -665,7 +692,7 @@ class SectographPainter extends CustomPainter {
     }
 
     // Pass 2: Draw 3D overlapping end caps with drop shadows & single boundary timestamps
-    final drawnTimestampAngles = <double>[];
+    final drawnTimestampAngles = <({int tier, double angle})>[];
 
     for (int i = 0; i < events.length; i++) {
       final event = events[i];
@@ -682,7 +709,15 @@ class SectographPainter extends CustomPainter {
         continue;
       }
 
-      final desiredSpan = (20.0 / routineTrackOut) * (180.0 / math.pi);
+      final radii = getEventRadii(event);
+      final eventRIn = radii.rIn;
+      final eventROut = radii.rOut;
+      final cornerRadius = math
+          .min(10.0, (eventROut - eventRIn) * 0.28)
+          .clamp(3.0, 10.0);
+      final isMultiTier = event.topLevel > 0 || event.bottomLevel < 1000;
+
+      final desiredSpan = (20.0 / eventROut) * (180.0 / math.pi);
       final edgeSpanDeg = desiredSpan.clamp(minSpan, maxSpan);
       final isContiguous = hasContiguousSuccessor[i];
 
@@ -691,10 +726,12 @@ class SectographPainter extends CustomPainter {
       final capSpanDeg = edgeSpanDeg + (isContiguous ? overlapDeg : 0.0);
 
       bool angleAlreadyDrawn(double deg) {
-        for (final a in drawnTimestampAngles) {
-          final diff = ((deg - a).abs()) % 360.0;
-          final angularDistance = diff > 180.0 ? 360.0 - diff : diff;
-          if (angularDistance < 8.0) return true;
+        for (final entry in drawnTimestampAngles) {
+          if (entry.tier == event.topLevel) {
+            final diff = ((deg - entry.angle).abs()) % 360.0;
+            final angularDistance = diff > 180.0 ? 360.0 - diff : diff;
+            if (angularDistance < 8.0) return true;
+          }
         }
         return false;
       }
@@ -704,11 +741,11 @@ class SectographPainter extends CustomPainter {
       // 3D Overlapping end cap path
       final capPath = _buildRoundedSectorPath(
         center: center,
-        rIn: routineTrackIn,
-        rOut: routineTrackOut,
+        rIn: eventRIn,
+        rOut: eventROut,
         startDeg: capEndDeg - capSpanDeg,
         sweepDeg: capSpanDeg,
-        cornerRadius: 10.0,
+        cornerRadius: cornerRadius,
         roundStart: false,
         roundEnd: true,
       );
@@ -741,7 +778,7 @@ class SectographPainter extends CustomPainter {
         text: TextSpan(
           text: endTimeStr,
           style: TextStyle(
-            fontSize: 9.0,
+            fontSize: isMultiTier ? 8.0 : 9.0,
             fontWeight: FontWeight.w900,
             color: const Color(0xFFFFFFFF).withValues(alpha: textAlpha),
             letterSpacing: 0.2,
@@ -754,7 +791,7 @@ class SectographPainter extends CustomPainter {
 
       final textAngleDeg = endBoundaryDeg - (edgeSpanDeg * 0.45);
       final radAngle = SectorMath.dialAngleToCanvasRadians(textAngleDeg);
-      final midR = (routineTrackIn + routineTrackOut) / 2.0;
+      final midR = (eventRIn + eventROut) / 2.0;
 
       final endTextCenter = Offset(
         center.dx + midR * math.cos(radAngle),
@@ -776,7 +813,7 @@ class SectographPainter extends CustomPainter {
       );
       canvas.restore();
 
-      drawnTimestampAngles.add(endBoundaryDeg);
+      drawnTimestampAngles.add((tier: event.topLevel, angle: endBoundaryDeg));
     }
 
     // Pass 3: Draw start timestamps for isolated events that do NOT have a contiguous predecessor
@@ -799,29 +836,39 @@ class SectographPainter extends CustomPainter {
         continue;
       }
 
+      final radii = getEventRadii(event);
+      final eventRIn = radii.rIn;
+      final eventROut = radii.rOut;
+      final cornerRadius = math
+          .min(10.0, (eventROut - eventRIn) * 0.28)
+          .clamp(3.0, 10.0);
+      final isMultiTier = event.topLevel > 0 || event.bottomLevel < 1000;
+
       final startBoundaryDeg = event.startAngle;
 
       bool angleAlreadyDrawn(double deg) {
-        for (final a in drawnTimestampAngles) {
-          final diff = ((deg - a).abs()) % 360.0;
-          final angularDistance = diff > 180.0 ? 360.0 - diff : diff;
-          if (angularDistance < 8.0) return true;
+        for (final entry in drawnTimestampAngles) {
+          if (entry.tier == event.topLevel) {
+            final diff = ((deg - entry.angle).abs()) % 360.0;
+            final angularDistance = diff > 180.0 ? 360.0 - diff : diff;
+            if (angularDistance < 8.0) return true;
+          }
         }
         return false;
       }
 
       if (angleAlreadyDrawn(startBoundaryDeg)) continue;
 
-      final desiredSpan = (20.0 / routineTrackOut) * (180.0 / math.pi);
+      final desiredSpan = (20.0 / eventROut) * (180.0 / math.pi);
       final edgeSpanDeg = desiredSpan.clamp(minSpan, maxSpan);
 
       final startCapPath = _buildRoundedSectorPath(
         center: center,
-        rIn: routineTrackIn,
-        rOut: routineTrackOut,
+        rIn: eventRIn,
+        rOut: eventROut,
         startDeg: startBoundaryDeg,
         sweepDeg: edgeSpanDeg,
-        cornerRadius: 10.0,
+        cornerRadius: cornerRadius,
         roundStart: true,
         roundEnd: false,
       );
@@ -846,7 +893,7 @@ class SectographPainter extends CustomPainter {
         text: TextSpan(
           text: startTimeStr,
           style: TextStyle(
-            fontSize: 9.0,
+            fontSize: isMultiTier ? 8.0 : 9.0,
             fontWeight: FontWeight.w900,
             color: const Color(0xFFFFFFFF).withValues(alpha: textAlpha),
             letterSpacing: 0.2,
@@ -859,7 +906,7 @@ class SectographPainter extends CustomPainter {
 
       final textAngleDeg = startBoundaryDeg + (edgeSpanDeg * 0.45);
       final radAngle = SectorMath.dialAngleToCanvasRadians(textAngleDeg);
-      final midR = (routineTrackIn + routineTrackOut) / 2.0;
+      final midR = (eventRIn + eventROut) / 2.0;
 
       final startTextCenter = Offset(
         center.dx + midR * math.cos(radAngle),
@@ -881,7 +928,7 @@ class SectographPainter extends CustomPainter {
       );
       canvas.restore();
 
-      drawnTimestampAngles.add(startBoundaryDeg);
+      drawnTimestampAngles.add((tier: event.topLevel, angle: startBoundaryDeg));
     }
 
     // Pass 4: Draw vector icon + Title + Duration upright at sector center
@@ -948,12 +995,13 @@ class SectographPainter extends CustomPainter {
       final contentAlpha =
           (isCompleted && pastStyle == PastHoursStyle.shadowDim) ? 0.35 : 1.0;
 
+      final radii = getEventRadii(event);
       _drawSectorPillContent(
         canvas,
         center,
         event,
-        routineTrackIn,
-        routineTrackOut,
+        radii.rIn,
+        radii.rOut,
         contentStartDeg,
         contentSweepDeg,
         contentAlpha: contentAlpha,
@@ -1090,13 +1138,24 @@ class SectographPainter extends CustomPainter {
         : const Color(0xFF1E1A16);
     final textColor = baseTextColor.withValues(alpha: contentAlpha);
 
+    final isMultiTier = event.topLevel > 0 || event.bottomLevel < 1000;
+    final iconFontSize = isMultiTier
+        ? (is24 ? 11.0 : 12.5)
+        : (is24 ? 13.5 : 15.0);
+    final titleFontSize = isMultiTier
+        ? (is24 ? 8.5 : 9.5)
+        : (is24 ? 10.0 : 11.5);
+    final durationFontSize = isMultiTier
+        ? (is24 ? 7.5 : 8.0)
+        : (is24 ? 8.5 : 9.5);
+
     final iconData = _getEventIcon(event);
 
     final iconPainter = TextPainter(
       text: TextSpan(
         text: String.fromCharCode(iconData.codePoint),
         style: TextStyle(
-          fontSize: is24 ? 13.5 : 15.0,
+          fontSize: iconFontSize,
           fontFamily: iconData.fontFamily,
           package: iconData.fontPackage,
           color: textColor,
@@ -1123,7 +1182,7 @@ class SectographPainter extends CustomPainter {
       text: TextSpan(
         text: displayTitle,
         style: TextStyle(
-          fontSize: is24 ? 10.0 : 11.5,
+          fontSize: titleFontSize,
           fontWeight: FontWeight.w900,
           color: textColor,
           letterSpacing: 0.1,
@@ -1138,7 +1197,7 @@ class SectographPainter extends CustomPainter {
       text: TextSpan(
         text: durationStr,
         style: TextStyle(
-          fontSize: is24 ? 8.5 : 9.5,
+          fontSize: durationFontSize,
           fontWeight: FontWeight.w700,
           color: textColor.withValues(alpha: 0.88),
           letterSpacing: 0.1,
@@ -1147,6 +1206,66 @@ class SectographPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
     )..layout();
+
+    final trackThickness = rOut - rIn;
+
+    if (isMultiTier && trackThickness < 65.0) {
+      final arcLength = midR * (sweepDeg * math.pi / 180.0);
+      if (arcLength < 28.0) {
+        // Narrow multi-tier arc: Icon only
+        iconPainter.paint(
+          canvas,
+          Offset(
+            pos.dx - iconPainter.width / 2,
+            pos.dy - iconPainter.height / 2,
+          ),
+        );
+        return;
+      }
+
+      // 2-line layout for concentric tiers:
+      // Line 1: [Icon] Title (centered horizontally)
+      // Line 2: Duration (centered horizontally)
+      final line1Width = iconPainter.width + 3.0 + titlePainter.width;
+      final totalContentHeight =
+          math.max(iconPainter.height, titlePainter.height) +
+          2.0 +
+          durationPainter.height;
+      final startY = pos.dy - (totalContentHeight / 2.0);
+
+      if (line1Width <= arcLength * 0.92) {
+        final line1StartX = pos.dx - (line1Width / 2.0);
+        iconPainter.paint(
+          canvas,
+          Offset(
+            line1StartX,
+            startY + (titlePainter.height - iconPainter.height) / 2.0,
+          ),
+        );
+        titlePainter.paint(
+          canvas,
+          Offset(line1StartX + iconPainter.width + 3.0, startY),
+        );
+        durationPainter.paint(
+          canvas,
+          Offset(
+            pos.dx - durationPainter.width / 2.0,
+            startY + titlePainter.height + 2.0,
+          ),
+        );
+      } else {
+        // Tighter multi-tier arc: Icon on top, Duration underneath
+        iconPainter.paint(
+          canvas,
+          Offset(pos.dx - iconPainter.width / 2.0, pos.dy - iconPainter.height),
+        );
+        durationPainter.paint(
+          canvas,
+          Offset(pos.dx - durationPainter.width / 2.0, pos.dy + 2.0),
+        );
+      }
+      return;
+    }
 
     final isNarrow = sweepDeg < (is24 ? 36.0 : 45.0);
 

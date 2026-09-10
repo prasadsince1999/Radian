@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sectograph_mcp/core/constants/app_strings.dart';
-import 'package:sectograph_mcp/presentation/controllers/mcp_server_controller.dart';
 import 'package:sectograph_mcp/presentation/widgets/mcp/mcp_status_sheet.dart';
 
 void main() {

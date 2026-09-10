@@ -195,6 +195,57 @@ void main() {
         expect(find.byType(SectographDial), findsOneWidget);
       }
     });
+
+    testWidgets(
+      'renders overlapping events as concentric tracks without errors',
+      (tester) async {
+        final overlappingRepo = FakeEventRepository([
+          SectorEvent(
+            id: 'overlap-1',
+            title: 'Deep Focus Block',
+            start: DateTime(2026, 9, 7, 15, 53),
+            end: DateTime(2026, 9, 7, 17, 23),
+            colorHex: '#3B82F6',
+            category: 'Work',
+          ),
+          SectorEvent(
+            id: 'overlap-2',
+            title: 'Strength & Cardio',
+            start: DateTime(2026, 9, 7, 16, 0),
+            end: DateTime(2026, 9, 7, 17, 15),
+            colorHex: '#10B981',
+            category: 'Fitness',
+          ),
+        ]);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              eventRepositoryProvider.overrideWithValue(overlappingRepo),
+              currentTimeProvider.overrideWith(
+                (ref) => Stream.value(DateTime(2026, 9, 7, 16, 30)),
+              ),
+              selectedDayProvider.overrideWith((ref) => DateTime(2026, 9, 7)),
+            ],
+            child: const MaterialApp(
+              home: Scaffold(
+                body: SizedBox(
+                  width: 400,
+                  height: 500,
+                  child: SectographDial(),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(SectographDial), findsOneWidget);
+      },
+    );
   });
 }
 
