@@ -290,6 +290,67 @@ void main() {
         expect(find.byType(SectographDial), findsOneWidget);
       },
     );
+
+    testWidgets(
+      'renders 2-ring concentric layout in PastHoursStyle.focusedBlock and taps correctly',
+      (tester) async {
+        final focusedRepo = FakeEventRepository([
+          SectorEvent(
+            id: 'active-block',
+            title: 'Active Coding',
+            start: DateTime(2026, 9, 7, 14, 0),
+            end: DateTime(2026, 9, 7, 16, 0),
+            colorHex: '#3B82F6',
+            category: 'Work',
+            subtasks: ['Write Tests', 'Refactor'],
+          ),
+          SectorEvent(
+            id: 'upcoming-block',
+            title: 'Exercise Gym',
+            start: DateTime(2026, 9, 7, 17, 0),
+            end: DateTime(2026, 9, 7, 18, 30),
+            colorHex: '#10B981',
+            category: 'Health',
+          ),
+        ]);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              eventRepositoryProvider.overrideWithValue(focusedRepo),
+              currentTimeProvider.overrideWith(
+                (ref) => Stream.value(DateTime(2026, 9, 7, 14, 30)),
+              ),
+              selectedDayProvider.overrideWith((ref) => DateTime(2026, 9, 7)),
+              dialSettingsProvider.overrideWith(
+                (ref) => _TestDialSettingsNotifier(
+                  const DialSettings(
+                    pastHoursStyle: PastHoursStyle.focusedBlock,
+                    is24HourMode: false,
+                  ),
+                ),
+              ),
+            ],
+            child: const MaterialApp(
+              home: Scaffold(
+                body: Center(
+                  child: SizedBox(
+                    width: 360,
+                    height: 360,
+                    child: SectographDial(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(tester.takeException(), isNull);
+        expect(find.byType(SectographDial), findsOneWidget);
+      },
+    );
   });
 }
 

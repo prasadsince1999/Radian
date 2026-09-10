@@ -32,38 +32,41 @@ class DialFaceSection extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: SegmentedButton<DialFaceStyle>(
-              style: DialEditorStyles.segmentedButtonStyle(colorScheme),
-              segments: const [
-                ButtonSegment(
-                  value: DialFaceStyle.classicTicks,
-                  label: Text(
-                    'Classic',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
+          Builder(
+            builder: (context) {
+              final effectiveStyle =
+                  settings.faceStyle == DialFaceStyle.numbered
+                  ? DialFaceStyle.classicTicks
+                  : settings.faceStyle;
+              return SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<DialFaceStyle>(
+                  style: DialEditorStyles.segmentedButtonStyle(colorScheme),
+                  segments: const [
+                    ButtonSegment(
+                      value: DialFaceStyle.classicTicks,
+                      label: Text(
+                        'Classic',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    ButtonSegment(
+                      value: DialFaceStyle.minimal,
+                      label: Text(
+                        'Minimal',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ],
+                  selected: {effectiveStyle},
+                  onSelectionChanged: (set) {
+                    ref
+                        .read(dialSettingsProvider.notifier)
+                        .setFaceStyle(set.first);
+                  },
                 ),
-                ButtonSegment(
-                  value: DialFaceStyle.numbered,
-                  label: Text(
-                    'Numbers',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
-                ButtonSegment(
-                  value: DialFaceStyle.minimal,
-                  label: Text(
-                    'Minimal',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ],
-              selected: {settings.faceStyle},
-              onSelectionChanged: (set) {
-                ref.read(dialSettingsProvider.notifier).setFaceStyle(set.first);
-              },
-            ),
+              );
+            },
           ),
         ],
       ),

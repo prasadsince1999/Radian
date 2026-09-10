@@ -247,37 +247,49 @@ class SectographDial extends ConsumerWidget {
                       }
                     }
 
-                    FocusedWarp? warp;
-                    if (settings.pastHoursStyle ==
-                        PastHoursStyle.focusedBlock) {
-                      SectorEvent? focusEv = effectiveActive;
-                      if (focusEv == null) {
+                    final routineTrackIn =
+                        innerRadius +
+                        AppLayoutConstants.routineTrackInnerOffset;
+                    final routineTrackOut =
+                        baseRadius - AppLayoutConstants.routineTrackOuterMargin;
+
+                    final isFocusedBlockMode =
+                        settings.pastHoursStyle == PastHoursStyle.focusedBlock;
+                    SectorEvent? focusedEvent = effectiveActive;
+                    if (isFocusedBlockMode) {
+                      if (focusedEvent == null) {
                         for (final e in computedEvents) {
-                          if (e.start.isBefore(effectiveTime) &&
-                              e.end.isAfter(effectiveTime)) {
-                            focusEv = e;
+                          if (!effectiveTime.isBefore(e.start) &&
+                              effectiveTime.isBefore(e.end)) {
+                            focusedEvent = e;
                             break;
                           }
                         }
                       }
-                      focusEv ??= selectedEvent;
-                      if (focusEv == null) {
+                      focusedEvent ??= selectedEvent;
+                      if (focusedEvent == null) {
                         for (final e in computedEvents) {
                           if (e.start.isAfter(effectiveTime)) {
-                            focusEv = e;
+                            focusedEvent = e;
                             break;
                           }
                         }
                       }
-                      if (focusEv != null && focusEv.sweepAngle > 1.0) {
-                        warp = FocusedWarp.fromEvent(
-                          eventId: focusEv.id,
-                          startAngle: focusEv.startAngle,
-                          sweepAngle: focusEv.sweepAngle,
-                          subtaskCount: focusEv.subtasks.length,
-                        );
-                      }
                     }
+
+                    final totalTrackThickness =
+                        routineTrackOut - routineTrackIn;
+                    const ringGap = 3.5;
+                    final outerRingThickness =
+                        (totalTrackThickness - ringGap) * 0.56;
+                    final innerRingThickness =
+                        (totalTrackThickness - ringGap) * 0.44;
+
+                    final outerROut = routineTrackOut;
+                    final outerRIn = routineTrackOut - outerRingThickness;
+                    final innerRIn = routineTrackIn;
+                    final innerROut = innerRIn + innerRingThickness;
+                    final targetFocusId = focusedEvent?.id;
 
                     return GestureDetector(
                       onTapUp: (details) {
@@ -297,18 +309,36 @@ class SectographDial extends ConsumerWidget {
                           details.localPosition.dx - center.dx,
                           details.localPosition.dy - center.dy,
                         );
-                        final unwarpedAngle =
-                            warp?.unwarp(screenAngle) ?? screenAngle;
-                        final tapped = PolarHitTest.findTappedSector(
-                          localOffset: details.localPosition,
-                          center: center,
-                          innerRadius:
-                              innerRadius +
-                              AppLayoutConstants.routineTrackInnerOffset,
-                          outerRadius: baseRadius - 28.0,
-                          sectors: computedEvents,
-                          angleOverride: unwarpedAngle,
-                        );
+                        final tapped =
+                            PolarHitTest.findTappedSector<SectorEvent>(
+                              localOffset: details.localPosition,
+                              center: center,
+                              innerRadius: routineTrackIn,
+                              outerRadius: routineTrackOut,
+                              sectors: computedEvents,
+                              angleOverride: screenAngle,
+                              getRadii:
+                                  (isFocusedBlockMode && targetFocusId != null)
+                                  ? (SectorEvent event) {
+                                      final isOuter = event.id == targetFocusId;
+                                      final trackOut = isOuter
+                                          ? outerROut
+                                          : innerROut;
+                                      final trackIn = isOuter
+                                          ? outerRIn
+                                          : innerRIn;
+                                      final trackW = trackOut - trackIn;
+
+                                      final rawROut =
+                                          trackOut -
+                                          (event.topLevel / 1000.0) * trackW;
+                                      final rawRIn =
+                                          trackOut -
+                                          (event.bottomLevel / 1000.0) * trackW;
+                                      return (rIn: rawRIn, rOut: rawROut);
+                                    }
+                                  : null,
+                            );
                         ref.read(selectedEventProvider.notifier).state = tapped;
                       },
                       onPanStart: (details) {
@@ -316,16 +346,16 @@ class SectographDial extends ConsumerWidget {
                           details.localPosition.dx - center.dx,
                           details.localPosition.dy - center.dy,
                         );
-                        final angle = warp?.unwarp(screenAngle) ?? screenAngle;
-                        ref.read(dialScrubAngleProvider.notifier).state = angle;
+                        ref.read(dialScrubAngleProvider.notifier).state =
+                            screenAngle;
                       },
                       onPanUpdate: (details) {
                         final screenAngle = SectorMath.touchDeltaToDialAngle(
                           details.localPosition.dx - center.dx,
                           details.localPosition.dy - center.dy,
                         );
-                        final angle = warp?.unwarp(screenAngle) ?? screenAngle;
-                        ref.read(dialScrubAngleProvider.notifier).state = angle;
+                        ref.read(dialScrubAngleProvider.notifier).state =
+                            screenAngle;
                       },
                       onPanEnd: (_) {
                         ref.read(dialScrubAngleProvider.notifier).state = null;

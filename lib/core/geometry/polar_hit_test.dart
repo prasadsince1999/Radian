@@ -32,6 +32,7 @@ class PolarHitTest {
     required List<T> sectors,
     double touchSlopDegrees = 4.0,
     double? angleOverride,
+    ({double rIn, double rOut}) Function(T sector)? getRadii,
   }) {
     final dx = localOffset.dx - center.dx;
     final dy = localOffset.dy - center.dy;
@@ -75,13 +76,22 @@ class PolarHitTest {
       }
 
       if (isAngleMatch) {
-        // Radial check (with small slop for easy finger tapping)
-        const levelSlop = 40;
-        final minLevel = (sector.topLevel - levelSlop).clamp(0, 1000);
-        final maxLevel = (sector.bottomLevel + levelSlop).clamp(0, 1000);
+        if (getRadii != null) {
+          final radii = getRadii(sector);
+          const radialSlop = 6.0;
+          if (distance >= (radii.rIn - radialSlop) &&
+              distance <= (radii.rOut + radialSlop)) {
+            return sector;
+          }
+        } else {
+          // Radial check (with small slop for easy finger tapping)
+          const levelSlop = 40;
+          final minLevel = (sector.topLevel - levelSlop).clamp(0, 1000);
+          final maxLevel = (sector.bottomLevel + levelSlop).clamp(0, 1000);
 
-        if (touchLevel >= minLevel && touchLevel <= maxLevel) {
-          return sector;
+          if (touchLevel >= minLevel && touchLevel <= maxLevel) {
+            return sector;
+          }
         }
       }
     }

@@ -62,57 +62,8 @@ class SectographPainter extends CustomPainter {
     final radialThickness = baseRadius - innerRadius;
     final routineTrackIn =
         innerRadius + AppLayoutConstants.routineTrackInnerOffset;
-    final routineTrackOut = baseRadius - 28.0;
-
-    final is24 = settings.is24HourMode;
-    final pastStyle = settings.pastHoursStyle;
-
-    FocusedWarp? warp;
-    if (pastStyle == PastHoursStyle.focusedBlock) {
-      DateTime effectiveTime = currentTime;
-      if (scrubAngle != null) {
-        final currentAngle = SectorMath.timeToDialAngle(
-          currentTime,
-          is24HourMode: is24,
-        );
-        final degPerMin = is24
-            ? SectorMath.degreesPerMinute24H
-            : SectorMath.degreesPerMinute12H;
-        var diff = scrubAngle! - currentAngle;
-        if (diff > 180.0) diff -= 360.0;
-        if (diff < -180.0) diff += 360.0;
-        final deltaMinutes = (diff / degPerMin).round();
-        effectiveTime = currentTime.add(Duration(minutes: deltaMinutes));
-      }
-
-      SectorEvent? focusEv = activeEvent;
-      if (focusEv == null) {
-        for (final e in events) {
-          if (e.start.isBefore(effectiveTime) && e.end.isAfter(effectiveTime)) {
-            focusEv = e;
-            break;
-          }
-        }
-      }
-      focusEv ??= selectedEvent;
-      if (focusEv == null) {
-        for (final e in events) {
-          if (e.start.isAfter(effectiveTime)) {
-            focusEv = e;
-            break;
-          }
-        }
-      }
-
-      if (focusEv != null && focusEv.sweepAngle > 1.0) {
-        warp = FocusedWarp.fromEvent(
-          eventId: focusEv.id,
-          startAngle: focusEv.startAngle,
-          sweepAngle: focusEv.sweepAngle,
-          subtaskCount: focusEv.subtasks.length,
-        );
-      }
-    }
+    final routineTrackOut =
+        baseRadius - AppLayoutConstants.routineTrackOuterMargin;
 
     // 1. Dial chassis with radial spokes & dark slate face (Circle or Wave)
     _drawDialBackground(
@@ -125,14 +76,7 @@ class SectographPainter extends CustomPainter {
     );
 
     // 2. Rounded pill arc routine sectors with 3D overlap, drop shadows & icons
-    _drawSectors(
-      canvas,
-      center,
-      baseRadius,
-      innerRadius,
-      radialThickness,
-      warp: warp,
-    );
+    _drawSectors(canvas, center, baseRadius, innerRadius, radialThickness);
 
     // 3. Subtle dial bezel outline (Circle or Wave)
     _drawDialOutline(
@@ -143,7 +87,7 @@ class SectographPainter extends CustomPainter {
       scallopAmp: scallopAmp,
     );
 
-    // 4. Outer numerals 1-12 and 60 minute ticks (clean numbers, no major tick lines sticking into them)
+    // 4. Outer rim ticks (chronograph styling, numerals removed for 12H & 24H)
     _drawTicksAndNumbers(
       canvas,
       center,
@@ -151,7 +95,6 @@ class SectographPainter extends CustomPainter {
       innerRadius,
       isWave: isWave,
       scallopAmp: scallopAmp,
-      warp: warp,
     );
 
     // 5. Day / Night "NOW" sweep needle & moon/sun node (stay ABOVE ALL numbers, ticks, and sectors)
@@ -162,7 +105,6 @@ class SectographPainter extends CustomPainter {
       innerRadius,
       routineTrackIn,
       routineTrackOut,
-      warp: warp,
     );
 
     // 6. Dual analog clock hands (olive hour hand, lavender minute hand, cream pivot)
@@ -284,27 +226,20 @@ class SectographPainter extends CustomPainter {
     final isDark = colorScheme.brightness == Brightness.dark;
     final is24 = settings.is24HourMode;
     final totalHours = is24 ? 24 : 12;
-    final stepAngle = 360.0 / totalHours;
     final faceStyle = settings.faceStyle;
 
-    final showNumbers = faceStyle != DialFaceStyle.minimal;
-    final showMinorTicks = faceStyle != DialFaceStyle.numbered;
     final isMinimal = faceStyle == DialFaceStyle.minimal;
+    final showMinorTicks = !isMinimal;
 
-    final textPainter = TextPainter(
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    );
-
-    // 1. Minute & hour ticks around the rim
+    // 1. Minute & hour ticks around the rim (chronograph styling, numerals removed for 12H & 24H)
     final minorTickPaint = Paint()
-      ..color = isDark ? const Color(0xFF4E5460) : colorScheme.outline
+      ..color = isDark ? const Color(0xFF5A6270) : colorScheme.outline
       ..strokeWidth = 1.0
       ..strokeCap = StrokeCap.round;
 
     final majorTickPaint = Paint()
-      ..color = isDark ? const Color(0xFF9E968D) : colorScheme.onSurfaceVariant
-      ..strokeWidth = isMinimal ? 2.0 : 1.2
+      ..color = isDark ? const Color(0xFFC4CBD4) : colorScheme.onSurfaceVariant
+      ..strokeWidth = 1.6
       ..strokeCap = StrokeCap.round;
 
     final cardinalTickPaint = Paint()
@@ -322,96 +257,46 @@ class SectographPainter extends CustomPainter {
           ? (hourIndex % 6 == 0) // 0, 6, 12, 18
           : (hourIndex % 3 == 0); // 12, 3, 6, 9
 
+      if (!isMajorHour && !showMinorTicks) {
+        continue;
+      }
+
       final rawTickDeg = i * tickStepDeg;
       final tickDeg = warp != null ? warp.warp(rawTickDeg) : rawTickDeg;
       final tickRad = SectorMath.dialAngleToCanvasRadians(tickDeg);
 
+      final double tickLength;
+      final Paint currentPaint;
+
       if (isMajorHour) {
-        // If we are in minimal mode (no numbers), draw prominent hour bars with cardinal accents
-        if (isMinimal) {
-          final tickLength = isCardinal ? 9.0 : 6.0;
-          final currentBaseR = isWave
-              ? baseRadius +
-                    scallopAmp *
-                        math.cos(scallopLobes * (tickDeg * math.pi / 180.0))
-              : baseRadius;
-          final pOut = Offset(
-            center.dx + (currentBaseR - 2.5) * math.cos(tickRad),
-            center.dy + (currentBaseR - 2.5) * math.sin(tickRad),
-          );
-          final pIn = Offset(
-            center.dx + (currentBaseR - 2.5 - tickLength) * math.cos(tickRad),
-            center.dy + (currentBaseR - 2.5 - tickLength) * math.sin(tickRad),
-          );
-          canvas.drawLine(
-            pIn,
-            pOut,
-            isCardinal ? cardinalTickPaint : majorTickPaint,
-          );
+        if (isCardinal) {
+          tickLength = 6.0;
+          currentPaint = cardinalTickPaint;
+        } else {
+          tickLength = 4.5;
+          currentPaint = majorTickPaint;
         }
-        continue;
+      } else {
+        tickLength = 2.5;
+        currentPaint = minorTickPaint;
       }
 
-      // If minor ticks are disabled (e.g. 'numbered' mode), skip minor ticks
-      if (!showMinorTicks) {
-        continue;
-      }
-
-      const tickLength = 3.5;
       final currentBaseR = isWave
           ? baseRadius +
                 scallopAmp *
                     math.cos(scallopLobes * (tickDeg * math.pi / 180.0))
           : baseRadius;
+
       final pOut = Offset(
-        center.dx + (currentBaseR - 2.5) * math.cos(tickRad),
-        center.dy + (currentBaseR - 2.5) * math.sin(tickRad),
+        center.dx + (currentBaseR - 1.5) * math.cos(tickRad),
+        center.dy + (currentBaseR - 1.5) * math.sin(tickRad),
       );
       final pIn = Offset(
-        center.dx + (currentBaseR - 2.5 - tickLength) * math.cos(tickRad),
-        center.dy + (currentBaseR - 2.5 - tickLength) * math.sin(tickRad),
+        center.dx + (currentBaseR - 1.5 - tickLength) * math.cos(tickRad),
+        center.dy + (currentBaseR - 1.5 - tickLength) * math.sin(tickRad),
       );
-      canvas.drawLine(pIn, pOut, minorTickPaint);
-    }
 
-    // 2. Hour numerals (Centered in the middle area of the outer bezel ring)
-    if (showNumbers) {
-      final numeralRadius = baseRadius - (is24 ? 12.0 : 13.5);
-      final majorColor = isDark
-          ? const Color(0xFFFFFFFF)
-          : colorScheme.onSurface;
-      final minorColor = isDark
-          ? const Color(0xFF8A909D)
-          : colorScheme.onSurfaceVariant;
-
-      for (var h = 0; h < totalHours; h++) {
-        final rawDeg = h * stepAngle;
-        final deg = warp != null ? warp.warp(rawDeg) : rawDeg;
-        final rad = SectorMath.dialAngleToCanvasRadians(deg);
-
-        final bool isMajor = !is24 || (h % 2 == 0);
-        final textPos = Offset(
-          center.dx + numeralRadius * math.cos(rad),
-          center.dy + numeralRadius * math.sin(rad),
-        );
-
-        final label = is24 ? (h == 0 ? '0' : '$h') : (h == 0 ? '12' : '$h');
-
-        textPainter.text = TextSpan(
-          text: label,
-          style: TextStyle(
-            fontSize: is24 ? (isMajor ? 11.0 : 9.0) : 15.5,
-            fontWeight: isMajor ? FontWeight.w800 : FontWeight.w600,
-            color: isMajor ? majorColor : minorColor,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        );
-        textPainter.layout();
-        textPainter.paint(
-          canvas,
-          textPos - Offset(textPainter.width / 2, textPainter.height / 2),
-        );
-      }
+      canvas.drawLine(pIn, pOut, currentPaint);
     }
   }
 
@@ -565,27 +450,15 @@ class SectographPainter extends CustomPainter {
   }) {
     final routineTrackIn =
         innerRadius + AppLayoutConstants.routineTrackInnerOffset;
-    final routineTrackOut = baseRadius - 28.0;
+    final routineTrackOut =
+        baseRadius - AppLayoutConstants.routineTrackOuterMargin;
     const double defaultSectorGapDeg = 2.5;
     const double overlapDeg =
         2.5; // 3D overlap extension over contiguous successor
 
-    ({double rIn, double rOut}) getEventRadii(SectorEvent event) {
-      final totalTrackThickness = routineTrackOut - routineTrackIn;
-      final rawROut =
-          routineTrackOut - (event.topLevel / 1000.0) * totalTrackThickness;
-      final rawRIn =
-          routineTrackOut - (event.bottomLevel / 1000.0) * totalTrackThickness;
-
-      // Concentric separator gap: 1.0dp inset on non-boundary edges (gives 2.0dp between tracks)
-      const gapHalf = 1.0;
-      final rOut = event.topLevel > 0 ? (rawROut - gapHalf) : rawROut;
-      final rIn = event.bottomLevel < 1000 ? (rawRIn + gapHalf) : rawRIn;
-      return (rIn: rIn, rOut: rOut);
-    }
-
     final is24 = settings.is24HourMode;
     final pastStyle = settings.pastHoursStyle;
+    final isFocusedBlockMode = pastStyle == PastHoursStyle.focusedBlock;
 
     DateTime effectiveTime = currentTime;
     double effectiveAngle = SectorMath.timeToDialAngle(
@@ -613,7 +486,68 @@ class SectographPainter extends CustomPainter {
     }
 
     bool isEventActive(SectorEvent e) {
-      return e.start.isBefore(effectiveTime) && e.end.isAfter(effectiveTime);
+      return !effectiveTime.isBefore(e.start) && effectiveTime.isBefore(e.end);
+    }
+
+    // Resolve focused event for 2-ring Focused Block mode
+    SectorEvent? focusedEvent = activeEvent;
+    if (isFocusedBlockMode) {
+      if (focusedEvent == null) {
+        for (final e in events) {
+          if (isEventActive(e)) {
+            focusedEvent = e;
+            break;
+          }
+        }
+      }
+      focusedEvent ??= selectedEvent;
+      if (focusedEvent == null) {
+        for (final e in events) {
+          if (e.start.isAfter(effectiveTime)) {
+            focusedEvent = e;
+            break;
+          }
+        }
+      }
+    }
+
+    // Concentric 2-Ring geometry for Focused Block mode:
+    final totalTrackThickness = routineTrackOut - routineTrackIn;
+    const ringGap = 3.5;
+    final outerRingThickness = (totalTrackThickness - ringGap) * 0.56;
+    final innerRingThickness = (totalTrackThickness - ringGap) * 0.44;
+
+    final outerROut = routineTrackOut;
+    final outerRIn = routineTrackOut - outerRingThickness;
+    final innerRIn = routineTrackIn;
+    final innerROut = innerRIn + innerRingThickness;
+
+    ({double rIn, double rOut}) getEventRadii(SectorEvent event) {
+      if (isFocusedBlockMode && focusedEvent != null) {
+        final isOuter = event.id == focusedEvent.id;
+        final trackOut = isOuter ? outerROut : innerROut;
+        final trackIn = isOuter ? outerRIn : innerRIn;
+        final trackW = trackOut - trackIn;
+
+        final rawROut = trackOut - (event.topLevel / 1000.0) * trackW;
+        final rawRIn = trackOut - (event.bottomLevel / 1000.0) * trackW;
+
+        const gapHalf = 1.0;
+        final rOut = event.topLevel > 0 ? (rawROut - gapHalf) : rawROut;
+        final rIn = event.bottomLevel < 1000 ? (rawRIn + gapHalf) : rawRIn;
+        return (rIn: rIn, rOut: rOut);
+      } else {
+        final rawROut =
+            routineTrackOut - (event.topLevel / 1000.0) * totalTrackThickness;
+        final rawRIn =
+            routineTrackOut -
+            (event.bottomLevel / 1000.0) * totalTrackThickness;
+
+        const gapHalf = 1.0;
+        final rOut = event.topLevel > 0 ? (rawROut - gapHalf) : rawROut;
+        final rIn = event.bottomLevel < 1000 ? (rawRIn + gapHalf) : rawRIn;
+        return (rIn: rIn, rOut: rOut);
+      }
     }
 
     // Bird's Eye Dynamic Horizon Analysis
@@ -651,6 +585,12 @@ class SectographPainter extends CustomPainter {
             event.bottomLevel == other.bottomLevel;
         if (!sameTier) continue;
 
+        if (isFocusedBlockMode && focusedEvent != null) {
+          final isEventOuter = (event.id == focusedEvent.id);
+          final isOtherOuter = (other.id == focusedEvent.id);
+          if (isEventOuter != isOtherOuter) continue;
+        }
+
         // Meets at start
         if ((event.start.difference(other.end).inMinutes).abs() <= 2) {
           hasContiguousPredecessor[i] = true;
@@ -660,6 +600,18 @@ class SectographPainter extends CustomPainter {
           hasContiguousSuccessor[i] = true;
         }
       }
+    }
+
+    // Draw subtle divider line between outer ring & inner ring in Focused Block mode
+    if (isFocusedBlockMode && focusedEvent != null) {
+      final isDark = colorScheme.brightness == Brightness.dark;
+      final dividerPaint = Paint()
+        ..color =
+            (isDark ? const Color(0xFF6B7280) : colorScheme.outlineVariant)
+                .withValues(alpha: 0.50)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2;
+      canvas.drawCircle(center, outerRIn - (ringGap / 2.0), dividerPaint);
     }
 
     // Pass 1: Draw all base sector bodies (flush cuts at contiguous boundaries)
@@ -745,7 +697,15 @@ class SectographPainter extends CustomPainter {
       );
 
       final double fillAlpha;
-      if (warp != null) {
+      if (isFocusedBlockMode && focusedEvent != null) {
+        if (event.id == focusedEvent.id || isSelected) {
+          fillAlpha = 1.0;
+        } else if (isCompleted) {
+          fillAlpha = 0.35;
+        } else {
+          fillAlpha = 0.85;
+        }
+      } else if (warp != null) {
         fillAlpha = (warp.focusEventId == event.id || isSelected) ? 1.0 : 0.28;
       } else if (pastStyle == PastHoursStyle.birdsEye) {
         if (isCompleted) {
@@ -854,7 +814,9 @@ class SectographPainter extends CustomPainter {
         roundEnd: true,
       );
 
-      final isDim = isCompleted && pastStyle == PastHoursStyle.birdsEye;
+      final isDim =
+          (isCompleted && pastStyle == PastHoursStyle.birdsEye) ||
+          (isCompleted && isFocusedBlockMode && event.id != focusedEvent?.id);
       final capAlpha = isDim ? 0.38 : 1.0;
       final shadeAlpha = isDim ? 0.40 : 1.0;
       final textAlpha = isDim ? 0.50 : 1.0;
@@ -995,7 +957,9 @@ class SectographPainter extends CustomPainter {
         roundEnd: false,
       );
 
-      final isDim = isCompleted && pastStyle == PastHoursStyle.birdsEye;
+      final isDim =
+          (isCompleted && pastStyle == PastHoursStyle.birdsEye) ||
+          (isCompleted && isFocusedBlockMode && event.id != focusedEvent?.id);
       final shadeAlpha = isDim ? 0.40 : 1.0;
       final textAlpha = isDim ? 0.50 : 1.0;
 
@@ -1113,7 +1077,15 @@ class SectographPainter extends CustomPainter {
       }
 
       final double contentAlpha;
-      if (warp != null) {
+      if (isFocusedBlockMode && focusedEvent != null) {
+        if (event.id == focusedEvent.id || isSelected) {
+          contentAlpha = 1.0;
+        } else if (isCompleted) {
+          contentAlpha = 0.40;
+        } else {
+          contentAlpha = 0.85;
+        }
+      } else if (warp != null) {
         contentAlpha = (warp.focusEventId == event.id || isSelected)
             ? 1.0
             : 0.35;
