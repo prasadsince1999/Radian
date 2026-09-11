@@ -212,72 +212,192 @@ class EventCard extends StatelessWidget {
                         ],
                       ),
                       if (event.subtasks.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 4,
-                          runSpacing: 4,
-                          children: [
-                            ...event.subtasks.take(4).map((sub) {
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: eventColor.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: eventColor.withValues(alpha: 0.2),
-                                    width: 0.8,
+                        const SizedBox(height: 7),
+                        if (!isSelected)
+                          // Collapsed compact chip preview
+                          Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            children: [
+                              ...event.subtasks.take(4).map((sub) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: eventColor.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: eventColor.withValues(alpha: 0.2),
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.subdirectory_arrow_right_rounded,
+                                        size: 10,
+                                        color: eventColor,
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Flexible(
+                                        child: Text(
+                                          sub,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.85),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                              if (event.subtasks.length > 4)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '+${event.subtasks.length - 4}',
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
                                   ),
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
+                            ],
+                          )
+                        else
+                          // EXPANDED VIEW: All subtasks revealed as interactive checklist
+                          Container(
+                            margin: const EdgeInsets.only(top: 4),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: eventColor.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: eventColor.withValues(alpha: 0.25),
+                                width: 1.0,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
                                   children: [
                                     Icon(
-                                      Icons.subdirectory_arrow_right_rounded,
-                                      size: 10,
+                                      Icons.checklist_rounded,
+                                      size: 15,
                                       color: eventColor,
                                     ),
-                                    const SizedBox(width: 3),
-                                    Flexible(
-                                      child: Text(
-                                        sub,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w600,
-                                          color: colorScheme.onSurface
-                                              .withValues(alpha: 0.85),
-                                        ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'SUBTASKS (${event.subtasks.length})',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        color: eventColor,
+                                        letterSpacing: 0.5,
                                       ),
                                     ),
                                   ],
                                 ),
-                              );
-                            }),
-                            if (event.subtasks.length > 4)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.surfaceContainerHighest,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  '+${event.subtasks.length - 4}',
-                                  style: TextStyle(
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: colorScheme.onSurfaceVariant,
+                                const SizedBox(height: 6),
+                                ...event.subtasks.asMap().entries.map((entry) {
+                                  final idx = entry.key;
+                                  final sub = entry.value;
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 3.5,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle_outline_rounded,
+                                          size: 16,
+                                          color: eventColor.withValues(
+                                            alpha: 0.8,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            sub,
+                                            style: TextStyle(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 5,
+                                            vertical: 1.5,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: eventColor.withValues(
+                                              alpha: 0.15,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '#${idx + 1}',
+                                            style: TextStyle(
+                                              fontSize: 9.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: eventColor,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                                if (event.notes.isNotEmpty) ...[
+                                  const Divider(height: 14, thickness: 0.8),
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(
+                                        Icons.notes_rounded,
+                                        size: 13,
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          event.notes,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                            fontStyle: FontStyle.italic,
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ),
-                          ],
-                        ),
+                                ],
+                              ],
+                            ),
+                          ),
                       ],
                     ],
                   ),

@@ -364,8 +364,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final windowSizeClass =
-              WindowSizeClass.fromBoxConstraints(constraints);
+          final windowSizeClass = WindowSizeClass.fromBoxConstraints(
+            constraints,
+          );
 
           if (windowSizeClass.isThreePane) {
             // Expanded (>= 840dp): 3-Pane Adaptive Layout
@@ -383,18 +384,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   width: 1,
                   color: colorScheme.outlineVariant.withValues(alpha: 0.4),
                 ),
-                Expanded(
-                  flex: 5,
-                  child: const ExpressiveTimeline(),
-                ),
+                Expanded(flex: 5, child: const ExpressiveTimeline()),
                 VerticalDivider(
                   width: 1,
                   color: colorScheme.outlineVariant.withValues(alpha: 0.4),
                 ),
-                Expanded(
-                  flex: 4,
-                  child: const _SupportingInsightsPane(),
-                ),
+                Expanded(flex: 4, child: const _SupportingInsightsPane()),
               ],
             );
           } else if (windowSizeClass.isTwoPane) {
@@ -631,7 +626,9 @@ class _SupportingInsightsPane extends ConsumerWidget {
                       icon: const Icon(Icons.sync_rounded),
                       tooltip: 'Sync Now',
                       onPressed: () {
-                        ref.read(cloudSyncControllerProvider.notifier).syncNow();
+                        ref
+                            .read(cloudSyncControllerProvider.notifier)
+                            .syncNow();
                       },
                     ),
                   ],
@@ -666,4 +663,3 @@ class _SupportingInsightsPane extends ConsumerWidget {
     );
   }
 }
-

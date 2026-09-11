@@ -130,5 +130,51 @@ void main() {
 
       expect(edited, isTrue);
     });
+
+    testWidgets('renders expanded subtasks checklist when isSelected is true', (
+      tester,
+    ) async {
+      final event = SectorEvent(
+        id: 'ev-expanded',
+        title: 'AI/ML Sprint',
+        start: DateTime(2026, 9, 10, 20, 0),
+        end: DateTime(2026, 9, 10, 23, 0),
+        colorHex: '#8EA865',
+        category: 'Code',
+        subtasks: const [
+          'LinAlg',
+          'PyTorch',
+          'Transformers',
+          'Loss & Eval',
+          'LeetCode',
+        ],
+        notes: 'Prepare for top tier AI research roles',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EventCard(
+              event: event,
+              isSelected: true,
+              isActive: false,
+              is24HourMode: false,
+              onTap: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('SUBTASKS (5)'), findsOneWidget);
+      expect(find.text('LinAlg'), findsOneWidget);
+      expect(find.text('PyTorch'), findsOneWidget);
+      expect(find.text('Transformers'), findsOneWidget);
+      expect(find.text('Loss & Eval'), findsOneWidget);
+      expect(find.text('LeetCode'), findsOneWidget);
+      expect(
+        find.text('Prepare for top tier AI research roles'),
+        findsOneWidget,
+      );
+    });
   });
 }

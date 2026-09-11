@@ -124,6 +124,15 @@ class SectorPillRenderer {
       ..color = event.color
       ..style = PaintingStyle.fill;
     canvas.drawPath(pillPath, fillPaint);
+
+    // 2. Crisp selection highlight outline when block is explicitly tapped
+    if (isSelected) {
+      final highlightPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.95)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4;
+      canvas.drawPath(pillPath, highlightPaint);
+    }
   }
 
   /// Draws an integrated end-cap or start-cap badge inside the sector pill with pure solid color.

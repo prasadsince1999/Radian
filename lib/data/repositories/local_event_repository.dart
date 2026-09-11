@@ -38,6 +38,37 @@ class LocalEventRepository implements EventRepository {
           // fallback to sample
         }
       }
+
+      // Enrich persistent events with AI/ML Sprint subtasks if they were created without subtasks
+      var hasEnriched = false;
+      for (int i = 0; i < _events.length; i++) {
+        final ev = _events[i];
+        final lower = ev.title.toLowerCase();
+        if (lower.contains('flexible') && ev.subtasks.isEmpty) {
+          _events[i] = ev.copyWith(
+            subtasks: const ['LeetCode', 'Mock Prep', 'PyTorch'],
+          );
+          hasEnriched = true;
+        } else if (lower.contains('study') && ev.subtasks.isEmpty) {
+          _events[i] = ev.copyWith(
+            subtasks: const ['LinAlg', 'PyTorch', 'Transformers'],
+          );
+          hasEnriched = true;
+        } else if (lower.contains('lunch') && ev.subtasks.isEmpty) {
+          _events[i] = ev.copyWith(
+            subtasks: const ['Meal Prep', 'Quick Lunch'],
+          );
+          hasEnriched = true;
+        } else if (lower.contains('workout') && ev.subtasks.isEmpty) {
+          _events[i] = ev.copyWith(
+            subtasks: const ['Gym', 'Cardio', 'Stretch'],
+          );
+          hasEnriched = true;
+        }
+      }
+      if (hasEnriched) {
+        unawaited(_saveToDisk());
+      }
     }
 
     _notify();

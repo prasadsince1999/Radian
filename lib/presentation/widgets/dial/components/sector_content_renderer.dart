@@ -6,9 +6,11 @@ import '../../../../core/geometry/sector_math.dart';
 import '../../../../core/utils/time_formatters.dart';
 import '../../../../domain/models/sector_event.dart';
 
-/// Reusable component for rendering sector content (icon, title words stacked vertically,
-/// duration, and short-keyword subtask chips) with casual handwritten Kalam typography,
-/// strict polar boundary containment, and auto-alignment so text NEVER touches edges or caps.
+/// Reusable component for rendering sector content:
+/// - Main block title, icon, and duration centered at high legibility (NEVER microscopic).
+/// - "River Pebble" subtasks: organic, smooth pebble chips scattered around the main title
+///   like stones along a riverbank in expanded/active sectors.
+/// - Strict polar boundary containment so text never touches caps, shadows, or ring edges.
 class SectorContentRenderer {
   const SectorContentRenderer._();
 
@@ -40,13 +42,19 @@ class SectorContentRenderer {
     }
     if (lower.contains('eval') || lower.contains('loss')) return 'Loss & Eval';
     if (lower.contains('leetcode')) return 'LeetCode';
+    if (lower.contains('mock')) return 'Mock Prep';
+    if (lower.contains('arxiv')) return 'ArXiv';
+    if (lower.contains('math')) return 'Math Notes';
     if (lower.contains('cooking') || lower.contains('lunch')) return 'Lunch';
-    if (lower.contains('workout')) return 'Workout';
+    if (lower.contains('dinner')) return 'Dinner';
+    if (lower.contains('workout') || lower.contains('gym')) return 'Workout';
     if (lower.contains('flexible')) return 'Flex';
     if (lower.contains('study')) return 'Study';
     if (lower.contains('chill')) return 'Chill';
+    if (lower.contains('nap')) return 'Nap';
+    if (lower.contains('coffee')) return 'Coffee';
+    if (lower.contains('rest')) return 'Rest';
 
-    // General fallback: take first word or up to 10 chars
     final words = clean
         .split(RegExp(r'\s+'))
         .where((w) => w.isNotEmpty)
@@ -99,11 +107,13 @@ class SectorContentRenderer {
         ? const Color(0xFFF7F3EE)
         : const Color(0xFF1E1A16);
 
-    final iconData = _getEventIcon(event);
-    final iconFontSize = is24HourMode ? 11.5 : 12.5;
-    final titleFontSize = is24HourMode ? 10.0 : 11.0;
-    final metaFontSize = is24HourMode ? 8.0 : 9.0;
+    // BOLD, HIGH-LEGIBILITY FONT SIZES (never microscopic!)
+    final iconFontSize = is24HourMode ? 13.0 : 14.5;
+    final titleFontSize = is24HourMode ? 11.5 : 13.0;
+    final metaFontSize = is24HourMode ? 9.5 : 10.5;
+    final pebbleFontSize = is24HourMode ? 9.0 : 10.0;
 
+    final iconData = _getEventIcon(event);
     final iconPainter = TextPainter(
       text: TextSpan(
         text: String.fromCharCode(iconData.codePoint),
@@ -177,49 +187,16 @@ class SectorContentRenderer {
       textAlign: TextAlign.center,
     )..layout();
 
-    // Subtask short keyword chips (for wide blocks or active focus)
-    final subtaskPainters = <TextPainter>[];
-    if (event.subtasks.isNotEmpty && effectiveSweepDeg >= 26.0) {
-      final subStyle = TextStyle(
-        fontFamily: fontKalam,
-        fontFamilyFallback: fontFallbacks,
-        fontSize: metaFontSize * 0.88,
-        fontWeight: FontWeight.w700,
-        color: textColor.withValues(alpha: 0.92),
-        letterSpacing: 0.1,
-      );
-
-      final displaySubtasks = event.subtasks
-          .take(2)
-          .map((s) => distillShortKeyword(s))
-          .toList();
-
-      for (final s in displaySubtasks) {
-        subtaskPainters.add(
-          TextPainter(
-            text: TextSpan(text: s, style: subStyle),
-            maxLines: 1,
-            textDirection: TextDirection.ltr,
-            textAlign: TextAlign.center,
-          )..layout(),
-        );
-      }
-    }
-
-    // Measure raw content dimensions
+    // Measure raw center content dimensions
     const iconGap = 1.2;
     const lineGap = 0.8;
     const durGap = 1.2;
-    const subtaskGap = 1.0;
 
     double contentWidth = iconPainter.width;
     for (final tp in titlePainters) {
       if (tp.width > contentWidth) contentWidth = tp.width;
     }
     if (metaPainter.width > contentWidth) contentWidth = metaPainter.width;
-    for (final sp in subtaskPainters) {
-      if (sp.width > contentWidth) contentWidth = sp.width;
-    }
 
     double contentHeight = iconPainter.height + iconGap;
     for (int i = 0; i < titlePainters.length; i++) {
@@ -228,13 +205,7 @@ class SectorContentRenderer {
     }
     contentHeight += durGap + metaPainter.height;
 
-    for (final sp in subtaskPainters) {
-      contentHeight += subtaskGap + sp.height;
-    }
-
     // --- TRUE POLAR BOUNDING BOX & NEVER-TOUCH AUDIT ---
-    // In polar coordinates, circumference is strictly smaller at inner radius.
-    // We compute available arc width at the innermost radial reach of the content box.
     final rMinContent = math.max(rIn + 8.0, midR - (contentHeight / 2.0));
     final availableInnerArc =
         rMinContent * (effectiveSweepDeg * math.pi / 180.0);
@@ -250,7 +221,7 @@ class SectorContentRenderer {
     // Guaranteed radial clearance (minimum 9dp buffer from inner & outer ring boundaries)
     final maxAllowedHeight = math.max(12.0, trackThickness - 18.0);
 
-    // Adaptive scale to strictly fit inside both radial and angular bounds
+    // Adaptive scale: STRICT LEGIBILITY FLOOR (never drops below 0.78, so text is NEVER too small!)
     var scale = 1.0;
     if (contentWidth > maxAllowedWidth) {
       scale = math.min(scale, maxAllowedWidth / contentWidth);
@@ -258,16 +229,17 @@ class SectorContentRenderer {
     if (contentHeight > maxAllowedHeight) {
       scale = math.min(scale, maxAllowedHeight / contentHeight);
     }
-    // Safety clamp: ensure text scales down smoothly without vanishing
-    scale = scale.clamp(0.35, 1.0);
+    // High-legibility clamp: minimum 0.78 guarantees crisp, readable text
+    scale = scale.clamp(0.78, 1.15);
 
-    // CRITICAL: Clip to pillPath so no text can ever bleed into bezels or margins!
+    // CRITICAL: Clip to pillPath so no content ever bleeds into bezels or margins!
     canvas.save();
     canvas.clipPath(pillPath);
+
+    // 1. DRAW CENTER TITLE & DURATION
+    canvas.save();
     canvas.translate(pos.dx, pos.dy);
 
-    // Tangential arc alignment: rotates content along the curvature of the ring
-    // Auto-flipped so text consistently faces inward toward the center hub
     var tangentAngle = midRad + (math.pi / 2.0);
     if (math.cos(tangentAngle) < 0.05) {
       tangentAngle += math.pi;
@@ -280,33 +252,176 @@ class SectorContentRenderer {
 
     var curY = -contentHeight / 2.0;
 
-    // 1. Icon (top, centered)
+    // Icon (top, centered)
     iconPainter.paint(canvas, Offset(-iconPainter.width / 2.0, curY));
     curY += iconPainter.height + iconGap;
 
-    // 2. Title lines (words one below one, each centered)
+    // Title lines
     for (int i = 0; i < titlePainters.length; i++) {
       final tp = titlePainters[i];
       tp.paint(canvas, Offset(-tp.width / 2.0, curY));
       curY += tp.height + (i < titlePainters.length - 1 ? lineGap : durGap);
     }
 
-    // 3. Duration badge (centered)
+    // Duration badge (centered)
     metaPainter.paint(canvas, Offset(-metaPainter.width / 2.0, curY));
-    curY += metaPainter.height;
 
-    // 4. Subtask short-keyword chips (if present)
-    for (final sp in subtaskPainters) {
-      curY += subtaskGap;
-      sp.paint(canvas, Offset(-sp.width / 2.0, curY));
-      curY += sp.height;
+    canvas.restore(); // restore from center translate/rotate
+
+    // 2. DRAW "RIVER PEBBLE" SUBTASKS ORGANICALLY AROUND CENTER TITLE
+    // In wide or expanded blocks (>= 32° sweep), scatter subtask keywords like smooth river stones
+    if (event.subtasks.isNotEmpty && effectiveSweepDeg >= 32.0) {
+      _drawRiverPebbles(
+        canvas: canvas,
+        center: center,
+        subtasks: event.subtasks,
+        midDeg: midDeg,
+        effectiveSweepDeg: effectiveSweepDeg,
+        midR: midR,
+        trackThickness: trackThickness,
+        textColor: textColor,
+        isDarkSector: isDarkSector,
+        pebbleFontSize: pebbleFontSize,
+        centerTitleWidth: contentWidth * scale,
+      );
     }
 
-    canvas.restore();
+    canvas.restore(); // restore from clipPath
+  }
+
+  /// Draws organic "river pebbles" scattered naturally around the main center title.
+  static void _drawRiverPebbles({
+    required Canvas canvas,
+    required Offset center,
+    required List<String> subtasks,
+    required double midDeg,
+    required double effectiveSweepDeg,
+    required double midR,
+    required double trackThickness,
+    required Color textColor,
+    required bool isDarkSector,
+    required double pebbleFontSize,
+    required double centerTitleWidth,
+  }) {
+    // Take up to 4 subtasks to scatter like river pebbles
+    final pebbles = subtasks
+        .take(4)
+        .map((s) => distillShortKeyword(s))
+        .where((s) => s.isNotEmpty)
+        .toList();
+
+    if (pebbles.isEmpty) return;
+
+    final pebbleStyle = TextStyle(
+      fontFamily: fontKalam,
+      fontFamilyFallback: fontFallbacks,
+      fontSize: pebbleFontSize,
+      fontWeight: FontWeight.w700,
+      color: textColor.withValues(alpha: 0.95),
+      letterSpacing: 0.1,
+    );
+
+    final pebbleBgPaint = Paint()
+      ..color = textColor.withValues(alpha: isDarkSector ? 0.22 : 0.14)
+      ..style = PaintingStyle.fill;
+
+    final pebbleBorderPaint = Paint()
+      ..color = textColor.withValues(alpha: isDarkSector ? 0.42 : 0.26)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9;
+
+    // Minimum angular clearance from center title (converted from pixel width to polar angle)
+    final titleHalfDeg = (centerTitleWidth / 2.0) / (midR * math.pi / 180.0);
+    final minSafeOffsetDeg = titleHalfDeg + 3.5;
+
+    // Organic offsets: upstream and downstream along the river shores
+    final dTh = math.max(minSafeOffsetDeg + 6.0, effectiveSweepDeg * 0.28);
+    final rShift = trackThickness * 0.22;
+
+    // Subtle natural tilt variations like stones resting casually on the riverbank
+    const tilts = [-0.08, 0.10, -0.12, 0.07];
+    const cornerRadii = [9.5, 8.0, 10.0, 8.5];
+
+    final offsets = [
+      (angleOffset: -dTh, rOffset: rShift), // Flank 1: upstream, outer bank
+      (angleOffset: dTh, rOffset: -rShift), // Flank 2: downstream, inner bank
+      (
+        angleOffset: -dTh * 1.36,
+        rOffset: -rShift * 0.85,
+      ), // Flank 3: far upstream, inner bank
+      (
+        angleOffset: dTh * 1.36,
+        rOffset: rShift * 0.85,
+      ), // Flank 4: far downstream, outer bank
+    ];
+
+    for (int i = 0; i < pebbles.length && i < offsets.length; i++) {
+      final keyword = pebbles[i];
+      final offset = offsets[i];
+
+      final tp = TextPainter(
+        text: TextSpan(text: keyword, style: pebbleStyle),
+        maxLines: 1,
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      )..layout();
+
+      final pebbleW = tp.width + 11.0;
+      final pebbleH = tp.height + 5.0;
+      final pR = (midR + offset.rOffset).clamp(
+        midR - trackThickness * 0.35,
+        midR + trackThickness * 0.35,
+      );
+      final pebbleHalfDeg = (pebbleW / 2.0) / (pR * math.pi / 180.0);
+
+      // Check collision with center title: must stay outside center title half angle
+      if (offset.angleOffset.abs() - pebbleHalfDeg < minSafeOffsetDeg) continue;
+
+      // Check collision with sector boundaries & caps: must stay safely inside
+      if (offset.angleOffset.abs() + pebbleHalfDeg >
+          (effectiveSweepDeg * 0.45)) {
+        continue;
+      }
+
+      final pDeg = midDeg + offset.angleOffset;
+      final pRad = SectorMath.dialAngleToCanvasRadians(pDeg);
+      final pPos = Offset(
+        center.dx + pR * math.cos(pRad),
+        center.dy + pR * math.sin(pRad),
+      );
+
+      canvas.save();
+      canvas.translate(pPos.dx, pPos.dy);
+
+      // Rotate along the local tangent + organic pebble tilt
+      var pTangent = pRad + (math.pi / 2.0);
+      if (math.cos(pTangent) < 0.05) {
+        pTangent += math.pi;
+      }
+      pTangent += tilts[i % tilts.length];
+      canvas.rotate(pTangent);
+
+      // River stone rounded capsule
+      final pebbleRect = Rect.fromCenter(
+        center: Offset.zero,
+        width: pebbleW,
+        height: pebbleH,
+      );
+      final pebbleRRect = RRect.fromRectAndRadius(
+        pebbleRect,
+        Radius.circular(cornerRadii[i % cornerRadii.length]),
+      );
+
+      canvas.drawRRect(pebbleRRect, pebbleBgPaint);
+      canvas.drawRRect(pebbleRRect, pebbleBorderPaint);
+
+      tp.paint(canvas, Offset(-tp.width / 2.0, -tp.height / 2.0));
+      canvas.restore();
+    }
   }
 
   /// Splits event title into stacked lines, with smart single-keyword compaction
-  /// for narrow sectors (< 22°) so text never crowds or collides with caps.
+  /// for narrow sectors (< 35°) so text never crowds or collides with caps.
   static List<String> _splitTitleWords(
     String title, {
     required double effectiveSweepDeg,
@@ -314,8 +429,9 @@ class SectorContentRenderer {
     final clean = title.trim();
     if (clean.isEmpty) return const [];
 
-    // Narrow sector: compact into a single punchy keyword
-    if (effectiveSweepDeg < 22.0) {
+    // Narrow sector (< 35°): compact into a single punchy keyword to guarantee
+    // high font size and zero vertical squeezing
+    if (effectiveSweepDeg < 35.0) {
       return [distillShortKeyword(clean)];
     }
 
@@ -327,7 +443,6 @@ class SectorContentRenderer {
           .toList();
     }
 
-    // Split on whitespace or common symbols (+, /) to keep each word on its own line
     final normalized = clean.replaceAll('+', ' ').replaceAll('/', ' ');
     final rawWords = normalized
         .split(RegExp(r'\s+'))
@@ -338,7 +453,6 @@ class SectorContentRenderer {
       return rawWords;
     }
 
-    // For longer titles (4+ words, e.g. "Workout or Chill Time"), pack into 2 balanced lines
     if (rawWords.length == 4) {
       return ['${rawWords[0]} ${rawWords[1]}', '${rawWords[2]} ${rawWords[3]}'];
     }

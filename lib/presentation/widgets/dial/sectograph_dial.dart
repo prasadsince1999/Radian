@@ -233,14 +233,15 @@ class SectographDial extends ConsumerWidget {
                       effectiveActive = horizonResult!.activeEvent;
                     }
 
-                    // Fisheye Time Lens focus center
+                    // Fisheye Time Lens focus center: prioritize user-tapped block to expand it
+                    final focusEvent = selectedEvent ?? effectiveActive;
                     final double focusAngle;
-                    if (effectiveActive != null) {
+                    if (focusEvent != null) {
                       final halfDuration = Duration(
-                        minutes: effectiveActive.duration.inMinutes ~/ 2,
+                        minutes: focusEvent.duration.inMinutes ~/ 2,
                       );
                       focusAngle = SectorMath.timeToDialAngle(
-                        effectiveActive.start.add(halfDuration),
+                        focusEvent.start.add(halfDuration),
                         is24HourMode: settings.is24HourMode,
                       );
                     } else {
@@ -250,10 +251,15 @@ class SectographDial extends ConsumerWidget {
                       );
                     }
 
+                    // When a block is explicitly tapped/selected, provide punchy expansion magnification
+                    final activeMagnification = selectedEvent != null
+                        ? math.max(settings.lensMagnification, 1.85)
+                        : settings.lensMagnification;
+
                     final lens = settings.isFocusLensEnabled
                         ? FisheyeTimeLens(
                             focusAngle: focusAngle,
-                            magnification: settings.lensMagnification,
+                            magnification: activeMagnification,
                           )
                         : const FisheyeTimeLens.linear();
 
@@ -296,7 +302,12 @@ class SectographDial extends ConsumerWidget {
                               sectors: displayEvents,
                               angleOverride: screenAngle,
                             );
-                        ref.read(selectedEventProvider.notifier).state = tapped;
+                        if (tapped != null && selectedEvent?.id == tapped.id) {
+                          ref.read(selectedEventProvider.notifier).state = null;
+                        } else {
+                          ref.read(selectedEventProvider.notifier).state =
+                              tapped;
+                        }
                       },
                       onPanStart: (details) {
                         final screenAngle = SectorMath.touchDeltaToDialAngle(

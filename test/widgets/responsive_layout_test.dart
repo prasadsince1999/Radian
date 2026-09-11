@@ -52,39 +52,36 @@ void main() {
       },
     );
 
-    testWidgets(
-      'renders Medium (600dp - 840dp) 2-pane split Row layout',
-      (tester) async {
-        // Set foldables unfolded / small tablet dimensions (Medium: 720dp)
-        tester.view.physicalSize = const Size(720, 800);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(() => tester.view.resetPhysicalSize());
+    testWidgets('renders Medium (600dp - 840dp) 2-pane split Row layout', (
+      tester,
+    ) async {
+      // Set foldables unfolded / small tablet dimensions (Medium: 720dp)
+      tester.view.physicalSize = const Size(720, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
 
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              eventRepositoryProvider.overrideWithValue(fakeRepo),
-              currentTimeProvider.overrideWith(
-                (ref) => Stream.value(fixedTime),
-              ),
-              mcpServerControllerProvider.overrideWith(
-                (ref) => McpServerController(ref, autoStart: false),
-              ),
-            ],
-            child: const MaterialApp(home: HomeScreen()),
-          ),
-        );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            eventRepositoryProvider.overrideWithValue(fakeRepo),
+            currentTimeProvider.overrideWith((ref) => Stream.value(fixedTime)),
+            mcpServerControllerProvider.overrideWith(
+              (ref) => McpServerController(ref, autoStart: false),
+            ),
+          ],
+          child: const MaterialApp(home: HomeScreen()),
+        ),
+      );
 
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-        expect(find.byType(SectographDial), findsOneWidget);
-        expect(find.byType(ExpressiveTimeline), findsOneWidget);
+      expect(find.byType(SectographDial), findsOneWidget);
+      expect(find.byType(ExpressiveTimeline), findsOneWidget);
 
-        // In 2-pane layout, 1 VerticalDivider separates Dial and Timeline
-        expect(find.byType(VerticalDivider), findsOneWidget);
-      },
-    );
+      // In 2-pane layout, 1 VerticalDivider separates Dial and Timeline
+      expect(find.byType(VerticalDivider), findsOneWidget);
+    });
 
     testWidgets(
       'renders Expanded (>= 840dp) 3-pane adaptive Row layout with Supporting Insights',
