@@ -1,8 +1,14 @@
 /// Central layout dimensions, responsive breakpoints, and geometry constants.
 abstract final class AppLayoutConstants {
-  // --- Breakpoints ---
+  // --- Material 3 Window Size Class Breakpoints ---
+  /// Compact width threshold (< 600dp: portrait phones).
+  static const double compactWidthBreakpoint = 600.0;
+
+  /// Medium width threshold (600dp - 840dp: foldables unfolded, small tablets, landscape phones).
+  static const double mediumWidthBreakpoint = 840.0;
+
   /// Screen width threshold above which the layout switches to a two-column tablet view.
-  static const double tabletBreakpoint = 700.0;
+  static const double tabletBreakpoint = compactWidthBreakpoint;
 
   // --- Max Width Constraints ---
   /// Maximum width for modal sheets on wide screens / tablets.

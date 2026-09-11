@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_layout_constants.dart';
 import '../../core/constants/app_strings.dart';
+import '../../core/layout/window_size_class.dart';
 import '../../core/services/android_widget_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/expressive_shapes.dart';
@@ -17,6 +18,7 @@ import '../widgets/editor/dial_settings_modal.dart';
 import '../widgets/editor/event_edit_modal.dart';
 import '../widgets/fab/expressive_speed_dial_fab.dart';
 import '../widgets/health/health_insights_sheet.dart';
+import '../widgets/health/m3_activity_heatmap.dart';
 import '../widgets/mcp/mcp_status_sheet.dart';
 import '../widgets/timeline/expressive_timeline.dart';
 
@@ -362,18 +364,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final isWide =
-              constraints.maxWidth >= AppLayoutConstants.tabletBreakpoint;
+          final windowSizeClass =
+              WindowSizeClass.fromBoxConstraints(constraints);
 
-          if (isWide) {
-            // Tablet / Desktop side-by-side split layout
+          if (windowSizeClass.isThreePane) {
+            // Expanded (>= 840dp): 3-Pane Adaptive Layout
+            // (Large tablets, desktop mode, Samsung DeX, ChromeOS)
             return Row(
               children: [
-                // Left Pane: Circular Dial
                 Expanded(
                   flex: 5,
                   child: Padding(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: const EdgeInsets.all(20.0),
                     child: const SectographDial(),
                   ),
                 ),
@@ -381,15 +383,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   width: 1,
                   color: colorScheme.outlineVariant.withValues(alpha: 0.4),
                 ),
-                // Right Pane: Timeline & Event Agenda
+                Expanded(
+                  flex: 5,
+                  child: const ExpressiveTimeline(),
+                ),
+                VerticalDivider(
+                  width: 1,
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+                ),
+                Expanded(
+                  flex: 4,
+                  child: const _SupportingInsightsPane(),
+                ),
+              ],
+            );
+          } else if (windowSizeClass.isTwoPane) {
+            // Medium (600dp - 840dp): 2-Pane Side-by-Side Split Layout
+            // (Foldables unfolded, small tablets, landscape phones)
+            return Row(
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: const SectographDial(),
+                  ),
+                ),
+                VerticalDivider(
+                  width: 1,
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+                ),
                 Expanded(flex: 6, child: const ExpressiveTimeline()),
               ],
             );
           } else {
-            // Portrait phone vertical stacked layout
+            // Compact (< 600dp): Portrait phone vertical stacked layout
             return Column(
               children: [
-                // Top Half: Circular Dial & Connected Footer Bar
                 Expanded(
                   flex: 7,
                   child: Padding(
@@ -397,7 +427,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     child: const SectographDial(),
                   ),
                 ),
-                // Bottom Half: Timeline
                 Expanded(flex: 5, child: const ExpressiveTimeline()),
               ],
             );
@@ -479,3 +508,162 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 }
+
+class _SupportingInsightsPane extends ConsumerWidget {
+  const _SupportingInsightsPane();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final allEventsAsync = ref.watch(allEventsProvider);
+    final events = allEventsAsync.value ?? const [];
+    final cloudSyncState = ref.watch(cloudSyncControllerProvider);
+
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                'Habit & Routine Insights',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton.filledTonal(
+              icon: const Icon(Icons.insights_rounded, size: 20),
+              tooltip: 'Full Health Insights',
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  backgroundColor: Colors.transparent,
+                  constraints: const BoxConstraints(
+                    maxWidth: AppLayoutConstants.modalMaxWidth,
+                  ),
+                  shape: ExpressiveShapes.modalSheet,
+                  builder: (_) => const HealthInsightsSheet(),
+                );
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Card(
+          elevation: 0,
+          color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: M3ActivityHeatmap.fromEvents(
+              events: events,
+              weeksCount: 8,
+              title: 'Activity Consistency',
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          elevation: 0,
+          color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.cloud_done_rounded,
+                        color: colorScheme.onPrimaryContainer,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '24/7 Cloud MCP Server',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            cloudSyncState.isSyncing
+                                ? 'Syncing routine...'
+                                : 'Live Cloud Sync Active',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.sync_rounded),
+                      tooltip: 'Sync Now',
+                      onPressed: () {
+                        ref.read(cloudSyncControllerProvider.notifier).syncNow();
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        useSafeArea: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => const McpStatusSheet(),
+                      );
+                    },
+                    icon: const Icon(Icons.hub_rounded, size: 18),
+                    label: const Text('Manage MCP Endpoints'),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
