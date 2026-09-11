@@ -142,6 +142,7 @@ class SectorPillRenderer {
     bool roundStart = false,
     bool roundEnd = true,
     bool isContiguous = false,
+    double overlapDeg = 0.0,
   }) {
     if (sweepDeg <= 0.5) return;
 
@@ -156,12 +157,27 @@ class SectorPillRenderer {
       roundEnd: roundEnd,
     );
 
-    // 1. 3D Overlap drop shadow: ONLY rendered when overlapping onto another block (isContiguous), never inside the block!
-    if (isContiguous) {
+    // 1. 3D Overlap drop shadow: ONLY rendered over the successor block (outer shadow).
+    // Clipped strictly past boundaryDeg so zero shadow bleeds backwards into the current block (zero inner shadow)!
+    if (isContiguous && overlapDeg > 0.0) {
+      final boundaryDeg = (startDeg + sweepDeg) - overlapDeg;
+      canvas.save();
+      final shadowClip = buildPillPath(
+        center: center,
+        rIn: rIn - 8.0,
+        rOut: rOut + 8.0,
+        startDeg: boundaryDeg,
+        sweepDeg: 45.0,
+        roundStart: false,
+        roundEnd: false,
+      );
+      canvas.clipPath(shadowClip);
+
       final shadowPaint = Paint()
-        ..color = Colors.black.withValues(alpha: 0.35)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
+        ..color = Colors.black.withValues(alpha: 0.40)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.8);
       canvas.drawPath(capPath, shadowPaint);
+      canvas.restore();
     }
 
     // 2. Solid darker badge color on cap highlighting the boundary time (pure solid, zero inner blur!)

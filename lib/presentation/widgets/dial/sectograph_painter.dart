@@ -361,7 +361,9 @@ class SectographPainter extends CustomPainter {
           !angleAlreadyDrawn(startDeg + sweepDeg);
 
       final startCapSpan = canShowStartCap ? baseCapSpanDeg : 0.0;
-      final endCapSpan = canShowEndCap ? baseCapSpanDeg : 0.0;
+      final endCapSpan = canShowEndCap
+          ? baseCapSpanDeg + (isContiguous ? overlapDeg : 0.0)
+          : 0.0;
       final endBoundaryDeg = startDeg + sweepDeg;
       final capEndDeg = endBoundaryDeg + (isContiguous ? overlapDeg : 0.0);
       final endCapStartDeg = capEndDeg - endCapSpan;
@@ -432,6 +434,7 @@ class SectographPainter extends CustomPainter {
           roundStart: false,
           roundEnd: true,
           isContiguous: l.isContiguous,
+          overlapDeg: l.isContiguous ? overlapDeg : 0.0,
         );
       }
     }
