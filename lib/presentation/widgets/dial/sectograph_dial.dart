@@ -225,27 +225,12 @@ class SectographDial extends ConsumerWidget {
                             is24HourMode: settings.is24HourMode,
                           )
                         : null;
-                    final outerEventIds =
-                        horizonResult?.outerEventIds ?? const <String>{};
                     final displayEvents = horizonResult != null
                         ? horizonResult.visibleEvents
                         : computedEvents;
                     if (horizonResult?.activeEvent != null) {
                       effectiveActive = horizonResult!.activeEvent;
                     }
-
-                    final totalTrackThickness =
-                        routineTrackOut - routineTrackIn;
-                    const ringGap = 3.5;
-                    final outerRingThickness =
-                        (totalTrackThickness - ringGap) * 0.56;
-                    final innerRingThickness =
-                        (totalTrackThickness - ringGap) * 0.44;
-
-                    final outerROut = routineTrackOut;
-                    final outerRIn = routineTrackOut - outerRingThickness;
-                    final innerRIn = routineTrackIn;
-                    final innerROut = innerRIn + innerRingThickness;
 
                     return GestureDetector(
                       onTapUp: (details) {
@@ -273,30 +258,6 @@ class SectographDial extends ConsumerWidget {
                               outerRadius: routineTrackOut,
                               sectors: displayEvents,
                               angleOverride: screenAngle,
-                              getRadii:
-                                  (isFocusedBlockMode &&
-                                      outerEventIds.isNotEmpty)
-                                  ? (SectorEvent event) {
-                                      final isOuter = outerEventIds.contains(
-                                        event.id,
-                                      );
-                                      final trackOut = isOuter
-                                          ? outerROut
-                                          : innerROut;
-                                      final trackIn = isOuter
-                                          ? outerRIn
-                                          : innerRIn;
-                                      final trackW = trackOut - trackIn;
-
-                                      final rawROut =
-                                          trackOut -
-                                          (event.topLevel / 1000.0) * trackW;
-                                      final rawRIn =
-                                          trackOut -
-                                          (event.bottomLevel / 1000.0) * trackW;
-                                      return (rIn: rawRIn, rOut: rawROut);
-                                    }
-                                  : null,
                             );
                         ref.read(selectedEventProvider.notifier).state = tapped;
                       },

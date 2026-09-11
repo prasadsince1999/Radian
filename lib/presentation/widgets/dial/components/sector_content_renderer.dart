@@ -59,15 +59,9 @@ class SectorContentRenderer {
         : const Color(0xFF1E1A16);
 
     final iconData = _getEventIcon(event);
-    final iconFontSize = isOuterRing
-        ? (is24HourMode ? 11.5 : 12.5)
-        : (is24HourMode ? 9.5 : 10.5);
-    final titleFontSize = isOuterRing
-        ? (is24HourMode ? 10.0 : 11.0)
-        : (is24HourMode ? 8.5 : 9.5);
-    final metaFontSize = isOuterRing
-        ? (is24HourMode ? 8.0 : 9.0)
-        : (is24HourMode ? 7.0 : 8.0);
+    final iconFontSize = is24HourMode ? 12.0 : 13.0;
+    final titleFontSize = is24HourMode ? 10.5 : 11.5;
+    final metaFontSize = is24HourMode ? 8.5 : 9.5;
 
     final iconPainter = TextPainter(
       text: TextSpan(
@@ -100,7 +94,6 @@ class SectorContentRenderer {
     // Split title into words stacked vertically ("words one below one")
     final wordLines = _splitTitleWords(event.title);
 
-    final maxTextWidth = math.max(arcLength - 12.0, 32.0);
     final titleStyle = TextStyle(
       fontFamily: fontKalam,
       fontFamilyFallback: fontFallbacks,
@@ -115,10 +108,9 @@ class SectorContentRenderer {
       return TextPainter(
         text: TextSpan(text: line, style: titleStyle),
         maxLines: 1,
-        ellipsis: '…',
         textDirection: TextDirection.ltr,
         textAlign: TextAlign.center,
-      )..layout(maxWidth: maxTextWidth);
+      )..layout();
     }).toList();
 
     // Duration only (hours/minutes e.g. "3h", "1h 30m"), no redundant time range
@@ -137,10 +129,9 @@ class SectorContentRenderer {
         ),
       ),
       maxLines: 1,
-      ellipsis: '…',
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
-    )..layout(maxWidth: maxTextWidth);
+    )..layout();
 
     // CRITICAL: Clip to pillPath so no text can ever bleed into bezels or margins!
     canvas.save();
@@ -148,17 +139,16 @@ class SectorContentRenderer {
     canvas.translate(pos.dx, pos.dy);
 
     // Tangential arc alignment: rotates content along the curvature of the ring
-    // Auto-flipped so text is always right-side up for the user
+    // Auto-flipped so text consistently faces inward toward the center hub
     var tangentAngle = midRad + (math.pi / 2.0);
-    // If text would be upside down (pointing leftwards), flip by 180°
-    if (math.cos(tangentAngle) < -0.1) {
+    if (math.cos(tangentAngle) < 0.05) {
       tangentAngle += math.pi;
     }
     canvas.rotate(tangentAngle);
 
-    final iconGap = isOuterRing ? 1.5 : 1.0;
-    final lineGap = isOuterRing ? 0.8 : 0.5;
-    final durGap = isOuterRing ? 1.5 : 1.0;
+    const iconGap = 1.5;
+    const lineGap = 0.8;
+    const durGap = 1.5;
 
     if (titlePainters.isEmpty) {
       final totalH = iconPainter.height + durGap + metaPainter.height;
@@ -209,7 +199,7 @@ class SectorContentRenderer {
     if (contentHeight > maxAllowedHeight) {
       scale = math.min(scale, maxAllowedHeight / contentHeight);
     }
-    scale = scale.clamp(0.55, 1.0);
+    scale = scale.clamp(0.40, 1.0);
 
     if (scale < 1.0) {
       canvas.scale(scale, scale);

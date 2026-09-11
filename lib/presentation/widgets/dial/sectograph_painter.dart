@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../core/constants/app_layout_constants.dart';
-import '../../../core/geometry/focused_block_layout_resolver.dart';
 import '../../../core/geometry/sector_math.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/models/dial_settings.dart';
@@ -234,11 +233,6 @@ class SectographPainter extends CustomPainter {
     );
     final effectiveAngle = scrubAngle ?? nowAngle;
     final nowRad = SectorMath.dialAngleToCanvasRadians(effectiveAngle);
-
-    final totalTrackThickness = routineTrackOut - routineTrackIn;
-    const ringGap = 3.5;
-    final outerRingThickness = (totalTrackThickness - ringGap) * 0.58;
-    final outerRIn = routineTrackOut - outerRingThickness;
     final isDaytime = currentTime.hour >= 6 && currentTime.hour < 18;
 
     HourNeedleRenderer.drawNeedle(
@@ -246,7 +240,6 @@ class SectographPainter extends CustomPainter {
       center: center,
       angleRad: nowRad,
       hubRadius: innerRadius,
-      outerRIn: outerRIn,
       outerROut: routineTrackOut,
       isDaytime: isDaytime,
     );
@@ -286,36 +279,7 @@ class SectographPainter extends CustomPainter {
       return !effectiveTime.isBefore(e.start) && effectiveTime.isBefore(e.end);
     }
 
-    // Resolve outer ring events for 2-ring Focused Block mode with 12H collision prevention
-    final FocusedHorizonResult horizonResult =
-        FocusedBlockLayoutResolver.resolve(
-          events: events,
-          effectiveTime: effectiveTime,
-          selectedEvent: selectedEvent,
-          is24HourMode: is24,
-        );
-    final outerEventIds = horizonResult.outerEventIds;
-
-    // Concentric 2-Ring geometry
-    final totalTrackThickness = routineTrackOut - routineTrackIn;
-    const ringGap = 3.5;
-    final outerRingThickness = (totalTrackThickness - ringGap) * 0.58;
-    final innerRingThickness = (totalTrackThickness - ringGap) * 0.42;
-
-    final outerROut = routineTrackOut;
-    final outerRIn = routineTrackOut - outerRingThickness;
-    final innerRIn = routineTrackIn;
-    final innerROut = innerRIn + innerRingThickness;
-
-    ({double rIn, double rOut}) getEventRadii(SectorEvent event) {
-      if (outerEventIds.contains(event.id)) {
-        return (rIn: outerRIn, rOut: outerROut);
-      } else {
-        return (rIn: innerRIn, rOut: innerROut);
-      }
-    }
-
-    // Pre-analyze contiguous relationships
+    // Pre-analyze contiguous relationships on the single uniform ring
     final hasContiguousPredecessor = List<bool>.filled(events.length, false);
     final hasContiguousSuccessor = List<bool>.filled(events.length, false);
 
@@ -324,10 +288,6 @@ class SectographPainter extends CustomPainter {
       for (int j = 0; j < events.length; j++) {
         if (i == j) continue;
         final other = events[j];
-        if (outerEventIds.contains(event.id) !=
-            outerEventIds.contains(other.id)) {
-          continue;
-        }
         if ((event.start.difference(other.end).inMinutes).abs() <= 2) {
           hasContiguousPredecessor[i] = true;
         }
@@ -337,35 +297,26 @@ class SectographPainter extends CustomPainter {
       }
     }
 
-    // Concentric ring divider line
-    final isDark = colorScheme.brightness == Brightness.dark;
-    final dividerPaint = Paint()
-      ..color = (isDark ? const Color(0xFF6B7280) : colorScheme.outlineVariant)
-          .withValues(alpha: 0.45)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    canvas.drawCircle(center, outerRIn - (ringGap / 2.0), dividerPaint);
-
-    final drawnTimestampAngles = <({bool isOuter, double angle})>[];
-    bool angleAlreadyDrawn(double deg, bool isOuter) {
-      for (final entry in drawnTimestampAngles) {
-        if (entry.isOuter == isOuter) {
-          final diff = ((deg - entry.angle).abs()) % 360.0;
-          final angularDistance = diff > 180.0 ? 360.0 - diff : diff;
-          if (angularDistance < 7.0) return true;
-        }
+    final drawnTimestampAngles = <double>[];
+    bool angleAlreadyDrawn(double deg) {
+      for (final angle in drawnTimestampAngles) {
+        final diff = ((deg - angle).abs()) % 360.0;
+        final angularDistance = diff > 180.0 ? 360.0 - diff : diff;
+        if (angularDistance < 8.0) return true;
       }
       return false;
     }
 
     const double overlapDeg = 2.5; // 3D overlap extension over contiguous successor
+    final cornerRadius = math
+        .min(8.0, (routineTrackOut - routineTrackIn) * 0.22)
+        .clamp(3.0, 8.0);
 
-    // Prepare layout data for each event
+    // Prepare layout data for each event on the single uniform track
     final pillLayouts = <({
       SectorEvent event,
       bool isActive,
       bool isSelected,
-      bool isOuterRing,
       double rIn,
       double rOut,
       double startDeg,
@@ -386,7 +337,6 @@ class SectographPainter extends CustomPainter {
 
       final isActive = isEventActive(event);
       final isSelected = selectedEvent?.id == event.id;
-      final isOuterRing = outerEventIds.contains(event.id);
 
       final startGap = hasContiguousPredecessor[i]
           ? 0.0
@@ -397,21 +347,17 @@ class SectographPainter extends CustomPainter {
       final startDeg = event.startAngle + startGap;
       final sweepDeg = (event.sweepAngle - startGap - endGap).clamp(3.0, 360.0);
 
-      final radii = getEventRadii(event);
-      final eventRIn = radii.rIn;
-      final eventROut = radii.rOut;
-      final cornerRadius = math
-          .min(8.0, (eventROut - eventRIn) * 0.28)
-          .clamp(3.0, 8.0);
+      final eventRIn = routineTrackIn;
+      final eventROut = routineTrackOut;
 
       final isContiguous = hasContiguousSuccessor[i];
       final baseCapSpanDeg = (sweepDeg * 0.30).clamp(9.0, is24 ? 13.0 : 16.0);
 
       final canShowStartCap = !hasContiguousPredecessor[i] &&
           sweepDeg >= (is24 ? 22.0 : 32.0) &&
-          !angleAlreadyDrawn(startDeg, isOuterRing);
+          !angleAlreadyDrawn(startDeg);
       final canShowEndCap = sweepDeg >= (is24 ? 14.0 : 19.0) &&
-          !angleAlreadyDrawn(startDeg + sweepDeg, isOuterRing);
+          !angleAlreadyDrawn(startDeg + sweepDeg);
 
       final startCapSpan = canShowStartCap ? baseCapSpanDeg : 0.0;
       final endCapSpan = canShowEndCap
@@ -436,7 +382,6 @@ class SectographPainter extends CustomPainter {
         event: event,
         isActive: isActive,
         isSelected: isSelected,
-        isOuterRing: isOuterRing,
         rIn: eventRIn,
         rOut: eventROut,
         startDeg: startDeg,
@@ -452,14 +397,14 @@ class SectographPainter extends CustomPainter {
       ));
 
       if (canShowStartCap) {
-        drawnTimestampAngles.add((isOuter: isOuterRing, angle: startDeg));
+        drawnTimestampAngles.add(startDeg);
       }
       if (canShowEndCap) {
-        drawnTimestampAngles.add((isOuter: isOuterRing, angle: endBoundaryDeg));
+        drawnTimestampAngles.add(endBoundaryDeg);
       }
     }
 
-    // Pass 1: Draw ALL pill bodies first
+    // Pass 1: Draw ALL pill bodies first (pure solid vibrant fills, zero borders, zero shadows)
     for (final l in pillLayouts) {
       SectorPillRenderer.drawPillBody(
         canvas: canvas,
@@ -467,7 +412,6 @@ class SectographPainter extends CustomPainter {
         event: l.event,
         isActive: l.isActive,
         isSelected: l.isSelected,
-        isOuterRing: l.isOuterRing,
       );
     }
 
@@ -526,7 +470,6 @@ class SectographPainter extends CustomPainter {
         startDeg: l.startDeg,
         sweepDeg: l.sweepDeg,
         is24HourMode: is24,
-        isOuterRing: l.isOuterRing,
         startCapSpanDeg: l.startCapSpan,
         endCapSpanDeg: l.endCapSpan,
       );

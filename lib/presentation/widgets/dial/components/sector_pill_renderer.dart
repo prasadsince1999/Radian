@@ -109,40 +109,21 @@ class SectorPillRenderer {
     return path;
   }
 
-  /// Draws a time block sector with 100% pure solid vibrant fill (no shadows, zero dimming).
+  /// Draws a time block sector with 100% pure solid vibrant fill (no shadows, no glowing borders, zero dimming).
   static void drawPillBody({
     required Canvas canvas,
     required Path pillPath,
     required SectorEvent event,
     required bool isActive,
     required bool isSelected,
-    required bool isOuterRing,
+    bool isOuterRing = true,
     double pulseValue = 0.0,
   }) {
-    // 1. Base sector fill - 100% PURE SOLID VIBRANT COLOR (No shadows, no dimming!)
+    // 1. Base sector fill - 100% PURE SOLID VIBRANT COLOR (No shadows, zero borders, zero dimming!)
     final fillPaint = Paint()
       ..color = event.color
       ..style = PaintingStyle.fill;
     canvas.drawPath(pillPath, fillPaint);
-
-    // 2. Active pulse aura & highlight border
-    if (isActive) {
-      final pulseAlpha = (0.35 + 0.30 * math.sin(pulseValue * math.pi)).clamp(
-        0.0,
-        1.0,
-      );
-      final activeBorderPaint = Paint()
-        ..color = Colors.white.withValues(alpha: pulseAlpha)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0;
-      canvas.drawPath(pillPath, activeBorderPaint);
-    } else if (isSelected) {
-      final selectBorderPaint = Paint()
-        ..color = Colors.white.withValues(alpha: 0.90)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2;
-      canvas.drawPath(pillPath, selectBorderPaint);
-    }
   }
 
   /// Draws an integrated end-cap or start-cap badge inside the sector pill with pure solid color.

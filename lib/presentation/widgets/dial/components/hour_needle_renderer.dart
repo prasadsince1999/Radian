@@ -2,25 +2,23 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// Reusable component for rendering the two-stage hierarchical red hour indicator needle.
+/// Reusable component for rendering the single continuous red hour indicator needle.
 ///
 /// Features:
-/// - Inner Segment: Subtle 1.5dp hairline at 50% opacity across the inner ring (preserving legibility).
-/// - Outer Segment: Bold 3.2dp crimson needle with ambient glow across the active outer ring.
-/// - Junction Micro-dot at the ring transition boundary.
+/// - Single Continuous Needle: Solid 3.0dp crimson needle hand across the single ring track.
 /// - Outer Rim Beacon: Day/night celestial icon badge (Sun during daytime, Moon at night).
 class HourNeedleRenderer {
   const HourNeedleRenderer._();
 
-  /// Draws the complete two-stage hour needle with glow, junction dot, and rim beacon.
+  /// Draws the single continuous hour needle and outer rim celestial beacon.
   static void drawNeedle({
     required Canvas canvas,
     required Offset center,
     required double angleRad,
     required double hubRadius,
-    required double outerRIn,
     required double outerROut,
     required bool isDaytime,
+    double? outerRIn,
     Color needleColor = const Color(0xFFEF4444), // Crimson
   }) {
     final cosAngle = math.cos(angleRad);
@@ -30,36 +28,18 @@ class HourNeedleRenderer {
       center.dx + hubRadius * cosAngle,
       center.dy + hubRadius * sinAngle,
     );
-    final junctionPt = Offset(
-      center.dx + outerRIn * cosAngle,
-      center.dy + outerRIn * sinAngle,
-    );
     final rimPt = Offset(
       center.dx + outerROut * cosAngle,
       center.dy + outerROut * sinAngle,
     );
 
-    // 1. Stage 1 (Inner Segment): Subtle hairline across inner ring
-    final hairlinePaint = Paint()
-      ..color = needleColor.withValues(alpha: 0.50)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(hubPt, junctionPt, hairlinePaint);
-
-    // 2. Stage 2 (Outer Segment): Bold Crimson Needle
-    final boldPaint = Paint()
+    // 1. Single solid, continuous crimson needle hand
+    final needlePaint = Paint()
       ..color = needleColor
-      ..strokeWidth = 3.2
+      ..strokeWidth = 3.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
-    canvas.drawLine(junctionPt, rimPt, boldPaint);
-
-    // 4. Junction Micro-dot
-    final dotPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(junctionPt, 2.0, dotPaint);
+    canvas.drawLine(hubPt, rimPt, needlePaint);
 
     // 5. Outer Rim Celestial Beacon (Sun or Moon)
     final beaconCenter = Offset(
