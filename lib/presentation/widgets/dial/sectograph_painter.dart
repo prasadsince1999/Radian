@@ -241,6 +241,7 @@ class SectographPainter extends CustomPainter {
       angleRad: nowRad,
       hubRadius: innerRadius,
       outerROut: routineTrackOut,
+      baseRadius: baseRadius,
       isDaytime: isDaytime,
     );
   }

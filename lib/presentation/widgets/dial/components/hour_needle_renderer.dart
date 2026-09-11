@@ -10,7 +10,8 @@ import 'package:flutter/material.dart';
 class HourNeedleRenderer {
   const HourNeedleRenderer._();
 
-  /// Draws the single continuous hour needle and outer rim celestial beacon.
+  /// Draws the single continuous hour needle and celestial beacon,
+  /// strictly contained within the circular dial area.
   static void drawNeedle({
     required Canvas canvas,
     required Offset center,
@@ -18,6 +19,7 @@ class HourNeedleRenderer {
     required double hubRadius,
     required double outerROut,
     required bool isDaytime,
+    double? baseRadius,
     double? outerRIn,
     Color needleColor = const Color(0xFFEF4444), // Crimson
   }) {
@@ -28,36 +30,35 @@ class HourNeedleRenderer {
       center.dx + hubRadius * cosAngle,
       center.dy + hubRadius * sinAngle,
     );
-    final rimPt = Offset(
-      center.dx + outerROut * cosAngle,
-      center.dy + outerROut * sinAngle,
+
+    // Position beacon safely inside the outer circle rim (baseRadius)
+    const beaconRadius = 6.5;
+    final effectiveBaseRadius = baseRadius ?? (outerROut + 3.5);
+    final beaconCenterDist = effectiveBaseRadius - beaconRadius - 4.5;
+    final beaconCenter = Offset(
+      center.dx + beaconCenterDist * cosAngle,
+      center.dy + beaconCenterDist * sinAngle,
     );
 
-    // 1. Single solid, continuous crimson needle hand
+    // 1. Single solid, continuous crimson needle hand running cleanly to the beacon center
     final needlePaint = Paint()
       ..color = needleColor
       ..strokeWidth = 3.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
-    canvas.drawLine(hubPt, rimPt, needlePaint);
+    canvas.drawLine(hubPt, beaconCenter, needlePaint);
 
-    // 5. Outer Rim Celestial Beacon (Sun or Moon)
-    final beaconCenter = Offset(
-      center.dx + (outerROut + 8.0) * cosAngle,
-      center.dy + (outerROut + 8.0) * sinAngle,
-    );
-
-    // Beacon disc background
+    // 2. Celestial Beacon (Sun or Moon) strictly contained within the circle area
     final beaconBgPaint = Paint()
       ..color = needleColor
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(beaconCenter, 7.5, beaconBgPaint);
+    canvas.drawCircle(beaconCenter, beaconRadius, beaconBgPaint);
 
     final beaconBorderPaint = Paint()
       ..color = Colors.white
       ..strokeWidth = 1.2
       ..style = PaintingStyle.stroke;
-    canvas.drawCircle(beaconCenter, 7.5, beaconBorderPaint);
+    canvas.drawCircle(beaconCenter, beaconRadius, beaconBorderPaint);
 
     // Celestial Icon
     final beaconIcon = isDaytime
@@ -67,7 +68,7 @@ class HourNeedleRenderer {
       text: TextSpan(
         text: String.fromCharCode(beaconIcon.codePoint),
         style: TextStyle(
-          fontSize: 8.5,
+          fontSize: 7.5,
           fontFamily: beaconIcon.fontFamily,
           package: beaconIcon.fontPackage,
           color: Colors.white,

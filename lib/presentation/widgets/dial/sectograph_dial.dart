@@ -76,7 +76,7 @@ class SectographDial extends ConsumerWidget {
             : availableDialHeight;
         final dialSize = math.min(availableDialWidth, availableDialHeight);
         final center = Offset(dialSize / 2, dialSize / 2);
-        final maxRadius = dialSize / 2 * 0.94;
+        final maxRadius = dialSize / 2 * 0.985;
         const scallopAmp = AppLayoutConstants.scallopAmp;
         final baseRadius = maxRadius - scallopAmp;
         final innerRadius = baseRadius * AppLayoutConstants.innerRadiusRatio;

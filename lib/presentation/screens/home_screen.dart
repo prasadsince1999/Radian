@@ -391,9 +391,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               children: [
                 // Top Half: Circular Dial & Connected Footer Bar
                 Expanded(
-                  flex: 6,
+                  flex: 7,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16.0, 4.0, 16.0, 2.0),
+                    padding: const EdgeInsets.fromLTRB(8.0, 4.0, 8.0, 2.0),
                     child: const SectographDial(),
                   ),
                 ),

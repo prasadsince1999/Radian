@@ -21,7 +21,7 @@ abstract final class AppLayoutConstants {
   static const double innerRadiusRatio = 0.42;
   static const double routineTrackInnerOffset = 2.0;
   static const double routineTrackOuterMargin = 3.5;
-  static const double dialSizeHeadroom = 48.0;
+  static const double dialSizeHeadroom = 36.0;
 
   // --- Standard Component Sizes ---
   static const double actionButtonSize = 36.0;
