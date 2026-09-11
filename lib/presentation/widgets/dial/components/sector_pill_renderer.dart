@@ -109,7 +109,7 @@ class SectorPillRenderer {
     return path;
   }
 
-  /// Draws a time block sector with full vibrant fill, ambient depth, and active glow.
+  /// Draws a time block sector with 100% pure solid vibrant fill (no shadows, zero dimming).
   static void drawPillBody({
     required Canvas canvas,
     required Path pillPath,
@@ -119,30 +119,13 @@ class SectorPillRenderer {
     required bool isOuterRing,
     double pulseValue = 0.0,
   }) {
-    // 1. Soft ambient drop shadow
-    final shadowColor = Colors.black.withValues(
-      alpha: isActive ? 0.28 : (isOuterRing ? 0.20 : 0.14),
-    );
-    canvas.drawPath(
-      pillPath,
-      Paint()
-        ..color = shadowColor
-        ..maskFilter = MaskFilter.blur(
-          BlurStyle.normal,
-          isActive ? 4.5 : (isOuterRing ? 3.0 : 2.0),
-        ),
-    );
-
-    // 2. Base sector fill - 100% VIBRANT SOLID (Zero Dimming!)
-    final fillAlpha = isActive || isSelected
-        ? 1.0
-        : (isOuterRing ? 0.96 : 0.92);
+    // 1. Base sector fill - 100% PURE SOLID VIBRANT COLOR (No shadows, no dimming!)
     final fillPaint = Paint()
-      ..color = event.color.withValues(alpha: fillAlpha)
+      ..color = event.color
       ..style = PaintingStyle.fill;
     canvas.drawPath(pillPath, fillPaint);
 
-    // 3. Active pulse aura & highlight border
+    // 2. Active pulse aura & highlight border
     if (isActive) {
       final pulseAlpha = (0.35 + 0.30 * math.sin(pulseValue * math.pi)).clamp(
         0.0,
@@ -162,11 +145,7 @@ class SectorPillRenderer {
     }
   }
 
-  /// Draws an integrated end-cap or start-cap badge inside the sector pill.
-  ///
-  /// The badge is rendered as a seamless part of the sector pill with a darker
-  /// shaded tone, a subtle separator hairline, and high-contrast bold white
-  /// boundary timestamp text.
+  /// Draws an integrated end-cap or start-cap badge inside the sector pill with pure solid color.
   static void drawIntegratedCap({
     required Canvas canvas,
     required Offset center,
@@ -196,17 +175,7 @@ class SectorPillRenderer {
       roundEnd: roundEnd,
     );
 
-    // 0. 3D Overlap Drop Shadow falling onto the contiguous successor block
-    if (!isStartCap && isContiguous) {
-      canvas.drawPath(
-        capPath,
-        Paint()
-          ..color = Colors.black.withValues(alpha: 0.40)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5),
-      );
-    }
-
-    // 1. Base sector fill on cap so it is solid and vibrant
+    // 1. Base sector fill on cap - pure 100% solid event color (no dark overlays, no blur shadows)
     canvas.drawPath(
       capPath,
       Paint()
@@ -214,33 +183,7 @@ class SectorPillRenderer {
         ..style = PaintingStyle.fill,
     );
 
-    // 2. Shaded dark badge overlay
-    final badgeOverlayColor = Color.lerp(eventColor, Colors.black, 0.32)!;
-    canvas.drawPath(
-      capPath,
-      Paint()
-        ..color = badgeOverlayColor
-        ..style = PaintingStyle.fill,
-    );
-
-    // 2. Subtle separator hairline at the junction with the main pill body
-    final sepDeg = isStartCap ? startDeg + sweepDeg : startDeg;
-    final sepRad = SectorMath.dialAngleToCanvasRadians(sepDeg);
-    canvas.drawLine(
-      Offset(
-        center.dx + (rIn + 1.0) * math.cos(sepRad),
-        center.dy + (rIn + 1.0) * math.sin(sepRad),
-      ),
-      Offset(
-        center.dx + (rOut - 1.0) * math.cos(sepRad),
-        center.dy + (rOut - 1.0) * math.sin(sepRad),
-      ),
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.28)
-        ..strokeWidth = 1.0,
-    );
-
-    // 3. Boundary timestamp text in crisp bold white
+    // 2. Boundary timestamp text in crisp bold white
     final timeStr = TimeFormatters.formatTime(time, is24Hour: is24HourMode);
     final midAngleDeg = startDeg + (sweepDeg / 2.0);
     final midRad = SectorMath.dialAngleToCanvasRadians(midAngleDeg);

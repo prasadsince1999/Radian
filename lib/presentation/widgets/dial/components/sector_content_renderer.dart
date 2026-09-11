@@ -60,14 +60,14 @@ class SectorContentRenderer {
 
     final iconData = _getEventIcon(event);
     final iconFontSize = isOuterRing
-        ? (is24HourMode ? 12.0 : 13.5)
-        : (is24HourMode ? 9.5 : 11.0);
+        ? (is24HourMode ? 11.5 : 12.5)
+        : (is24HourMode ? 9.5 : 10.5);
     final titleFontSize = isOuterRing
-        ? (is24HourMode ? 10.5 : 12.0)
-        : (is24HourMode ? 8.5 : 10.0);
+        ? (is24HourMode ? 10.0 : 11.0)
+        : (is24HourMode ? 8.5 : 9.5);
     final metaFontSize = isOuterRing
-        ? (is24HourMode ? 8.5 : 9.5)
-        : (is24HourMode ? 7.5 : 8.5);
+        ? (is24HourMode ? 8.0 : 9.0)
+        : (is24HourMode ? 7.0 : 8.0);
 
     final iconPainter = TextPainter(
       text: TextSpan(
@@ -156,9 +156,9 @@ class SectorContentRenderer {
     }
     canvas.rotate(tangentAngle);
 
-    final iconGap = isOuterRing ? 2.0 : 1.2;
-    final lineGap = isOuterRing ? 1.0 : 0.8;
-    final durGap = isOuterRing ? 2.0 : 1.2;
+    final iconGap = isOuterRing ? 1.5 : 1.0;
+    final lineGap = isOuterRing ? 0.8 : 0.5;
+    final durGap = isOuterRing ? 1.5 : 1.0;
 
     if (titlePainters.isEmpty) {
       final totalH = iconPainter.height + durGap + metaPainter.height;

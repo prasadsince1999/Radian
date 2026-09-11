@@ -47,15 +47,7 @@ class HourNeedleRenderer {
       ..strokeCap = StrokeCap.round;
     canvas.drawLine(hubPt, junctionPt, hairlinePaint);
 
-    // 2. Stage 2 Ambient Glow (Outer Segment)
-    final glowPaint = Paint()
-      ..color = needleColor.withValues(alpha: 0.30)
-      ..strokeWidth = 6.5
-      ..style = PaintingStyle.stroke
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5);
-    canvas.drawLine(junctionPt, rimPt, glowPaint);
-
-    // 3. Stage 2 (Outer Segment): Bold Crimson Needle
+    // 2. Stage 2 (Outer Segment): Bold Crimson Needle
     final boldPaint = Paint()
       ..color = needleColor
       ..strokeWidth = 3.2
