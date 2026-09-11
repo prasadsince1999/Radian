@@ -156,7 +156,15 @@ class SectorPillRenderer {
       roundEnd: roundEnd,
     );
 
-    // 1. Solid darker badge color on cap (pure solid, zero shadow blur!)
+    // 1. 3D Overlap drop shadow: ONLY rendered when overlapping onto another block (isContiguous), never inside the block!
+    if (isContiguous) {
+      final shadowPaint = Paint()
+        ..color = Colors.black.withValues(alpha: 0.35)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
+      canvas.drawPath(capPath, shadowPaint);
+    }
+
+    // 2. Solid darker badge color on cap highlighting the boundary time (pure solid, zero inner blur!)
     final badgeColor = Color.lerp(eventColor, Colors.black, 0.30)!;
     canvas.drawPath(
       capPath,
@@ -165,24 +173,9 @@ class SectorPillRenderer {
         ..style = PaintingStyle.fill,
     );
 
-    // 2. Subtle clean separator hairline at the junction with the main pill
-    final sepDeg = isStartCap ? startDeg + sweepDeg : startDeg;
-    final sepRad = SectorMath.dialAngleToCanvasRadians(sepDeg);
-    canvas.drawLine(
-      Offset(
-        center.dx + (rIn + 1.0) * math.cos(sepRad),
-        center.dy + (rIn + 1.0) * math.sin(sepRad),
-      ),
-      Offset(
-        center.dx + (rOut - 1.0) * math.cos(sepRad),
-        center.dy + (rOut - 1.0) * math.sin(sepRad),
-      ),
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.28)
-        ..strokeWidth = 1.0,
-    );
+    // ZERO white separator lines! (No canvas.drawLine)
 
-    // 2. Boundary timestamp text in crisp bold white
+    // 3. Boundary timestamp text in crisp bold white
     final timeStr = TimeFormatters.formatTime(time, is24Hour: is24HourMode);
     final midAngleDeg = startDeg + (sweepDeg / 2.0);
     final midRad = SectorMath.dialAngleToCanvasRadians(midAngleDeg);

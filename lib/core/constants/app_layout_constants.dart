@@ -18,7 +18,7 @@ abstract final class AppLayoutConstants {
   // --- Dial Geometry ---
   static const int scallopLobes = 12;
   static const double scallopAmp = 0.0;
-  static const double innerRadiusRatio = 0.52;
+  static const double innerRadiusRatio = 0.42;
   static const double routineTrackInnerOffset = 2.0;
   static const double routineTrackOuterMargin = 3.5;
   static const double dialSizeHeadroom = 48.0;

@@ -351,18 +351,17 @@ class SectographPainter extends CustomPainter {
       final eventROut = routineTrackOut;
 
       final isContiguous = hasContiguousSuccessor[i];
-      final baseCapSpanDeg = (sweepDeg * 0.30).clamp(9.0, is24 ? 13.0 : 16.0);
+      // Compact, completely consistent time badge span across all blocks
+      final baseCapSpanDeg = is24 ? 5.5 : 7.5;
 
       final canShowStartCap = !hasContiguousPredecessor[i] &&
-          sweepDeg >= (is24 ? 22.0 : 32.0) &&
+          sweepDeg >= (is24 ? 16.0 : 20.0) &&
           !angleAlreadyDrawn(startDeg);
-      final canShowEndCap = sweepDeg >= (is24 ? 14.0 : 19.0) &&
+      final canShowEndCap = sweepDeg >= (is24 ? 10.0 : 14.0) &&
           !angleAlreadyDrawn(startDeg + sweepDeg);
 
       final startCapSpan = canShowStartCap ? baseCapSpanDeg : 0.0;
-      final endCapSpan = canShowEndCap
-          ? baseCapSpanDeg + (isContiguous ? overlapDeg : 0.0)
-          : 0.0;
+      final endCapSpan = canShowEndCap ? baseCapSpanDeg : 0.0;
       final endBoundaryDeg = startDeg + sweepDeg;
       final capEndDeg = endBoundaryDeg + (isContiguous ? overlapDeg : 0.0);
       final endCapStartDeg = capEndDeg - endCapSpan;
