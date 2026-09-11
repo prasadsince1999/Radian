@@ -314,8 +314,7 @@ class SectographPainter extends CustomPainter {
       return false;
     }
 
-    const double overlapDeg =
-        2.5; // 3D overlap extension over contiguous successor
+    final double overlapDeg = is24 ? 0.8 : 1.2; // Squeezed 3D overlap extension
     final cornerRadius = math
         .min(8.0, (routineTrackOut - routineTrackIn) * 0.22)
         .clamp(3.0, 8.0);
@@ -362,15 +361,17 @@ class SectographPainter extends CustomPainter {
       final eventROut = routineTrackOut;
 
       final isContiguous = hasContiguousSuccessor[i];
-      // Compact, completely consistent time badge span across all blocks
-      final baseCapSpanDeg = is24 ? 5.5 : 7.5;
+      // Squeezed, ultra-compact time badge span so blocks have maximum breathing room for titles
+      final baseCapSpanDeg = is24
+          ? math.min(2.4, sweepDeg * 0.12)
+          : math.min(3.6, sweepDeg * 0.12);
 
       final canShowStartCap =
           !hasContiguousPredecessor[i] &&
-          sweepDeg >= (is24 ? 16.0 : 20.0) &&
+          sweepDeg >= (is24 ? 14.0 : 18.0) &&
           !angleAlreadyDrawn(startDeg);
       final canShowEndCap =
-          sweepDeg >= (is24 ? 10.0 : 14.0) &&
+          sweepDeg >= (is24 ? 8.0 : 12.0) &&
           !angleAlreadyDrawn(startDeg + sweepDeg);
 
       final startCapSpan = canShowStartCap ? baseCapSpanDeg : 0.0;
@@ -486,7 +487,12 @@ class SectographPainter extends CustomPainter {
     }
 
     // Pass 4: Draw Sector Content (icon, title, duration hours only!)
-    for (final l in pillLayouts) {
+    for (int i = 0; i < pillLayouts.length; i++) {
+      final l = pillLayouts[i];
+      final effectiveStartCap = l.showStartCap
+          ? l.startCapSpan
+          : (hasContiguousPredecessor[i] ? overlapDeg : 0.0);
+
       SectorContentRenderer.drawContent(
         canvas: canvas,
         center: center,
@@ -497,7 +503,7 @@ class SectographPainter extends CustomPainter {
         startDeg: l.startDeg,
         sweepDeg: l.sweepDeg,
         is24HourMode: is24,
-        startCapSpanDeg: l.startCapSpan,
+        startCapSpanDeg: effectiveStartCap,
         endCapSpanDeg: l.endCapSpan,
       );
     }
@@ -646,6 +652,65 @@ class SectographPainter extends CustomPainter {
         center.dy + (is24 ? innerRadius * 0.28 : innerRadius * 0.22),
       ),
     );
+
+    // Draw Active Event Chip (Full parity with CenterSummary for Android widget sync)
+    if (activeEvent != null) {
+      final chipKeyword = SectorContentRenderer.distillShortKeyword(
+        activeEvent!.title,
+      );
+      final remainingMins = activeEvent!.end.difference(currentTime).inMinutes;
+      final chipText = remainingMins > 0
+          ? '$chipKeyword ${remainingMins}m'
+          : chipKeyword;
+
+      final chipPainter = TextPainter(
+        text: TextSpan(
+          text: chipText,
+          style: TextStyle(
+            color: activeEvent!.color,
+            fontSize: innerRadius * 0.13,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.2,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      )..layout();
+
+      final chipWidth = chipPainter.width + 12.0;
+      final chipHeight = chipPainter.height + 4.0;
+      final chipY =
+          center.dy + (is24 ? innerRadius * 0.52 : innerRadius * 0.46);
+
+      final chipRect = Rect.fromCenter(
+        center: Offset(center.dx, chipY),
+        width: chipWidth,
+        height: chipHeight,
+      );
+      final chipRRect = RRect.fromRectAndRadius(
+        chipRect,
+        const Radius.circular(8.0),
+      );
+
+      final chipBg = Paint()
+        ..color = activeEvent!.color.withValues(alpha: 0.18)
+        ..style = PaintingStyle.fill;
+      final chipBorder = Paint()
+        ..color = activeEvent!.color.withValues(alpha: 0.45)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+
+      canvas.drawRRect(chipRRect, chipBg);
+      canvas.drawRRect(chipRRect, chipBorder);
+
+      chipPainter.paint(
+        canvas,
+        Offset(
+          center.dx - chipPainter.width / 2,
+          chipY - chipPainter.height / 2,
+        ),
+      );
+    }
   }
 
   @override

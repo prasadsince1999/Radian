@@ -84,6 +84,11 @@ class McpTools {
                     'description': 'Hex color code e.g. #6366F1',
                   },
                   'notes': {'type': 'string'},
+                  'subtasks': {
+                    'type': 'array',
+                    'items': {'type': 'string'},
+                    'description': 'List of subtask titles or checklist items',
+                  },
                 },
                 'required': ['title', 'start', 'end'],
               },
@@ -115,6 +120,11 @@ class McpTools {
                   'category': {'type': 'string'},
                   'colorHex': {'type': 'string'},
                   'notes': {'type': 'string'},
+                  'subtasks': {
+                    'type': 'array',
+                    'items': {'type': 'string'},
+                    'description': 'List of subtasks for this block',
+                  },
                 },
                 'required': ['title', 'start', 'end'],
               },
@@ -142,6 +152,11 @@ class McpTools {
                   'durationMinutes': {'type': 'integer'},
                   'category': {'type': 'string'},
                   'colorHex': {'type': 'string'},
+                  'subtasks': {
+                    'type': 'array',
+                    'items': {'type': 'string'},
+                    'description': 'List of subtasks for this task',
+                  },
                 },
                 'required': ['title', 'durationMinutes'],
               },
@@ -162,6 +177,11 @@ class McpTools {
             'category': {'type': 'string'},
             'colorHex': {'type': 'string'},
             'notes': {'type': 'string'},
+            'subtasks': {
+              'type': 'array',
+              'items': {'type': 'string'},
+              'description': 'List of subtask titles or checklist items',
+            },
           },
           'required': ['title', 'start', 'end'],
         },
@@ -179,6 +199,12 @@ class McpTools {
             'category': {'type': 'string'},
             'colorHex': {'type': 'string'},
             'notes': {'type': 'string'},
+            'subtasks': {
+              'type': 'array',
+              'items': {'type': 'string'},
+              'description':
+                  'Updated list of subtasks (or empty list to clear)',
+            },
           },
           'required': ['id'],
         },
@@ -253,6 +279,25 @@ class McpTools {
     ];
   }
 
+  static List<String> _parseSubtasks(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw
+        .map((s) => s.toString().trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
+  static DateTime? _tryParseIsoDate(dynamic d) {
+    if (d is String && d.isNotEmpty) {
+      try {
+        return DateTime.parse(d);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
   static Future<Map<String, dynamic>> executeTool({
     required String name,
     required Map<String, dynamic> arguments,
@@ -264,7 +309,9 @@ class McpTools {
 
     DateTime parseDate(dynamic d) {
       if (d is String && d.isNotEmpty) {
-        return DateTime.parse(d);
+        try {
+          return DateTime.parse(d);
+        } catch (_) {}
       }
       return DateTime(now.year, now.month, now.day);
     }
@@ -309,7 +356,8 @@ class McpTools {
 
       case 'find_free_gaps':
         final targetDate = parseDate(arguments['date']);
-        final minMins = arguments['minDurationMinutes'] as int? ?? 15;
+        final minMinsRaw = arguments['minDurationMinutes'];
+        final minMins = (minMinsRaw is int && minMinsRaw > 0) ? minMinsRaw : 15;
         final gaps = await repository.findFreeGaps(
           day: targetDate,
           is24HourMode: getSettings().is24HourMode,
@@ -326,20 +374,27 @@ class McpTools {
         final created = <SectorEvent>[];
 
         for (final item in rawEvents) {
-          final m = item as Map<String, dynamic>;
+          if (item is! Map<String, dynamic>) continue;
+          final start = _tryParseIsoDate(item['start']);
+          final end = _tryParseIsoDate(item['end']);
+          if (start == null || end == null || !end.isAfter(start)) continue;
+
           final event = SectorEvent(
             id: const Uuid().v4(),
-            title: m['title'] as String,
-            start: DateTime.parse(m['start'] as String),
-            end: DateTime.parse(m['end'] as String),
-            category: m['category'] as String? ?? 'General',
-            colorHex: m['colorHex'] as String? ?? '#6366F1',
-            notes: m['notes'] as String? ?? '',
+            title: item['title'] as String? ?? 'Untitled',
+            start: start,
+            end: end,
+            category: item['category'] as String? ?? 'General',
+            colorHex: item['colorHex'] as String? ?? '#6366F1',
+            notes: item['notes'] as String? ?? '',
+            subtasks: _parseSubtasks(item['subtasks']),
           );
           created.add(event);
         }
 
-        await repository.bulkAddEvents(created);
+        if (created.isNotEmpty) {
+          await repository.bulkAddEvents(created);
+        }
         return {
           'success': true,
           'scheduledCount': created.length,
@@ -352,15 +407,20 @@ class McpTools {
         final replacement = <SectorEvent>[];
 
         for (final item in rawEvents) {
-          final m = item as Map<String, dynamic>;
+          if (item is! Map<String, dynamic>) continue;
+          final start = _tryParseIsoDate(item['start']);
+          final end = _tryParseIsoDate(item['end']);
+          if (start == null || end == null || !end.isAfter(start)) continue;
+
           final event = SectorEvent(
             id: const Uuid().v4(),
-            title: m['title'] as String,
-            start: DateTime.parse(m['start'] as String),
-            end: DateTime.parse(m['end'] as String),
-            category: m['category'] as String? ?? 'General',
-            colorHex: m['colorHex'] as String? ?? '#6366F1',
-            notes: m['notes'] as String? ?? '',
+            title: item['title'] as String? ?? 'Untitled',
+            start: start,
+            end: end,
+            category: item['category'] as String? ?? 'General',
+            colorHex: item['colorHex'] as String? ?? '#6366F1',
+            notes: item['notes'] as String? ?? '',
+            subtasks: _parseSubtasks(item['subtasks']),
           );
           replacement.add(event);
         }
@@ -388,8 +448,8 @@ class McpTools {
         var currentGapEnd = gaps.isNotEmpty ? gaps[0].end : null;
 
         for (final t in rawTasks) {
-          final tm = t as Map<String, dynamic>;
-          final durationMins = tm['durationMinutes'] as int? ?? 30;
+          if (t is! Map<String, dynamic>) continue;
+          final durationMins = t['durationMinutes'] as int? ?? 30;
           final duration = Duration(minutes: durationMins);
 
           // Find a gap that can accommodate duration
@@ -401,11 +461,12 @@ class McpTools {
 
               final event = SectorEvent(
                 id: const Uuid().v4(),
-                title: tm['title'] as String,
+                title: t['title'] as String? ?? 'Focus Task',
                 start: taskStart,
                 end: taskEnd,
-                category: tm['category'] as String? ?? 'Focus',
-                colorHex: tm['colorHex'] as String? ?? '#10B981',
+                category: t['category'] as String? ?? 'Focus',
+                colorHex: t['colorHex'] as String? ?? '#10B981',
+                subtasks: _parseSubtasks(t['subtasks']),
               );
               scheduled.add(event);
               currentGapStart = taskEnd;
@@ -431,43 +492,96 @@ class McpTools {
         };
 
       case 'schedule_sector':
+        final title = arguments['title'] as String? ?? '';
+        final start = _tryParseIsoDate(arguments['start']);
+        final end = _tryParseIsoDate(arguments['end']);
+        if (start == null || end == null) {
+          return {
+            'success': false,
+            'error': 'Invalid ISO 8601 start or end date format',
+          };
+        }
+        if (!end.isAfter(start)) {
+          return {
+            'success': false,
+            'error': 'End time must be strictly after start time',
+          };
+        }
         final event = SectorEvent(
           id: const Uuid().v4(),
-          title: arguments['title'] as String,
-          start: DateTime.parse(arguments['start'] as String),
-          end: DateTime.parse(arguments['end'] as String),
+          title: title,
+          start: start,
+          end: end,
           category: arguments['category'] as String? ?? 'General',
           colorHex: arguments['colorHex'] as String? ?? '#6366F1',
           notes: arguments['notes'] as String? ?? '',
+          subtasks: _parseSubtasks(arguments['subtasks']),
         );
         await repository.addEvent(event);
         return {'success': true, 'sector': event.toJson()};
 
       case 'update_sector':
-        final id = arguments['id'] as String;
+        final id = arguments['id'] as String? ?? '';
         final events = await repository.getEventsForDay(now);
-        final existing = events.firstWhere(
-          (e) => e.id == id,
-          orElse: () => throw Exception('Sector not found with id: $id'),
-        );
+        SectorEvent? existing;
+        for (final e in events) {
+          if (e.id == id) {
+            existing = e;
+            break;
+          }
+        }
+        if (existing == null) {
+          return {'success': false, 'error': 'Sector not found with id: $id'};
+        }
+
+        DateTime? newStart;
+        if (arguments['start'] != null) {
+          newStart = _tryParseIsoDate(arguments['start']);
+          if (newStart == null) {
+            return {'success': false, 'error': 'Invalid start date format'};
+          }
+        }
+        DateTime? newEnd;
+        if (arguments['end'] != null) {
+          newEnd = _tryParseIsoDate(arguments['end']);
+          if (newEnd == null) {
+            return {'success': false, 'error': 'Invalid end date format'};
+          }
+        }
+
+        final effectiveStart = newStart ?? existing.start;
+        final effectiveEnd = newEnd ?? existing.end;
+        if (!effectiveEnd.isAfter(effectiveStart)) {
+          return {
+            'success': false,
+            'error': 'End time must be strictly after start time',
+          };
+        }
+
+        List<String>? updatedSubtasks;
+        if (arguments.containsKey('subtasks')) {
+          updatedSubtasks = _parseSubtasks(arguments['subtasks']);
+        }
 
         final updated = existing.copyWith(
           title: arguments['title'] as String?,
-          start: arguments['start'] != null
-              ? DateTime.parse(arguments['start'] as String)
-              : null,
-          end: arguments['end'] != null
-              ? DateTime.parse(arguments['end'] as String)
-              : null,
+          start: effectiveStart,
+          end: effectiveEnd,
           category: arguments['category'] as String?,
           colorHex: arguments['colorHex'] as String?,
           notes: arguments['notes'] as String?,
+          subtasks: updatedSubtasks ?? existing.subtasks,
         );
         await repository.updateEvent(updated);
         return {'success': true, 'sector': updated.toJson()};
 
       case 'delete_sector':
-        final id = arguments['id'] as String;
+        final id = arguments['id'] as String? ?? '';
+        final events = await repository.getEventsForDay(now);
+        final exists = events.any((e) => e.id == id);
+        if (!exists) {
+          return {'success': false, 'error': 'Sector not found with id: $id'};
+        }
         await repository.deleteEvent(id);
         return {'success': true, 'deletedId': id};
 
@@ -489,36 +603,40 @@ class McpTools {
           seedColorHex: arguments['seedColorHex'] as String?,
         );
         if (arguments['themeMode'] != null) {
-          updated = updated.copyWith(
-            themeMode: ThemeMode.values.firstWhere(
-              (e) => e.name == arguments['themeMode'],
-              orElse: () => updated.themeMode,
-            ),
-          );
+          final val = arguments['themeMode'].toString();
+          for (final e in ThemeMode.values) {
+            if (e.name == val) {
+              updated = updated.copyWith(themeMode: e);
+              break;
+            }
+          }
         }
         if (arguments['faceStyle'] != null) {
-          updated = updated.copyWith(
-            faceStyle: DialFaceStyle.values.firstWhere(
-              (e) => e.name == arguments['faceStyle'],
-              orElse: () => updated.faceStyle,
-            ),
-          );
+          final val = arguments['faceStyle'].toString();
+          for (final e in DialFaceStyle.values) {
+            if (e.name == val) {
+              updated = updated.copyWith(faceStyle: e);
+              break;
+            }
+          }
         }
         if (arguments['sectorStyle'] != null) {
-          updated = updated.copyWith(
-            sectorStyle: SectorVisualTheme.values.firstWhere(
-              (e) => e.name == arguments['sectorStyle'],
-              orElse: () => updated.sectorStyle,
-            ),
-          );
+          final val = arguments['sectorStyle'].toString();
+          for (final e in SectorVisualTheme.values) {
+            if (e.name == val) {
+              updated = updated.copyWith(sectorStyle: e);
+              break;
+            }
+          }
         }
         if (arguments['handStyle'] != null) {
-          updated = updated.copyWith(
-            handStyle: HandStyle.values.firstWhere(
-              (e) => e.name == arguments['handStyle'],
-              orElse: () => updated.handStyle,
-            ),
-          );
+          final val = arguments['handStyle'].toString();
+          for (final e in HandStyle.values) {
+            if (e.name == val) {
+              updated = updated.copyWith(handStyle: e);
+              break;
+            }
+          }
         }
         await updateSettings(updated);
         return {'success': true, 'settings': updated.toJson()};

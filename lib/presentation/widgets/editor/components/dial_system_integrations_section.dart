@@ -110,6 +110,70 @@ class DialSystemIntegrationsSection extends ConsumerWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: BouncyPressable(
+                  onTap: () async {
+                    final events =
+                        ref.read(allEventsProvider).value ??
+                        ref.read(dayEventsProvider).value ??
+                        const [];
+                    final activeEvent = ref.read(currentActiveEventProvider);
+                    final currentTime =
+                        ref.read(currentTimeProvider).value ?? DateTime.now();
+                    final settings = ref.read(dialSettingsProvider);
+                    final theme = Theme.of(context);
+
+                    await ref
+                        .read(syncDialWidgetUseCaseProvider)
+                        .execute(
+                          events: events,
+                          activeEvent: activeEvent,
+                          currentTime: currentTime,
+                          settings: settings,
+                          theme: theme,
+                        );
+
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Widget synchronized with latest dial design',
+                          ),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: colorScheme.outlineVariant,
+                        width: 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.sync_rounded, size: 16, color: primaryText),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Sync Widget Now',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12.5,
+                            color: primaryText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),

@@ -64,6 +64,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _syncAndroidWidget();
       ref.read(cloudSyncControllerProvider.notifier).syncNow();
     }
   }

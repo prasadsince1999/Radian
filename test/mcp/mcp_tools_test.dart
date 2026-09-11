@@ -522,6 +522,279 @@ void main() {
       },
     );
 
+    // Subtasks Functionality Tests
+    test('schedule_sector saves and retrieves subtasks', () async {
+      final today = DateTime.now();
+      final start = DateTime(today.year, today.month, today.day, 14, 0);
+      final end = DateTime(today.year, today.month, today.day, 16, 0);
+
+      final res = await McpTools.executeTool(
+        name: 'schedule_sector',
+        arguments: {
+          'title': 'AI Prep Sprint',
+          'start': start.toIso8601String(),
+          'end': end.toIso8601String(),
+          'subtasks': ['LeetCode', 'Mock Prep', 'PyTorch'],
+        },
+        repository: repository,
+        getSettings: () => settings,
+        updateSettings: (s) async => settings = s,
+      );
+
+      expect(res['success'], isTrue);
+      final sector = res['sector'] as Map<String, dynamic>;
+      expect(sector['subtasks'], ['LeetCode', 'Mock Prep', 'PyTorch']);
+
+      final saved = await repository.getEventsForDay(today);
+      expect(saved.first.subtasks, ['LeetCode', 'Mock Prep', 'PyTorch']);
+    });
+
+    test(
+      'bulk_schedule_sectors and replace_day_schedule handle subtasks',
+      () async {
+        final today = DateTime.now();
+        final start = DateTime(today.year, today.month, today.day, 16, 0);
+        final end = DateTime(today.year, today.month, today.day, 17, 0);
+
+        final bulkRes = await McpTools.executeTool(
+          name: 'bulk_schedule_sectors',
+          arguments: {
+            'events': [
+              {
+                'title': 'Cooking Session',
+                'start': start.toIso8601String(),
+                'end': end.toIso8601String(),
+                'subtasks': ['Meal Prep', 'Quick Lunch'],
+              },
+            ],
+          },
+          repository: repository,
+          getSettings: () => settings,
+          updateSettings: (s) async => settings = s,
+        );
+
+        expect(bulkRes['success'], isTrue);
+        final sectors = bulkRes['sectors'] as List<dynamic>;
+        expect(sectors.first['subtasks'], ['Meal Prep', 'Quick Lunch']);
+
+        // Now test replace_day_schedule
+        final replaceRes = await McpTools.executeTool(
+          name: 'replace_day_schedule',
+          arguments: {
+            'date': today.toIso8601String().substring(0, 10),
+            'events': [
+              {
+                'title': 'Replaced Deep Work',
+                'start': start.toIso8601String(),
+                'end': end.toIso8601String(),
+                'subtasks': ['Backprop', 'Transformers'],
+              },
+            ],
+          },
+          repository: repository,
+          getSettings: () => settings,
+          updateSettings: (s) async => settings = s,
+        );
+
+        expect(replaceRes['success'], isTrue);
+        final repSectors = replaceRes['sectors'] as List<dynamic>;
+        expect(repSectors.first['subtasks'], ['Backprop', 'Transformers']);
+      },
+    );
+
+    test('update_sector modifies, clears, and preserves subtasks', () async {
+      final today = DateTime.now();
+      final start = DateTime(today.year, today.month, today.day, 10, 0);
+      final end = DateTime(today.year, today.month, today.day, 11, 0);
+
+      final initial = await McpTools.executeTool(
+        name: 'schedule_sector',
+        arguments: {
+          'title': 'Original Task',
+          'start': start.toIso8601String(),
+          'end': end.toIso8601String(),
+          'subtasks': ['Sub 1', 'Sub 2'],
+        },
+        repository: repository,
+        getSettings: () => settings,
+        updateSettings: (s) async => settings = s,
+      );
+      final id = (initial['sector'] as Map<String, dynamic>)['id'] as String;
+
+      // 1. Preserve subtasks when omitted
+      final resPreserve = await McpTools.executeTool(
+        name: 'update_sector',
+        arguments: {'id': id, 'title': 'Updated Title'},
+        repository: repository,
+        getSettings: () => settings,
+        updateSettings: (s) async => settings = s,
+      );
+      expect(resPreserve['success'], isTrue);
+      expect(resPreserve['sector']['subtasks'], ['Sub 1', 'Sub 2']);
+
+      // 2. Modify subtasks
+      final resModify = await McpTools.executeTool(
+        name: 'update_sector',
+        arguments: {
+          'id': id,
+          'subtasks': ['Sub 3', 'Sub 4'],
+        },
+        repository: repository,
+        getSettings: () => settings,
+        updateSettings: (s) async => settings = s,
+      );
+      expect(resModify['success'], isTrue);
+      expect(resModify['sector']['subtasks'], ['Sub 3', 'Sub 4']);
+
+      // 3. Clear subtasks with empty list
+      final resClear = await McpTools.executeTool(
+        name: 'update_sector',
+        arguments: {'id': id, 'subtasks': []},
+        repository: repository,
+        getSettings: () => settings,
+        updateSettings: (s) async => settings = s,
+      );
+      expect(resClear['success'], isTrue);
+      expect(resClear['sector']['subtasks'], isEmpty);
+    });
+
+    // MCP Edge Cases Tests
+    test('schedule_sector rejects inverted start and end times', () async {
+      final today = DateTime.now();
+      final start = DateTime(today.year, today.month, today.day, 14, 0);
+      final end = DateTime(
+        today.year,
+        today.month,
+        today.day,
+        13,
+        0,
+      ); // before start!
+
+      final res = await McpTools.executeTool(
+        name: 'schedule_sector',
+        arguments: {
+          'title': 'Impossible Time',
+          'start': start.toIso8601String(),
+          'end': end.toIso8601String(),
+        },
+        repository: repository,
+        getSettings: () => settings,
+        updateSettings: (s) async => settings = s,
+      );
+
+      expect(res['success'], isFalse);
+      expect(res['error'], contains('End time must be strictly after'));
+    });
+
+    test(
+      'schedule_sector handles invalid ISO date strings gracefully',
+      () async {
+        final res = await McpTools.executeTool(
+          name: 'schedule_sector',
+          arguments: {
+            'title': 'Bad Date',
+            'start': 'invalid-date-string',
+            'end': 'another-bad-date',
+          },
+          repository: repository,
+          getSettings: () => settings,
+          updateSettings: (s) async => settings = s,
+        );
+
+        expect(res['success'], isFalse);
+        expect(res['error'], contains('Invalid ISO 8601'));
+      },
+    );
+
+    test('update_sector returns clean error for non-existent ID', () async {
+      final res = await McpTools.executeTool(
+        name: 'update_sector',
+        arguments: {'id': 'non-existent-id-999', 'title': 'Ghost'},
+        repository: repository,
+        getSettings: () => settings,
+        updateSettings: (s) async => settings = s,
+      );
+
+      expect(res['success'], isFalse);
+      expect(res['error'], contains('Sector not found'));
+    });
+
+    test('delete_sector returns clean error for non-existent ID', () async {
+      final res = await McpTools.executeTool(
+        name: 'delete_sector',
+        arguments: {'id': 'non-existent-id-999'},
+        repository: repository,
+        getSettings: () => settings,
+        updateSettings: (s) async => settings = s,
+      );
+
+      expect(res['success'], isFalse);
+      expect(res['error'], contains('Sector not found'));
+    });
+
+    test(
+      'subtasks sanitization handles whitespace and non-string types',
+      () async {
+        final today = DateTime.now();
+        final start = DateTime(today.year, today.month, today.day, 10, 0);
+        final end = DateTime(today.year, today.month, today.day, 11, 0);
+
+        final res = await McpTools.executeTool(
+          name: 'schedule_sector',
+          arguments: {
+            'title': 'Sanitization Test',
+            'start': start.toIso8601String(),
+            'end': end.toIso8601String(),
+            'subtasks': ['  Trimmed Item  ', '', '   ', 123, true],
+          },
+          repository: repository,
+          getSettings: () => settings,
+          updateSettings: (s) async => settings = s,
+        );
+
+        expect(res['success'], isTrue);
+        final sector = res['sector'] as Map<String, dynamic>;
+        expect(sector['subtasks'], ['Trimmed Item', '123', 'true']);
+      },
+    );
+
+    test(
+      'update_dial_settings ignores invalid enum values without throwing',
+      () async {
+        final res = await McpTools.executeTool(
+          name: 'update_dial_settings',
+          arguments: {
+            'themeMode': 'alien_theme_mode',
+            'faceStyle': 'unknown_style',
+            'sectorStyle': 'non_existent_sector',
+            'handStyle': 'laser_pointer',
+          },
+          repository: repository,
+          getSettings: () => settings,
+          updateSettings: (s) async => settings = s,
+        );
+
+        expect(res['success'], isTrue);
+        expect(res['settings'], isA<Map<String, dynamic>>());
+      },
+    );
+
+    test('get_clock_state functions safely on completely empty day', () async {
+      final futureDate = DateTime(2030, 1, 1);
+      final res = await McpTools.executeTool(
+        name: 'get_clock_state',
+        arguments: {'date': futureDate.toIso8601String().substring(0, 10)},
+        repository: repository,
+        getSettings: () => settings,
+        updateSettings: (s) async => settings = s,
+      );
+
+      expect(res['totalEventsToday'], 0);
+      expect(res['activeEvent'], isNull);
+      expect(res['upcomingEvents'], isEmpty);
+      expect(res['activeEventRemainingMinutes'], 0);
+    });
+
     // Error handling
     test('executeTool throws for unknown tool name', () async {
       expect(

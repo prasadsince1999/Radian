@@ -214,12 +214,12 @@ class SectorPillRenderer {
     final textPainter = TextPainter(
       text: TextSpan(
         text: timeStr,
-        style: const TextStyle(
-          fontSize: 8.5,
-          fontWeight: FontWeight.w900,
-          color: Color(0xFFFFFFFF),
-          letterSpacing: 0.2,
-          fontFeatures: [FontFeature.tabularFigures()],
+        style: TextStyle(
+          fontSize: is24HourMode ? 7.0 : 7.6,
+          fontWeight: FontWeight.w800,
+          color: const Color(0xFFFFFFFF),
+          letterSpacing: -0.2,
+          fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),
       textDirection: TextDirection.ltr,

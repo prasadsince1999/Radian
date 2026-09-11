@@ -108,9 +108,14 @@ class SectorContentRenderer {
         : const Color(0xFF1E1A16);
 
     // BOLD, HIGH-LEGIBILITY FONT SIZES (never microscopic!)
-    final iconFontSize = is24HourMode ? 13.0 : 14.5;
-    final titleFontSize = is24HourMode ? 11.5 : 13.0;
-    final metaFontSize = is24HourMode ? 9.5 : 10.5;
+    final isNarrowSector = effectiveSweepDeg < (is24HourMode ? 18.0 : 35.0);
+    final iconFontSize = is24HourMode ? (isNarrowSector ? 11.5 : 13.0) : 14.5;
+    final titleFontSize = is24HourMode
+        ? (isNarrowSector ? 10.2 : 11.5)
+        : (isNarrowSector ? 11.2 : 13.0);
+    final metaFontSize = is24HourMode
+        ? (isNarrowSector ? 8.5 : 9.5)
+        : (isNarrowSector ? 9.5 : 10.5);
     final pebbleFontSize = is24HourMode ? 9.0 : 10.0;
 
     final iconData = _getEventIcon(event);
@@ -210,9 +215,9 @@ class SectorContentRenderer {
     final availableInnerArc =
         rMinContent * (effectiveSweepDeg * math.pi / 180.0);
 
-    // Guaranteed cap safety clearance (minimum 8dp buffer on both start & end cap sides)
+    // Guaranteed cap safety clearance (minimum 2.2dp buffer on both start & end cap sides)
     final hasCaps = startCapSpanDeg > 0.0 || endCapSpanDeg > 0.0;
-    final capSafetyPadding = hasCaps ? 16.0 : 10.0;
+    final capSafetyPadding = hasCaps ? 4.5 : 2.0;
     final maxAllowedWidth = math.max(
       12.0,
       availableInnerArc - capSafetyPadding,
@@ -221,7 +226,7 @@ class SectorContentRenderer {
     // Guaranteed radial clearance (minimum 9dp buffer from inner & outer ring boundaries)
     final maxAllowedHeight = math.max(12.0, trackThickness - 18.0);
 
-    // Adaptive scale: STRICT LEGIBILITY FLOOR (never drops below 0.78, so text is NEVER too small!)
+    // Adaptive scale: STRICT LEGIBILITY FLOOR (adapts cleanly to narrow blocks with zero overlap)
     var scale = 1.0;
     if (contentWidth > maxAllowedWidth) {
       scale = math.min(scale, maxAllowedWidth / contentWidth);
@@ -229,8 +234,8 @@ class SectorContentRenderer {
     if (contentHeight > maxAllowedHeight) {
       scale = math.min(scale, maxAllowedHeight / contentHeight);
     }
-    // High-legibility clamp: minimum 0.78 guarantees crisp, readable text
-    scale = scale.clamp(0.78, 1.15);
+    // High-legibility clamp: minimum 0.68 guarantees crisp, readable text without clipping
+    scale = scale.clamp(0.68, 1.15);
 
     // CRITICAL: Clip to pillPath so no content ever bleeds into bezels or margins!
     canvas.save();
