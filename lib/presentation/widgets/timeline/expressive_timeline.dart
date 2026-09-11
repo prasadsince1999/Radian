@@ -6,7 +6,6 @@ import '../../../core/constants/app_layout_constants.dart';
 import '../../../core/theme/expressive_shapes.dart';
 import '../../../domain/models/sector_event.dart';
 import '../../controllers/clock_controller.dart';
-import '../common/bouncy_pressable.dart';
 import '../editor/event_edit_modal.dart';
 import 'event_card.dart';
 
@@ -61,29 +60,8 @@ class ExpressiveTimeline extends ConsumerWidget {
           );
         }
 
-        final categories = <String>['All'];
-        for (final e in events) {
-          if (e.category.isNotEmpty && !categories.contains(e.category)) {
-            categories.add(e.category);
-          }
-        }
-        final activeCategory = ref.watch(selectedTimelineCategoryProvider);
-        final effectiveCategory = categories.contains(activeCategory)
-            ? activeCategory
-            : 'All';
-
-        final filteredEvents = effectiveCategory == 'All'
-            ? events
-            : events
-                  .where(
-                    (e) =>
-                        e.category.toLowerCase() ==
-                        effectiveCategory.toLowerCase(),
-                  )
-                  .toList();
-
         // Automatically reorder blocks: show recent/active one above
-        final sorted = _reorderEvents(filteredEvents, now, selectedDay);
+        final sorted = _reorderEvents(events, now, selectedDay);
 
         return Align(
           alignment: Alignment.topCenter,
@@ -91,223 +69,141 @@ class ExpressiveTimeline extends ConsumerWidget {
             constraints: const BoxConstraints(
               maxWidth: AppLayoutConstants.timelineMaxWidth,
             ),
-            child: Column(
-              children: [
-                if (categories.length > 2)
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      left: 16,
-                      right: 16,
-                      top: 4,
-                      bottom: 6,
+            child: ListView.builder(
+              padding: const EdgeInsets.only(top: 4, bottom: 88),
+              itemCount: sorted.length,
+              itemBuilder: (context, index) {
+                final ev = sorted[index];
+                return Dismissible(
+                  key: ValueKey(ev.id),
+                  direction: DismissDirection.horizontal,
+                  dismissThresholds: const {
+                    DismissDirection.startToEnd: 0.25,
+                    DismissDirection.endToStart: 0.35,
+                  },
+                  background: Container(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
                     ),
-                    child: SizedBox(
-                      height: 36,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: categories.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 8),
-                        itemBuilder: (context, catIdx) {
-                          final cat = categories[catIdx];
-                          final isSelected = cat == effectiveCategory;
-                          return BouncyPressable(
-                            scaleDownFactor: 0.92,
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              ref
-                                  .read(
-                                    selectedTimelineCategoryProvider.notifier,
-                                  )
-                                  .state = isSelected
-                                  ? 'All'
-                                  : cat;
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? colorScheme.primaryContainer
-                                    : colorScheme.surfaceContainerHigh,
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? colorScheme.primary.withValues(
-                                          alpha: 0.5,
-                                        )
-                                      : colorScheme.outlineVariant.withValues(
-                                          alpha: 0.5,
-                                        ),
-                                  width: 1.2,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  cat,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: isSelected
-                                        ? FontWeight.w800
-                                        : FontWeight.w600,
-                                    color: isSelected
-                                        ? colorScheme.onPrimaryContainer
-                                        : colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: colorScheme.primary.withValues(alpha: 0.4),
+                        width: 1.2,
                       ),
                     ),
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.edit_outlined,
+                          color: colorScheme.onPrimaryContainer,
+                          size: 22,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Edit',
+                          style: TextStyle(
+                            color: colorScheme.onPrimaryContainer,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.only(top: 4, bottom: 88),
-                    itemCount: sorted.length,
-                    itemBuilder: (context, index) {
-                      final ev = sorted[index];
-                      return Dismissible(
-                        key: ValueKey(ev.id),
-                        direction: DismissDirection.horizontal,
-                        dismissThresholds: const {
-                          DismissDirection.startToEnd: 0.25,
-                          DismissDirection.endToStart: 0.35,
-                        },
-                        background: Container(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: colorScheme.primary.withValues(alpha: 0.4),
-                              width: 1.2,
-                            ),
-                          ),
-                          alignment: Alignment.centerLeft,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.edit_outlined,
-                                color: colorScheme.onPrimaryContainer,
-                                size: 22,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Edit',
-                                style: TextStyle(
-                                  color: colorScheme.onPrimaryContainer,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                            ],
+                  secondaryBackground: Container(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.errorContainer,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: colorScheme.error.withValues(alpha: 0.4),
+                        width: 1.2,
+                      ),
+                    ),
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Delete',
+                          style: TextStyle(
+                            color: colorScheme.onErrorContainer,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            letterSpacing: 0.2,
                           ),
                         ),
-                        secondaryBackground: Container(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colorScheme.errorContainer,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: colorScheme.error.withValues(alpha: 0.4),
-                              width: 1.2,
-                            ),
-                          ),
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Delete',
-                                style: TextStyle(
-                                  color: colorScheme.onErrorContainer,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Icon(
-                                Icons.delete_outline_rounded,
-                                color: colorScheme.onErrorContainer,
-                                size: 22,
-                              ),
-                            ],
-                          ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.delete_outline_rounded,
+                          color: colorScheme.onErrorContainer,
+                          size: 22,
                         ),
-                        confirmDismiss: (direction) async {
-                          if (direction == DismissDirection.startToEnd) {
-                            // Slide Right -> Edit Modal
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              showDragHandle: false,
-                              constraints: const BoxConstraints(
-                                maxWidth: AppLayoutConstants.modalMaxWidth,
-                              ),
-                              shape: ExpressiveShapes.modalSheet,
-                              builder: (_) => EventEditModal(
-                                event: ev,
-                                initialDate: selectedDay,
-                              ),
-                            );
-                            return false; // Snap back smoothly after opening edit
-                          } else if (direction == DismissDirection.endToStart) {
-                            // Slide Left -> Delete with Undo
-                            _deleteWithUndo(context, ref, ev);
-                            return true;
-                          }
-                          return false;
-                        },
-                        child: EventCard(
-                          event: ev,
-                          isSelected: selectedEvent?.id == ev.id,
-                          isActive: activeEvent?.id == ev.id,
-                          is24HourMode: is24,
-                          onTap: () {
-                            if (selectedEvent?.id == ev.id) {
-                              ref.read(selectedEventProvider.notifier).state =
-                                  null;
-                            } else {
-                              ref.read(selectedEventProvider.notifier).state =
-                                  ev;
-                            }
-                          },
-                          onEdit: () {
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              showDragHandle: false,
-                              constraints: const BoxConstraints(
-                                maxWidth: AppLayoutConstants.modalMaxWidth,
-                              ),
-                              shape: ExpressiveShapes.modalSheet,
-                              builder: (_) => EventEditModal(
-                                event: ev,
-                                initialDate: selectedDay,
-                              ),
-                            );
-                          },
-                          onDelete: () => _deleteWithUndo(context, ref, ev),
+                      ],
+                    ),
+                  ),
+                  confirmDismiss: (direction) async {
+                    if (direction == DismissDirection.startToEnd) {
+                      // Slide Right -> Edit Modal
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        showDragHandle: false,
+                        constraints: const BoxConstraints(
+                          maxWidth: AppLayoutConstants.modalMaxWidth,
                         ),
+                        shape: ExpressiveShapes.modalSheet,
+                        builder: (_) =>
+                            EventEditModal(event: ev, initialDate: selectedDay),
+                      );
+                      return false; // Snap back smoothly after opening edit
+                    } else if (direction == DismissDirection.endToStart) {
+                      // Slide Left -> Delete with Undo
+                      _deleteWithUndo(context, ref, ev);
+                      return true;
+                    }
+                    return false;
+                  },
+                  child: EventCard(
+                    event: ev,
+                    isSelected: selectedEvent?.id == ev.id,
+                    isActive: activeEvent?.id == ev.id,
+                    is24HourMode: is24,
+                    onTap: () {
+                      if (selectedEvent?.id == ev.id) {
+                        ref.read(selectedEventProvider.notifier).state = null;
+                      } else {
+                        ref.read(selectedEventProvider.notifier).state = ev;
+                      }
+                    },
+                    onEdit: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        showDragHandle: false,
+                        constraints: const BoxConstraints(
+                          maxWidth: AppLayoutConstants.modalMaxWidth,
+                        ),
+                        shape: ExpressiveShapes.modalSheet,
+                        builder: (_) =>
+                            EventEditModal(event: ev, initialDate: selectedDay),
                       );
                     },
+                    onDelete: () => _deleteWithUndo(context, ref, ev),
                   ),
-                ),
-              ],
+                );
+              },
             ),
           ),
         );

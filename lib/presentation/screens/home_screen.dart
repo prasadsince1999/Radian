@@ -30,11 +30,23 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
+  late final AnimationController _expansionController;
+  late final Animation<double> _expansionAnimation;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _expansionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    );
+    _expansionAnimation = CurvedAnimation(
+      parent: _expansionController,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
     AndroidWidgetService.initialize(
       onAction: (action) {
         if (action == 'add_block') {
@@ -58,6 +70,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   void dispose() {
+    _expansionController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -413,17 +426,93 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             );
           } else {
             // Compact (< 600dp): Portrait phone vertical stacked layout
-            return Column(
-              children: [
-                Expanded(
-                  flex: 7,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(8.0, 4.0, 8.0, 2.0),
-                    child: const SectographDial(),
-                  ),
-                ),
-                Expanded(flex: 5, child: const ExpressiveTimeline()),
-              ],
+            // with interactive whole-screen / half-screen expansion handle.
+            return AnimatedBuilder(
+              animation: _expansionAnimation,
+              builder: (context, child) {
+                final expansionProgress = _expansionAnimation.value;
+                final availableHeight = constraints.maxHeight;
+                // Base dial height in half-screen mode (~54% of available height)
+                final baseDialHeight = (availableHeight * 0.54).clamp(
+                  240.0,
+                  480.0,
+                );
+                // Dial height shrinks from baseDialHeight down to 0
+                final dialHeight = baseDialHeight * (1.0 - expansionProgress);
+                final isWholeScreen = expansionProgress > 0.5;
+
+                return Column(
+                  children: [
+                    // Dial Section (Slides up and fades out cleanly)
+                    if (dialHeight > 1.0)
+                      SizedBox(
+                        height: dialHeight,
+                        child: ClipRect(
+                          child: OverflowBox(
+                            minHeight: baseDialHeight,
+                            maxHeight: baseDialHeight,
+                            alignment: Alignment.topCenter,
+                            child: Opacity(
+                              opacity: (1.0 - expansionProgress * 1.6).clamp(
+                                0.0,
+                                1.0,
+                              ),
+                              child: const Padding(
+                                padding: EdgeInsets.fromLTRB(
+                                  8.0,
+                                  4.0,
+                                  8.0,
+                                  2.0,
+                                ),
+                                child: SectographDial(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // Ergonomic Handle Bar (Upper area center of blocks)
+                    _TimelineExpansionHandle(
+                      key: const ValueKey('timeline_expansion_handle'),
+                      isExpanded: isWholeScreen,
+                      onToggle: () {
+                        HapticFeedback.mediumImpact();
+                        if (isWholeScreen) {
+                          _expansionController.reverse();
+                        } else {
+                          _expansionController.forward();
+                        }
+                      },
+                      onVerticalDragUpdate: (details) {
+                        final delta = details.primaryDelta ?? 0.0;
+                        _expansionController.value -=
+                            delta / (baseDialHeight * 0.8);
+                      },
+                      onVerticalDragEnd: (details) {
+                        final velocity = details.primaryVelocity ?? 0.0;
+                        if (velocity < -250) {
+                          // Fast swipe up -> expand to whole screen
+                          HapticFeedback.lightImpact();
+                          _expansionController.forward();
+                        } else if (velocity > 250) {
+                          // Fast swipe down -> collapse to half screen
+                          HapticFeedback.lightImpact();
+                          _expansionController.reverse();
+                        } else {
+                          if (_expansionController.value >= 0.4) {
+                            _expansionController.forward();
+                          } else {
+                            _expansionController.reverse();
+                          }
+                        }
+                      },
+                    ),
+
+                    // Timeline Blocks Section (fills remaining space)
+                    const Expanded(child: ExpressiveTimeline()),
+                  ],
+                );
+              },
             );
           }
         },
@@ -660,6 +749,101 @@ class _SupportingInsightsPane extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _TimelineExpansionHandle extends StatelessWidget {
+  final bool isExpanded;
+  final VoidCallback onToggle;
+  final GestureDragUpdateCallback onVerticalDragUpdate;
+  final GestureDragEndCallback onVerticalDragEnd;
+
+  const _TimelineExpansionHandle({
+    super.key,
+    required this.isExpanded,
+    required this.onToggle,
+    required this.onVerticalDragUpdate,
+    required this.onVerticalDragEnd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Semantics(
+      button: true,
+      label: isExpanded ? 'Collapse to half screen' : 'Expand to whole screen',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onToggle,
+        onVerticalDragUpdate: onVerticalDragUpdate,
+        onVerticalDragEnd: onVerticalDragEnd,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 4.0),
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.65,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+                  width: 1.0,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isExpanded
+                        ? Icons.keyboard_arrow_down_rounded
+                        : Icons.keyboard_arrow_up_rounded,
+                    size: 16,
+                    color: isExpanded
+                        ? colorScheme.primary
+                        : colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 32,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isExpanded
+                          ? colorScheme.primary.withValues(alpha: 0.8)
+                          : colorScheme.outlineVariant.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    isExpanded ? 'Half Screen' : 'Whole Screen',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                      color: isExpanded
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

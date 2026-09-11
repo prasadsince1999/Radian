@@ -118,5 +118,73 @@ void main() {
         expect(find.text('Habit & Routine Insights'), findsOneWidget);
       },
     );
+
+    testWidgets(
+      'compact mode: swipe up / tap handle expands timeline to whole screen, and swipe down / tap restores half screen',
+      (tester) async {
+        tester.view.physicalSize = const Size(400, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              eventRepositoryProvider.overrideWithValue(fakeRepo),
+              currentTimeProvider.overrideWith(
+                (ref) => Stream.value(fixedTime),
+              ),
+              mcpServerControllerProvider.overrideWith(
+                (ref) => McpServerController(ref, autoStart: false),
+              ),
+            ],
+            child: const MaterialApp(home: HomeScreen()),
+          ),
+        );
+
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        final handleFinder = find.byKey(
+          const ValueKey('timeline_expansion_handle'),
+        );
+        expect(handleFinder, findsOneWidget);
+        expect(find.text('Whole Screen'), findsOneWidget);
+        expect(find.byType(SectographDial), findsOneWidget);
+
+        // Tap handle to expand to Whole Screen
+        await tester.tap(handleFinder);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+
+        // In whole screen mode, Dial is collapsed/hidden and handle shows 'Half Screen'
+        expect(find.text('Half Screen'), findsOneWidget);
+        expect(find.byType(SectographDial), findsNothing);
+
+        // Tap handle again to collapse back to Half Screen
+        await tester.tap(handleFinder);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+
+        // Restored
+        expect(find.text('Whole Screen'), findsOneWidget);
+        expect(find.byType(SectographDial), findsOneWidget);
+
+        // Test swipe up to expand
+        await tester.drag(handleFinder, const Offset(0, -300));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+
+        expect(find.text('Half Screen'), findsOneWidget);
+        expect(find.byType(SectographDial), findsNothing);
+
+        // Test swipe down to collapse
+        await tester.drag(handleFinder, const Offset(0, 300));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+
+        expect(find.text('Whole Screen'), findsOneWidget);
+        expect(find.byType(SectographDial), findsOneWidget);
+      },
+    );
   });
 }
