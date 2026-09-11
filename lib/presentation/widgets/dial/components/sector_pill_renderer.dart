@@ -162,24 +162,74 @@ class SectorPillRenderer {
     }
   }
 
-  /// Draws a boundary timestamp pill (e.g. `11:30 AM` or `1:30 PM`) at a block boundary.
-  static void drawBoundaryTimestamp({
+  /// Draws an integrated end-cap or start-cap badge inside the sector pill.
+  ///
+  /// The badge is rendered as a seamless part of the sector pill with a darker
+  /// shaded tone, a subtle separator hairline, and high-contrast bold white
+  /// boundary timestamp text.
+  static void drawIntegratedCap({
     required Canvas canvas,
     required Offset center,
-    required DateTime time,
-    required double boundaryDeg,
     required double rIn,
     required double rOut,
+    required double startDeg,
+    required double sweepDeg,
+    required DateTime time,
     required Color eventColor,
+    required bool isStartCap,
     required bool is24HourMode,
+    double cornerRadius = 6.0,
+    bool roundStart = false,
+    bool roundEnd = true,
   }) {
+    if (sweepDeg <= 0.5) return;
+
+    final capPath = buildPillPath(
+      center: center,
+      rIn: rIn,
+      rOut: rOut,
+      startDeg: startDeg,
+      sweepDeg: sweepDeg,
+      cornerRadius: cornerRadius,
+      roundStart: roundStart,
+      roundEnd: roundEnd,
+    );
+
+    // 1. Sleek shaded overlay for the badge background
+    final badgeOverlayColor = Color.lerp(eventColor, Colors.black, 0.35)!;
+    canvas.drawPath(
+      capPath,
+      Paint()
+        ..color = badgeOverlayColor
+        ..style = PaintingStyle.fill,
+    );
+
+    // 2. Subtle separator hairline at the junction with the main pill body
+    final sepDeg = isStartCap ? startDeg + sweepDeg : startDeg;
+    final sepRad = SectorMath.dialAngleToCanvasRadians(sepDeg);
+    canvas.drawLine(
+      Offset(
+        center.dx + (rIn + 1.0) * math.cos(sepRad),
+        center.dy + (rIn + 1.0) * math.sin(sepRad),
+      ),
+      Offset(
+        center.dx + (rOut - 1.0) * math.cos(sepRad),
+        center.dy + (rOut - 1.0) * math.sin(sepRad),
+      ),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.28)
+        ..strokeWidth = 1.0,
+    );
+
+    // 3. Boundary timestamp text in crisp bold white
     final timeStr = TimeFormatters.formatTime(time, is24Hour: is24HourMode);
-    final radAngle = SectorMath.dialAngleToCanvasRadians(boundaryDeg);
+    final midAngleDeg = startDeg + (sweepDeg / 2.0);
+    final midRad = SectorMath.dialAngleToCanvasRadians(midAngleDeg);
     final midR = (rIn + rOut) / 2.0;
 
     final textCenter = Offset(
-      center.dx + midR * math.cos(radAngle),
-      center.dy + midR * math.sin(radAngle),
+      center.dx + midR * math.cos(midRad),
+      center.dy + midR * math.sin(midRad),
     );
 
     final textPainter = TextPainter(
@@ -197,30 +247,15 @@ class SectorPillRenderer {
       textAlign: TextAlign.center,
     )..layout();
 
-    final pillW = textPainter.width + 8.0;
-    final pillH = textPainter.height + 4.0;
-    final pillRect = Rect.fromCenter(
-      center: Offset.zero,
-      width: pillW,
-      height: pillH,
-    );
-
     canvas.save();
+    canvas.clipPath(capPath);
     canvas.translate(textCenter.dx, textCenter.dy);
 
-    var rotation = radAngle;
-    if (math.cos(radAngle) < -0.05) {
+    var rotation = midRad;
+    if (math.cos(midRad) < -0.05) {
       rotation += math.pi;
     }
     canvas.rotate(rotation);
-
-    // Dark pill container behind timestamp for guaranteed contrast
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(pillRect, const Radius.circular(4.0)),
-      Paint()
-        ..color = Colors.black.withValues(alpha: 0.65)
-        ..style = PaintingStyle.fill,
-    );
 
     textPainter.paint(
       canvas,

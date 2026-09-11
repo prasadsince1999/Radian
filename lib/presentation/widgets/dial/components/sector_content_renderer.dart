@@ -23,11 +23,16 @@ class SectorContentRenderer {
     required double sweepDeg,
     required bool is24HourMode,
     bool isOuterRing = true,
+    double startCapSpanDeg = 0.0,
+    double endCapSpanDeg = 0.0,
   }) {
-    // Skip content on hairline / micro sectors
-    if (sweepDeg < (is24HourMode ? 5.0 : 8.0)) return;
+    final effectiveStartDeg = startDeg + startCapSpanDeg;
+    final effectiveSweepDeg = sweepDeg - startCapSpanDeg - endCapSpanDeg;
 
-    final midDeg = startDeg + (sweepDeg / 2.0);
+    // Skip content on hairline / micro sectors
+    if (effectiveSweepDeg < (is24HourMode ? 5.0 : 8.0)) return;
+
+    final midDeg = effectiveStartDeg + (effectiveSweepDeg / 2.0);
     final midRad = SectorMath.dialAngleToCanvasRadians(midDeg);
     final midR = (rIn + rOut) / 2.0;
     final pos = Offset(
@@ -36,7 +41,7 @@ class SectorContentRenderer {
     );
 
     final trackThickness = rOut - rIn;
-    final arcLength = midR * (sweepDeg * math.pi / 180.0);
+    final arcLength = midR * (effectiveSweepDeg * math.pi / 180.0);
 
     // Adaptive contrast: high-contrast white on dark sectors, dark charcoal on light sectors
     final isDarkSector =

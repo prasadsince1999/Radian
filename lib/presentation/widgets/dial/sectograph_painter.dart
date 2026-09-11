@@ -67,7 +67,7 @@ class SectographPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final isWave = settings.dialShape == DialShape.waveRounded;
     final scallopAmp = isWave ? 5.0 : 0.0;
-    final maxRadius = (math.min(size.width, size.height) / 2) - 6.0;
+    final maxRadius = (math.min(size.width, size.height) / 2) - 4.0;
     final baseRadius = maxRadius - scallopAmp;
     final innerRadius = baseRadius * AppLayoutConstants.innerRadiusRatio;
     final radialThickness = baseRadius - innerRadius;
@@ -102,7 +102,7 @@ class SectographPainter extends CustomPainter {
     DialBezelRenderer.drawTicks(
       canvas: canvas,
       center: center,
-      radius: baseRadius - 1.5,
+      radius: baseRadius - 1.0,
       is24HourMode: settings.is24HourMode,
       faceStyle: settings.faceStyle,
       colorScheme: colorScheme,
@@ -237,7 +237,7 @@ class SectographPainter extends CustomPainter {
 
     final totalTrackThickness = routineTrackOut - routineTrackIn;
     const ringGap = 3.5;
-    final outerRingThickness = (totalTrackThickness - ringGap) * 0.56;
+    final outerRingThickness = (totalTrackThickness - ringGap) * 0.58;
     final outerRIn = routineTrackOut - outerRingThickness;
     final isDaytime = currentTime.hour >= 6 && currentTime.hour < 18;
 
@@ -299,8 +299,8 @@ class SectographPainter extends CustomPainter {
     // Concentric 2-Ring geometry
     final totalTrackThickness = routineTrackOut - routineTrackIn;
     const ringGap = 3.5;
-    final outerRingThickness = (totalTrackThickness - ringGap) * 0.56;
-    final innerRingThickness = (totalTrackThickness - ringGap) * 0.44;
+    final outerRingThickness = (totalTrackThickness - ringGap) * 0.58;
+    final innerRingThickness = (totalTrackThickness - ringGap) * 0.42;
 
     final outerROut = routineTrackOut;
     final outerRIn = routineTrackOut - outerRingThickness;
@@ -383,6 +383,18 @@ class SectographPainter extends CustomPainter {
           .min(8.0, (eventROut - eventRIn) * 0.28)
           .clamp(3.0, 8.0);
 
+      // Determine integrated end-cap and start-cap spans
+      final capSpanDeg = (sweepDeg * 0.30).clamp(9.0, is24 ? 13.0 : 16.0);
+
+      final canShowStartCap = !hasContiguousPredecessor[i] &&
+          sweepDeg >= (is24 ? 22.0 : 32.0) &&
+          !angleAlreadyDrawn(startDeg, isOuterRing);
+      final canShowEndCap = sweepDeg >= (is24 ? 14.0 : 19.0) &&
+          !angleAlreadyDrawn(startDeg + sweepDeg, isOuterRing);
+
+      final startCapSpan = canShowStartCap ? capSpanDeg : 0.0;
+      final endCapSpan = canShowEndCap ? capSpanDeg : 0.0;
+
       // 1. Build Pill Path
       final pillPath = SectorPillRenderer.buildPillPath(
         center: center,
@@ -405,7 +417,51 @@ class SectographPainter extends CustomPainter {
         isOuterRing: isOuterRing,
       );
 
-      // 3. Draw Sector Content (Tangential arc alignment, clipped strictly inside pillPath)
+      // 3. Draw Integrated Start-Cap Badge (for isolated events)
+      if (canShowStartCap) {
+        SectorPillRenderer.drawIntegratedCap(
+          canvas: canvas,
+          center: center,
+          rIn: eventRIn,
+          rOut: eventROut,
+          startDeg: startDeg,
+          sweepDeg: startCapSpan,
+          time: event.start,
+          eventColor: event.color,
+          isStartCap: true,
+          is24HourMode: is24,
+          cornerRadius: cornerRadius,
+          roundStart: !hasContiguousPredecessor[i],
+          roundEnd: false,
+        );
+        drawnTimestampAngles.add((isOuter: isOuterRing, angle: startDeg));
+      }
+
+      // 4. Draw Integrated End-Cap Badge (boundary/junction timestamp)
+      if (canShowEndCap) {
+        final endCapStartDeg = startDeg + sweepDeg - endCapSpan;
+        SectorPillRenderer.drawIntegratedCap(
+          canvas: canvas,
+          center: center,
+          rIn: eventRIn,
+          rOut: eventROut,
+          startDeg: endCapStartDeg,
+          sweepDeg: endCapSpan,
+          time: event.end,
+          eventColor: event.color,
+          isStartCap: false,
+          is24HourMode: is24,
+          cornerRadius: cornerRadius,
+          roundStart: false,
+          roundEnd: !hasContiguousSuccessor[i],
+        );
+        drawnTimestampAngles.add((
+          isOuter: isOuterRing,
+          angle: startDeg + sweepDeg,
+        ));
+      }
+
+      // 5. Draw Sector Content (Tangential arc alignment, clipped strictly inside pillPath, centered between caps)
       SectorContentRenderer.drawContent(
         canvas: canvas,
         center: center,
@@ -417,46 +473,9 @@ class SectographPainter extends CustomPainter {
         sweepDeg: sweepDeg,
         is24HourMode: is24,
         isOuterRing: isOuterRing,
+        startCapSpanDeg: startCapSpan,
+        endCapSpanDeg: endCapSpan,
       );
-
-      // 4. Boundary Timestamps (with per-ring isolation!)
-      if (sweepDeg >= (is24 ? 12.0 : 18.0)) {
-        // Start timestamp for isolated events
-        if (!hasContiguousPredecessor[i]) {
-          if (!angleAlreadyDrawn(startDeg, isOuterRing)) {
-            SectorPillRenderer.drawBoundaryTimestamp(
-              canvas: canvas,
-              center: center,
-              time: event.start,
-              boundaryDeg: startDeg,
-              rIn: eventRIn,
-              rOut: eventROut,
-              eventColor: event.color,
-              is24HourMode: is24,
-            );
-            drawnTimestampAngles.add((isOuter: isOuterRing, angle: startDeg));
-          }
-        }
-
-        // End / Junction timestamp
-        final endBoundaryDeg = startDeg + sweepDeg;
-        if (!angleAlreadyDrawn(endBoundaryDeg, isOuterRing)) {
-          SectorPillRenderer.drawBoundaryTimestamp(
-            canvas: canvas,
-            center: center,
-            time: event.end,
-            boundaryDeg: endBoundaryDeg,
-            rIn: eventRIn,
-            rOut: eventROut,
-            eventColor: event.color,
-            is24HourMode: is24,
-          );
-          drawnTimestampAngles.add((
-            isOuter: isOuterRing,
-            angle: endBoundaryDeg,
-          ));
-        }
-      }
     }
   }
 
