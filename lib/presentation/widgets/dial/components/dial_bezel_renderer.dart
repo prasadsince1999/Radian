@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/geometry/fisheye_time_lens.dart';
 import '../../../../core/geometry/sector_math.dart';
 import '../../../../domain/models/dial_settings.dart';
 
@@ -50,6 +51,7 @@ class DialBezelRenderer {
     required bool is24HourMode,
     required DialFaceStyle faceStyle,
     required ColorScheme colorScheme,
+    FisheyeTimeLens? lens,
   }) {
     final isDark = colorScheme.brightness == Brightness.dark;
     final tickColor = isDark
@@ -71,8 +73,9 @@ class DialBezelRenderer {
 
     for (int i = 0; i < totalTicks; i++) {
       final isMajor = i % majorInterval == 0;
-      final angleDeg = (i / totalTicks) * 360.0;
-      final rad = SectorMath.dialAngleToCanvasRadians(angleDeg);
+      final rawDeg = (i / totalTicks) * 360.0;
+      final visualDeg = lens?.warpAngle(rawDeg) ?? rawDeg;
+      final rad = SectorMath.dialAngleToCanvasRadians(visualDeg);
 
       final tickLength = isMajor ? 6.5 : 3.5;
       final pOuter = Offset(

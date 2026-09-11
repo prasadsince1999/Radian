@@ -233,4 +233,41 @@ class SectorPillRenderer {
     );
     canvas.restore();
   }
+
+  /// Draws subtle subtask milestone tick notches along the inner arc of a sector.
+  static void drawSubtaskNotches({
+    required Canvas canvas,
+    required Offset center,
+    required double rIn,
+    required double startDeg,
+    required double sweepDeg,
+    required int subtaskCount,
+    required Color eventColor,
+  }) {
+    if (subtaskCount <= 1 || sweepDeg < 20.0) return;
+
+    final notchPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.38)
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+
+    const notchLength = 5.0;
+
+    for (int i = 1; i < subtaskCount; i++) {
+      final fraction = i / subtaskCount;
+      final notchDeg = startDeg + sweepDeg * fraction;
+      final rad = SectorMath.dialAngleToCanvasRadians(notchDeg);
+
+      final p0 = Offset(
+        center.dx + rIn * math.cos(rad),
+        center.dy + rIn * math.sin(rad),
+      );
+      final p1 = Offset(
+        center.dx + (rIn + notchLength) * math.cos(rad),
+        center.dy + (rIn + notchLength) * math.sin(rad),
+      );
+
+      canvas.drawLine(p0, p1, notchPaint);
+    }
+  }
 }

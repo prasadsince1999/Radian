@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_layout_constants.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/geometry/concentric_solver.dart';
+import '../../../core/geometry/fisheye_time_lens.dart';
 import '../../../core/geometry/focused_block_layout_resolver.dart';
 import '../../../core/geometry/polar_hit_test.dart';
 import '../../../core/geometry/sector_math.dart';
@@ -225,12 +226,48 @@ class SectographDial extends ConsumerWidget {
                             is24HourMode: settings.is24HourMode,
                           )
                         : null;
-                    final displayEvents = horizonResult != null
+                    final baseDisplayEvents = horizonResult != null
                         ? horizonResult.visibleEvents
                         : computedEvents;
                     if (horizonResult?.activeEvent != null) {
                       effectiveActive = horizonResult!.activeEvent;
                     }
+
+                    // Fisheye Time Lens focus center
+                    final double focusAngle;
+                    if (effectiveActive != null) {
+                      final halfDuration = Duration(
+                        minutes: effectiveActive.duration.inMinutes ~/ 2,
+                      );
+                      focusAngle = SectorMath.timeToDialAngle(
+                        effectiveActive.start.add(halfDuration),
+                        is24HourMode: settings.is24HourMode,
+                      );
+                    } else {
+                      focusAngle = SectorMath.timeToDialAngle(
+                        effectiveTime,
+                        is24HourMode: settings.is24HourMode,
+                      );
+                    }
+
+                    final lens = settings.isFocusLensEnabled
+                        ? FisheyeTimeLens(
+                            focusAngle: focusAngle,
+                            magnification: settings.lensMagnification,
+                          )
+                        : const FisheyeTimeLens.linear();
+
+                    // Warp sector bounds so active block expands and surrounding blocks squeeze
+                    final displayEvents = baseDisplayEvents.map((e) {
+                      final warped = lens.warpSector(
+                        startDeg: e.startAngle,
+                        sweepDeg: e.sweepAngle,
+                      );
+                      return e.copyWith(
+                        startAngle: warped.startDeg,
+                        sweepAngle: warped.sweepDeg,
+                      );
+                    }).toList();
 
                     return GestureDetector(
                       onTapUp: (details) {
@@ -293,6 +330,7 @@ class SectographDial extends ConsumerWidget {
                               scrubAngle: scrubAngle,
                               settings: settings,
                               colorScheme: colorScheme,
+                              lens: lens,
                             ),
                           ),
                           ClipOval(

@@ -48,25 +48,27 @@ abstract final class SampleEventsData {
         ),
         SectorEvent(
           id: '$prefix-focus-am',
-          title: 'Focus',
+          title: 'Study Time',
           start: day.add(const Duration(hours: 9, minutes: 0)),
           end: day.add(const Duration(hours: 12, minutes: 0)),
           colorHex: '#F7C752', // Sunny Yellow
           category: 'Focus',
           iconName: 'laptop',
-          notes: '09:00 am - 12:00 pm Morning deep focus',
+          notes: '09:00 am - 12:00 pm Morning AI/ML Deep Study',
+          subtasks: const ['LinAlg', 'PyTorch', 'Transformers'],
         ),
 
         // PM Half (12:00 - 24:00)
         SectorEvent(
           id: '$prefix-focus-pm',
-          title: 'Focus',
+          title: 'Projects',
           start: day.add(const Duration(hours: 12, minutes: 0)),
           end: day.add(const Duration(hours: 15, minutes: 0)),
           colorHex: '#F7C752', // Sunny Yellow
           category: 'Focus',
           iconName: 'laptop',
-          notes: '12:00 pm - 03:00 pm Focus 3h & project execution',
+          notes: '12:00 pm - 03:00 pm AI/ML Pipeline & Architecture',
+          subtasks: const ['Data Prep', 'LoRA Tune', 'Loss & Eval'],
         ),
         SectorEvent(
           id: '$prefix-break-pm',
@@ -77,6 +79,7 @@ abstract final class SampleEventsData {
           category: 'Break',
           iconName: 'coffee',
           notes: '03:00 pm - 03:30 pm Break 30m & coffee',
+          subtasks: const ['Coffee', 'Rest'],
         ),
         SectorEvent(
           id: '$prefix-workout-pm',
@@ -87,6 +90,7 @@ abstract final class SampleEventsData {
           category: 'Fitness',
           iconName: 'fitness',
           notes: '03:30 pm - 04:30 pm Workout 1h & exercise',
+          subtasks: const ['Gym', 'Cardio', 'Stretch'],
         ),
         SectorEvent(
           id: '$prefix-read-pm',
@@ -96,27 +100,30 @@ abstract final class SampleEventsData {
           colorHex: '#9ECE79', // Pistachio Green
           category: 'Reading',
           iconName: 'book',
-          notes: '04:45 pm - 06:45 pm Read 2h & book study',
+          notes: '04:45 pm - 06:45 pm AI Papers & Literature Review',
+          subtasks: const ['ArXiv Papers', 'Math Notes'],
         ),
         SectorEvent(
           id: '$prefix-lunch-pm',
-          title: 'Lunch',
+          title: 'Cooking Lunch',
           start: day.add(const Duration(hours: 19, minutes: 0)),
           end: day.add(const Duration(hours: 20, minutes: 15)),
           colorHex: '#8EC5FC', // Sky Blue
           category: 'Food',
           iconName: 'restaurant',
-          notes: '07:00 pm - 08:15 pm Lunch / Meal 1h',
+          notes: '07:00 pm - 08:15 pm Meal prep & healthy dinner',
+          subtasks: const ['Meal Prep', 'Quick Lunch'],
         ),
         SectorEvent(
           id: '$prefix-code-pm',
-          title: 'Code',
+          title: 'Flexible Hours',
           start: day.add(const Duration(hours: 20, minutes: 15)),
           end: day.add(const Duration(hours: 24, minutes: 0)),
           colorHex: '#8EA865', // Olive Green
           category: 'Code',
           iconName: 'code',
-          notes: '08:15 pm - 12:00 am Code 3h & software development',
+          notes: '08:15 pm - 12:00 am LeetCode & Open-source dev',
+          subtasks: const ['LeetCode', 'Mock Prep'],
         ),
       ]);
     }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../core/constants/app_layout_constants.dart';
+import '../../../core/geometry/fisheye_time_lens.dart';
 import '../../../core/geometry/sector_math.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/models/dial_settings.dart';
@@ -29,6 +30,7 @@ class SectographPainter extends CustomPainter {
   final DialSettings settings;
   final ColorScheme colorScheme;
   final bool showCenterClock;
+  final FisheyeTimeLens? lens;
 
   SectographPainter({
     required this.events,
@@ -39,6 +41,7 @@ class SectographPainter extends CustomPainter {
     required this.settings,
     required this.colorScheme,
     this.showCenterClock = false,
+    this.lens,
   });
 
   static const int scallopLobes = AppLayoutConstants.scallopLobes;
@@ -105,6 +108,7 @@ class SectographPainter extends CustomPainter {
       is24HourMode: settings.is24HourMode,
       faceStyle: settings.faceStyle,
       colorScheme: colorScheme,
+      lens: lens,
     );
 
     // 5. Two-stage hierarchical "NOW" hour needle & celestial beacon
@@ -231,7 +235,8 @@ class SectographPainter extends CustomPainter {
       currentTime,
       is24HourMode: is24,
     );
-    final effectiveAngle = scrubAngle ?? nowAngle;
+    final rawAngle = scrubAngle ?? nowAngle;
+    final effectiveAngle = lens?.warpAngle(rawAngle) ?? rawAngle;
     final nowRad = SectorMath.dialAngleToCanvasRadians(effectiveAngle);
     final isDaytime = currentTime.hour >= 6 && currentTime.hour < 18;
 
@@ -308,29 +313,33 @@ class SectographPainter extends CustomPainter {
       return false;
     }
 
-    const double overlapDeg = 2.5; // 3D overlap extension over contiguous successor
+    const double overlapDeg =
+        2.5; // 3D overlap extension over contiguous successor
     final cornerRadius = math
         .min(8.0, (routineTrackOut - routineTrackIn) * 0.22)
         .clamp(3.0, 8.0);
 
     // Prepare layout data for each event on the single uniform track
-    final pillLayouts = <({
-      SectorEvent event,
-      bool isActive,
-      bool isSelected,
-      double rIn,
-      double rOut,
-      double startDeg,
-      double sweepDeg,
-      double cornerRadius,
-      Path pillPath,
-      bool showStartCap,
-      double startCapSpan,
-      bool showEndCap,
-      double endCapStartDeg,
-      double endCapSpan,
-      bool isContiguous,
-    })>[];
+    final pillLayouts =
+        <
+          ({
+            SectorEvent event,
+            bool isActive,
+            bool isSelected,
+            double rIn,
+            double rOut,
+            double startDeg,
+            double sweepDeg,
+            double cornerRadius,
+            Path pillPath,
+            bool showStartCap,
+            double startCapSpan,
+            bool showEndCap,
+            double endCapStartDeg,
+            double endCapSpan,
+            bool isContiguous,
+          })
+        >[];
 
     for (int i = 0; i < events.length; i++) {
       final event = events[i];
@@ -355,10 +364,12 @@ class SectographPainter extends CustomPainter {
       // Compact, completely consistent time badge span across all blocks
       final baseCapSpanDeg = is24 ? 5.5 : 7.5;
 
-      final canShowStartCap = !hasContiguousPredecessor[i] &&
+      final canShowStartCap =
+          !hasContiguousPredecessor[i] &&
           sweepDeg >= (is24 ? 16.0 : 20.0) &&
           !angleAlreadyDrawn(startDeg);
-      final canShowEndCap = sweepDeg >= (is24 ? 10.0 : 14.0) &&
+      final canShowEndCap =
+          sweepDeg >= (is24 ? 10.0 : 14.0) &&
           !angleAlreadyDrawn(startDeg + sweepDeg);
 
       final startCapSpan = canShowStartCap ? baseCapSpanDeg : 0.0;
@@ -415,6 +426,18 @@ class SectographPainter extends CustomPainter {
         isActive: l.isActive,
         isSelected: l.isSelected,
       );
+
+      if (l.event.subtasks.length > 1) {
+        SectorPillRenderer.drawSubtaskNotches(
+          canvas: canvas,
+          center: center,
+          rIn: l.rIn,
+          startDeg: l.startDeg,
+          sweepDeg: l.sweepDeg,
+          subtaskCount: l.event.subtasks.length,
+          eventColor: l.event.color,
+        );
+      }
     }
 
     // Pass 2: Draw 3D Overlapping End Caps with drop shadows ON TOP of successor blocks!

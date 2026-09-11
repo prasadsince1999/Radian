@@ -26,6 +26,8 @@ class DialSettings {
   final PastHoursStyle pastHoursStyle;
   final bool showAllDayEvents;
   final int startHour;
+  final bool isFocusLensEnabled;
+  final double lensMagnification;
 
   const DialSettings({
     this.is24HourMode = false,
@@ -39,6 +41,8 @@ class DialSettings {
     this.pastHoursStyle = PastHoursStyle.focusedBlock,
     this.showAllDayEvents = true,
     this.startHour = 0,
+    this.isFocusLensEnabled = true,
+    this.lensMagnification = 1.75,
   });
 
   Color get seedColor {
@@ -63,6 +67,8 @@ class DialSettings {
     PastHoursStyle? pastHoursStyle,
     bool? showAllDayEvents,
     int? startHour,
+    bool? isFocusLensEnabled,
+    double? lensMagnification,
   }) {
     return DialSettings(
       is24HourMode: is24HourMode ?? this.is24HourMode,
@@ -76,6 +82,8 @@ class DialSettings {
       pastHoursStyle: pastHoursStyle ?? this.pastHoursStyle,
       showAllDayEvents: showAllDayEvents ?? this.showAllDayEvents,
       startHour: startHour ?? this.startHour,
+      isFocusLensEnabled: isFocusLensEnabled ?? this.isFocusLensEnabled,
+      lensMagnification: lensMagnification ?? this.lensMagnification,
     );
   }
 
@@ -91,6 +99,8 @@ class DialSettings {
     'pastHoursStyle': pastHoursStyle.name,
     'showAllDayEvents': showAllDayEvents,
     'startHour': startHour,
+    'isFocusLensEnabled': isFocusLensEnabled,
+    'lensMagnification': lensMagnification,
   };
 
   factory DialSettings.fromJson(Map<String, dynamic> json) {
@@ -127,6 +137,9 @@ class DialSettings {
       ),
       showAllDayEvents: json['showAllDayEvents'] as bool? ?? true,
       startHour: json['startHour'] as int? ?? 0,
+      isFocusLensEnabled: json['isFocusLensEnabled'] as bool? ?? true,
+      lensMagnification:
+          (json['lensMagnification'] as num?)?.toDouble() ?? 1.75,
     );
   }
 }

@@ -7,8 +7,8 @@ import '../../../../core/utils/time_formatters.dart';
 import '../../../../domain/models/sector_event.dart';
 
 /// Reusable component for rendering sector content (icon, title words stacked vertically,
-/// and duration) with casual handwritten Kalam typography, strict geometric boundary
-/// containment, and tangential arc alignment.
+/// duration, and short-keyword subtask chips) with casual handwritten Kalam typography,
+/// strict polar boundary containment, and auto-alignment so text NEVER touches edges or caps.
 class SectorContentRenderer {
   const SectorContentRenderer._();
 
@@ -19,7 +19,49 @@ class SectorContentRenderer {
     'sans-serif',
   ];
 
-  /// Draws the sector content strictly clipped inside [pillPath].
+  /// Distills a verbose task or title string into a punchy, short keyword (1-2 words, max 11 chars)
+  /// so it fits cleanly in circular dial sectors without overflow or touching boundaries.
+  static String distillShortKeyword(String text) {
+    final clean = text.trim();
+    if (clean.isEmpty) return '';
+
+    final lower = clean.toLowerCase();
+    if (lower.contains('linear algebra') || lower.contains('linalg')) {
+      return 'LinAlg';
+    }
+    if (lower.contains('pytorch')) return 'PyTorch';
+    if (lower.contains('transformer')) return 'Transformers';
+    if (lower.contains('backprop')) return 'Backprop';
+    if (lower.contains('data pipeline') || lower.contains('data prep')) {
+      return 'Data Prep';
+    }
+    if (lower.contains('lora') || lower.contains('fine-tune')) {
+      return 'LoRA Tune';
+    }
+    if (lower.contains('eval') || lower.contains('loss')) return 'Loss & Eval';
+    if (lower.contains('leetcode')) return 'LeetCode';
+    if (lower.contains('cooking') || lower.contains('lunch')) return 'Lunch';
+    if (lower.contains('workout')) return 'Workout';
+    if (lower.contains('flexible')) return 'Flex';
+    if (lower.contains('study')) return 'Study';
+    if (lower.contains('chill')) return 'Chill';
+
+    // General fallback: take first word or up to 10 chars
+    final words = clean
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    if (words.isEmpty) return clean;
+    if (words.length == 1) {
+      return words[0].length > 11 ? words[0].substring(0, 10) : words[0];
+    }
+    if (words[0].length + words[1].length < 11) {
+      return '${words[0]} ${words[1]}';
+    }
+    return words[0];
+  }
+
+  /// Draws the sector content strictly clipped inside [pillPath] with full auto-alignment.
   static void drawContent({
     required Canvas canvas,
     required Offset center,
@@ -38,7 +80,7 @@ class SectorContentRenderer {
     final effectiveSweepDeg = sweepDeg - startCapSpanDeg - endCapSpanDeg;
 
     // Skip content on hairline / micro sectors
-    if (effectiveSweepDeg < (is24HourMode ? 5.0 : 8.0)) return;
+    if (effectiveSweepDeg < (is24HourMode ? 5.0 : 7.0)) return;
 
     final midDeg = effectiveStartDeg + (effectiveSweepDeg / 2.0);
     final midRad = SectorMath.dialAngleToCanvasRadians(midDeg);
@@ -49,7 +91,6 @@ class SectorContentRenderer {
     );
 
     final trackThickness = rOut - rIn;
-    final arcLength = midR * (effectiveSweepDeg * math.pi / 180.0);
 
     // Adaptive contrast: high-contrast white on dark sectors, dark charcoal on light sectors
     final isDarkSector =
@@ -59,9 +100,9 @@ class SectorContentRenderer {
         : const Color(0xFF1E1A16);
 
     final iconData = _getEventIcon(event);
-    final iconFontSize = is24HourMode ? 12.0 : 13.0;
-    final titleFontSize = is24HourMode ? 10.5 : 11.5;
-    final metaFontSize = is24HourMode ? 8.5 : 9.5;
+    final iconFontSize = is24HourMode ? 11.5 : 12.5;
+    final titleFontSize = is24HourMode ? 10.0 : 11.0;
+    final metaFontSize = is24HourMode ? 8.0 : 9.0;
 
     final iconPainter = TextPainter(
       text: TextSpan(
@@ -76,8 +117,8 @@ class SectorContentRenderer {
       textDirection: TextDirection.ltr,
     )..layout();
 
-    // Narrow sectors: draw icon only (strictly inside boundary)
-    if (arcLength < 32.0 || sweepDeg < (is24HourMode ? 9.0 : 14.0)) {
+    // Micro / tight sectors: draw icon only (strictly inside boundary)
+    if (effectiveSweepDeg < (is24HourMode ? 8.0 : 11.0)) {
       canvas.save();
       canvas.clipPath(pillPath);
       iconPainter.paint(
@@ -91,8 +132,11 @@ class SectorContentRenderer {
       return;
     }
 
-    // Split title into words stacked vertically ("words one below one")
-    final wordLines = _splitTitleWords(event.title);
+    // Split or compact title words based on available sweep space
+    final wordLines = _splitTitleWords(
+      event.title,
+      effectiveSweepDeg: effectiveSweepDeg,
+    );
 
     final titleStyle = TextStyle(
       fontFamily: fontKalam,
@@ -133,6 +177,90 @@ class SectorContentRenderer {
       textAlign: TextAlign.center,
     )..layout();
 
+    // Subtask short keyword chips (for wide blocks or active focus)
+    final subtaskPainters = <TextPainter>[];
+    if (event.subtasks.isNotEmpty && effectiveSweepDeg >= 26.0) {
+      final subStyle = TextStyle(
+        fontFamily: fontKalam,
+        fontFamilyFallback: fontFallbacks,
+        fontSize: metaFontSize * 0.88,
+        fontWeight: FontWeight.w700,
+        color: textColor.withValues(alpha: 0.92),
+        letterSpacing: 0.1,
+      );
+
+      final displaySubtasks = event.subtasks
+          .take(2)
+          .map((s) => distillShortKeyword(s))
+          .toList();
+
+      for (final s in displaySubtasks) {
+        subtaskPainters.add(
+          TextPainter(
+            text: TextSpan(text: s, style: subStyle),
+            maxLines: 1,
+            textDirection: TextDirection.ltr,
+            textAlign: TextAlign.center,
+          )..layout(),
+        );
+      }
+    }
+
+    // Measure raw content dimensions
+    const iconGap = 1.2;
+    const lineGap = 0.8;
+    const durGap = 1.2;
+    const subtaskGap = 1.0;
+
+    double contentWidth = iconPainter.width;
+    for (final tp in titlePainters) {
+      if (tp.width > contentWidth) contentWidth = tp.width;
+    }
+    if (metaPainter.width > contentWidth) contentWidth = metaPainter.width;
+    for (final sp in subtaskPainters) {
+      if (sp.width > contentWidth) contentWidth = sp.width;
+    }
+
+    double contentHeight = iconPainter.height + iconGap;
+    for (int i = 0; i < titlePainters.length; i++) {
+      contentHeight += titlePainters[i].height;
+      if (i < titlePainters.length - 1) contentHeight += lineGap;
+    }
+    contentHeight += durGap + metaPainter.height;
+
+    for (final sp in subtaskPainters) {
+      contentHeight += subtaskGap + sp.height;
+    }
+
+    // --- TRUE POLAR BOUNDING BOX & NEVER-TOUCH AUDIT ---
+    // In polar coordinates, circumference is strictly smaller at inner radius.
+    // We compute available arc width at the innermost radial reach of the content box.
+    final rMinContent = math.max(rIn + 8.0, midR - (contentHeight / 2.0));
+    final availableInnerArc =
+        rMinContent * (effectiveSweepDeg * math.pi / 180.0);
+
+    // Guaranteed cap safety clearance (minimum 8dp buffer on both start & end cap sides)
+    final hasCaps = startCapSpanDeg > 0.0 || endCapSpanDeg > 0.0;
+    final capSafetyPadding = hasCaps ? 16.0 : 10.0;
+    final maxAllowedWidth = math.max(
+      12.0,
+      availableInnerArc - capSafetyPadding,
+    );
+
+    // Guaranteed radial clearance (minimum 9dp buffer from inner & outer ring boundaries)
+    final maxAllowedHeight = math.max(12.0, trackThickness - 18.0);
+
+    // Adaptive scale to strictly fit inside both radial and angular bounds
+    var scale = 1.0;
+    if (contentWidth > maxAllowedWidth) {
+      scale = math.min(scale, maxAllowedWidth / contentWidth);
+    }
+    if (contentHeight > maxAllowedHeight) {
+      scale = math.min(scale, maxAllowedHeight / contentHeight);
+    }
+    // Safety clamp: ensure text scales down smoothly without vanishing
+    scale = scale.clamp(0.35, 1.0);
+
     // CRITICAL: Clip to pillPath so no text can ever bleed into bezels or margins!
     canvas.save();
     canvas.clipPath(pillPath);
@@ -145,61 +273,6 @@ class SectorContentRenderer {
       tangentAngle += math.pi;
     }
     canvas.rotate(tangentAngle);
-
-    const iconGap = 1.5;
-    const lineGap = 0.8;
-    const durGap = 1.5;
-
-    if (titlePainters.isEmpty) {
-      final totalH = iconPainter.height + durGap + metaPainter.height;
-      final maxW = math.max(iconPainter.width, metaPainter.width);
-      var s = 1.0;
-      if (maxW > arcLength - 10.0) s = math.min(s, (arcLength - 10.0) / maxW);
-      if (totalH > trackThickness - 4.0) {
-        s = math.min(s, (trackThickness - 4.0) / totalH);
-      }
-      s = s.clamp(0.55, 1.0);
-      if (s < 1.0) canvas.scale(s, s);
-
-      final startY = -totalH / 2.0;
-      iconPainter.paint(canvas, Offset(-iconPainter.width / 2.0, startY));
-      metaPainter.paint(
-        canvas,
-        Offset(-metaPainter.width / 2.0, startY + iconPainter.height + durGap),
-      );
-      canvas.restore();
-      return;
-    }
-
-    double contentWidth = iconPainter.width;
-    for (final tp in titlePainters) {
-      if (tp.width > contentWidth) contentWidth = tp.width;
-    }
-    if (metaPainter.width > contentWidth) {
-      contentWidth = metaPainter.width;
-    }
-
-    double contentHeight = iconPainter.height + iconGap;
-    for (int i = 0; i < titlePainters.length; i++) {
-      contentHeight += titlePainters[i].height;
-      if (i < titlePainters.length - 1) {
-        contentHeight += lineGap;
-      }
-    }
-    contentHeight += durGap + metaPainter.height;
-
-    // Adaptive scale to guarantee snug fit within arc & thickness
-    final maxAllowedWidth = arcLength - 10.0;
-    final maxAllowedHeight = trackThickness - 4.0;
-
-    var scale = 1.0;
-    if (contentWidth > maxAllowedWidth) {
-      scale = math.min(scale, maxAllowedWidth / contentWidth);
-    }
-    if (contentHeight > maxAllowedHeight) {
-      scale = math.min(scale, maxAllowedHeight / contentHeight);
-    }
-    scale = scale.clamp(0.40, 1.0);
 
     if (scale < 1.0) {
       canvas.scale(scale, scale);
@@ -218,16 +291,34 @@ class SectorContentRenderer {
       curY += tp.height + (i < titlePainters.length - 1 ? lineGap : durGap);
     }
 
-    // 3. Duration badge (bottom, centered)
+    // 3. Duration badge (centered)
     metaPainter.paint(canvas, Offset(-metaPainter.width / 2.0, curY));
+    curY += metaPainter.height;
+
+    // 4. Subtask short-keyword chips (if present)
+    for (final sp in subtaskPainters) {
+      curY += subtaskGap;
+      sp.paint(canvas, Offset(-sp.width / 2.0, curY));
+      curY += sp.height;
+    }
 
     canvas.restore();
   }
 
-  /// Splits event title into stacked lines ("words one below one").
-  static List<String> _splitTitleWords(String title) {
+  /// Splits event title into stacked lines, with smart single-keyword compaction
+  /// for narrow sectors (< 22°) so text never crowds or collides with caps.
+  static List<String> _splitTitleWords(
+    String title, {
+    required double effectiveSweepDeg,
+  }) {
     final clean = title.trim();
     if (clean.isEmpty) return const [];
+
+    // Narrow sector: compact into a single punchy keyword
+    if (effectiveSweepDeg < 22.0) {
+      return [distillShortKeyword(clean)];
+    }
+
     if (clean.contains('\n')) {
       return clean
           .split('\n')
