@@ -100,11 +100,12 @@ class SectographPainter extends CustomPainter {
       scallopAmp: scallopAmp,
     );
 
-    // 4. Numeral-free outer rim tick marks
+    // 4. 3D hour numbers positioned half over the block and half outside
     DialBezelRenderer.drawTicks(
       canvas: canvas,
       center: center,
       radius: baseRadius - 1.0,
+      trackOuterRadius: routineTrackOut,
       is24HourMode: settings.is24HourMode,
       faceStyle: settings.faceStyle,
       colorScheme: colorScheme,
