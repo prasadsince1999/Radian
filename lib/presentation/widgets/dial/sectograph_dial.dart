@@ -222,6 +222,7 @@ class SectographDial extends ConsumerWidget {
                             events: computedEvents,
                             effectiveTime: effectiveTime,
                             selectedEvent: selectedEvent,
+                            is24HourMode: settings.is24HourMode,
                           )
                         : null;
                     final outerEventIds =

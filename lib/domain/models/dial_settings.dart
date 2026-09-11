@@ -10,7 +10,7 @@ enum CenterClockDisplay { digital, analog, both }
 
 enum DialShape { circle, waveRounded }
 
-enum PastHoursStyle { disappear, focusedBlock }
+enum PastHoursStyle { focusedBlock }
 
 /// Dial and aesthetic preferences that can be customized via UI or AI/MCP.
 @immutable

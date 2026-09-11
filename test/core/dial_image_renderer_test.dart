@@ -93,19 +93,18 @@ void main() {
     });
 
     test('DialSettings pastHoursStyle serialization round-trip', () {
-      const settings = DialSettings(pastHoursStyle: PastHoursStyle.disappear);
+      const settings = DialSettings(
+        pastHoursStyle: PastHoursStyle.focusedBlock,
+      );
       final json = settings.toJson();
-      expect(json['pastHoursStyle'], 'disappear');
+      expect(json['pastHoursStyle'], 'focusedBlock');
 
       final deserialized = DialSettings.fromJson(json);
-      expect(deserialized.pastHoursStyle, PastHoursStyle.disappear);
+      expect(deserialized.pastHoursStyle, PastHoursStyle.focusedBlock);
     });
 
-    testWidgets('renders with PastHoursStyle.focusedBlock and disappear', (
-      tester,
-    ) async {
+    testWidgets('renders with PastHoursStyle.focusedBlock', (tester) async {
       Uint8List? focusedBytes;
-      Uint8List? disappearBytes;
 
       await tester.runAsync(() async {
         focusedBytes = await DialImageRenderer.renderDialPng(
@@ -118,22 +117,10 @@ void main() {
           colorScheme: colorScheme,
           size: 200.0,
         );
-        disappearBytes = await DialImageRenderer.renderDialPng(
-          events: events,
-          currentTime: now,
-          settings: const DialSettings(
-            is24HourMode: false,
-            pastHoursStyle: PastHoursStyle.disappear,
-          ),
-          colorScheme: colorScheme,
-          size: 200.0,
-        );
       });
 
       expect(focusedBytes, isNotNull);
-      expect(disappearBytes, isNotNull);
       expect(focusedBytes![0], 0x89);
-      expect(disappearBytes![0], 0x89);
     });
 
     test('DialSettings dialShape serialization round-trip', () {

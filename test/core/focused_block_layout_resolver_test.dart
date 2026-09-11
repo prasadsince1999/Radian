@@ -39,6 +39,7 @@ void main() {
         final result = FocusedBlockLayoutResolver.resolve(
           events: events,
           effectiveTime: effectiveTime,
+          is24HourMode: true,
         );
 
         expect(result.activeEvent?.id, 'e4');
@@ -73,6 +74,34 @@ void main() {
         expect(result.visibleEvents.any((e) => e.id == 'e0'), isFalse);
         expect(result.visibleEvents.any((e) => e.id == 'e8'), isFalse);
         expect(result.visibleEvents.any((e) => e.id == 'e9'), isFalse);
+      },
+    );
+
+    test(
+      'suppresses angular collisions on 12-hour dial for inner ring blocks',
+      () {
+        final events = [
+          makeEvent(
+            'sleep_am',
+            1,
+            8,
+          ), // 1:30 - 8:30 AM (covers angles 30° to 240°)
+          makeEvent('work_pm', 15, 17), // 3:00 - 5:00 PM (angles 90° to 150°)
+          makeEvent('flex_pm', 17, 20), // 5:00 - 8:00 PM (angles 150° to 240°)
+        ];
+
+        final effectiveTime = baseDate.add(
+          const Duration(hours: 11),
+        ); // 11:00 AM
+        final result = FocusedBlockLayoutResolver.resolve(
+          events: events,
+          effectiveTime: effectiveTime,
+          is24HourMode: false,
+        );
+
+        // In 12H mode, sleep_am must NOT collide with afternoon blocks work_pm & flex_pm
+        // on the inner ring:
+        expect(result.innerEventIds.contains('sleep_am'), isFalse);
       },
     );
 
