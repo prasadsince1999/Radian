@@ -175,12 +175,30 @@ class SectorPillRenderer {
       roundEnd: roundEnd,
     );
 
-    // 1. Base sector fill on cap - pure 100% solid event color (no dark overlays, no blur shadows)
+    // 1. Solid darker badge color on cap (pure solid, zero shadow blur!)
+    final badgeColor = Color.lerp(eventColor, Colors.black, 0.30)!;
     canvas.drawPath(
       capPath,
       Paint()
-        ..color = eventColor
+        ..color = badgeColor
         ..style = PaintingStyle.fill,
+    );
+
+    // 2. Subtle clean separator hairline at the junction with the main pill
+    final sepDeg = isStartCap ? startDeg + sweepDeg : startDeg;
+    final sepRad = SectorMath.dialAngleToCanvasRadians(sepDeg);
+    canvas.drawLine(
+      Offset(
+        center.dx + (rIn + 1.0) * math.cos(sepRad),
+        center.dy + (rIn + 1.0) * math.sin(sepRad),
+      ),
+      Offset(
+        center.dx + (rOut - 1.0) * math.cos(sepRad),
+        center.dy + (rOut - 1.0) * math.sin(sepRad),
+      ),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.28)
+        ..strokeWidth = 1.0,
     );
 
     // 2. Boundary timestamp text in crisp bold white
