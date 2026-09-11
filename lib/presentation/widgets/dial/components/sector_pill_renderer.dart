@@ -181,6 +181,7 @@ class SectorPillRenderer {
     double cornerRadius = 6.0,
     bool roundStart = false,
     bool roundEnd = true,
+    bool isContiguous = false,
   }) {
     if (sweepDeg <= 0.5) return;
 
@@ -195,8 +196,26 @@ class SectorPillRenderer {
       roundEnd: roundEnd,
     );
 
-    // 1. Sleek shaded overlay for the badge background
-    final badgeOverlayColor = Color.lerp(eventColor, Colors.black, 0.35)!;
+    // 0. 3D Overlap Drop Shadow falling onto the contiguous successor block
+    if (!isStartCap && isContiguous) {
+      canvas.drawPath(
+        capPath,
+        Paint()
+          ..color = Colors.black.withValues(alpha: 0.40)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5),
+      );
+    }
+
+    // 1. Base sector fill on cap so it is solid and vibrant
+    canvas.drawPath(
+      capPath,
+      Paint()
+        ..color = eventColor
+        ..style = PaintingStyle.fill,
+    );
+
+    // 2. Shaded dark badge overlay
+    final badgeOverlayColor = Color.lerp(eventColor, Colors.black, 0.32)!;
     canvas.drawPath(
       capPath,
       Paint()

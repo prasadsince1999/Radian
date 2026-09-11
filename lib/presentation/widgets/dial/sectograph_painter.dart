@@ -358,7 +358,28 @@ class SectographPainter extends CustomPainter {
       return false;
     }
 
-    // Render each sector pill and content
+    const double overlapDeg = 2.5; // 3D overlap extension over contiguous successor
+
+    // Prepare layout data for each event
+    final pillLayouts = <({
+      SectorEvent event,
+      bool isActive,
+      bool isSelected,
+      bool isOuterRing,
+      double rIn,
+      double rOut,
+      double startDeg,
+      double sweepDeg,
+      double cornerRadius,
+      Path pillPath,
+      bool showStartCap,
+      double startCapSpan,
+      bool showEndCap,
+      double endCapStartDeg,
+      double endCapSpan,
+      bool isContiguous,
+    })>[];
+
     for (int i = 0; i < events.length; i++) {
       final event = events[i];
       if (event.sweepAngle <= 1.0) continue;
@@ -383,8 +404,8 @@ class SectographPainter extends CustomPainter {
           .min(8.0, (eventROut - eventRIn) * 0.28)
           .clamp(3.0, 8.0);
 
-      // Determine integrated end-cap and start-cap spans
-      final capSpanDeg = (sweepDeg * 0.30).clamp(9.0, is24 ? 13.0 : 16.0);
+      final isContiguous = hasContiguousSuccessor[i];
+      final baseCapSpanDeg = (sweepDeg * 0.30).clamp(9.0, is24 ? 13.0 : 16.0);
 
       final canShowStartCap = !hasContiguousPredecessor[i] &&
           sweepDeg >= (is24 ? 22.0 : 32.0) &&
@@ -392,10 +413,14 @@ class SectographPainter extends CustomPainter {
       final canShowEndCap = sweepDeg >= (is24 ? 14.0 : 19.0) &&
           !angleAlreadyDrawn(startDeg + sweepDeg, isOuterRing);
 
-      final startCapSpan = canShowStartCap ? capSpanDeg : 0.0;
-      final endCapSpan = canShowEndCap ? capSpanDeg : 0.0;
+      final startCapSpan = canShowStartCap ? baseCapSpanDeg : 0.0;
+      final endCapSpan = canShowEndCap
+          ? baseCapSpanDeg + (isContiguous ? overlapDeg : 0.0)
+          : 0.0;
+      final endBoundaryDeg = startDeg + sweepDeg;
+      final capEndDeg = endBoundaryDeg + (isContiguous ? overlapDeg : 0.0);
+      final endCapStartDeg = capEndDeg - endCapSpan;
 
-      // 1. Build Pill Path
       final pillPath = SectorPillRenderer.buildPillPath(
         center: center,
         rIn: eventRIn,
@@ -407,74 +432,103 @@ class SectographPainter extends CustomPainter {
         roundEnd: !hasContiguousSuccessor[i],
       );
 
-      // 2. Draw Pill Body (Full Vibrant Solid - Zero Dimming!)
-      SectorPillRenderer.drawPillBody(
-        canvas: canvas,
-        pillPath: pillPath,
+      pillLayouts.add((
         event: event,
         isActive: isActive,
         isSelected: isSelected,
         isOuterRing: isOuterRing,
-      );
-
-      // 3. Draw Integrated Start-Cap Badge (for isolated events)
-      if (canShowStartCap) {
-        SectorPillRenderer.drawIntegratedCap(
-          canvas: canvas,
-          center: center,
-          rIn: eventRIn,
-          rOut: eventROut,
-          startDeg: startDeg,
-          sweepDeg: startCapSpan,
-          time: event.start,
-          eventColor: event.color,
-          isStartCap: true,
-          is24HourMode: is24,
-          cornerRadius: cornerRadius,
-          roundStart: !hasContiguousPredecessor[i],
-          roundEnd: false,
-        );
-        drawnTimestampAngles.add((isOuter: isOuterRing, angle: startDeg));
-      }
-
-      // 4. Draw Integrated End-Cap Badge (boundary/junction timestamp)
-      if (canShowEndCap) {
-        final endCapStartDeg = startDeg + sweepDeg - endCapSpan;
-        SectorPillRenderer.drawIntegratedCap(
-          canvas: canvas,
-          center: center,
-          rIn: eventRIn,
-          rOut: eventROut,
-          startDeg: endCapStartDeg,
-          sweepDeg: endCapSpan,
-          time: event.end,
-          eventColor: event.color,
-          isStartCap: false,
-          is24HourMode: is24,
-          cornerRadius: cornerRadius,
-          roundStart: false,
-          roundEnd: !hasContiguousSuccessor[i],
-        );
-        drawnTimestampAngles.add((
-          isOuter: isOuterRing,
-          angle: startDeg + sweepDeg,
-        ));
-      }
-
-      // 5. Draw Sector Content (Tangential arc alignment, clipped strictly inside pillPath, centered between caps)
-      SectorContentRenderer.drawContent(
-        canvas: canvas,
-        center: center,
-        event: event,
-        pillPath: pillPath,
         rIn: eventRIn,
         rOut: eventROut,
         startDeg: startDeg,
         sweepDeg: sweepDeg,
+        cornerRadius: cornerRadius,
+        pillPath: pillPath,
+        showStartCap: canShowStartCap,
+        startCapSpan: startCapSpan,
+        showEndCap: canShowEndCap,
+        endCapStartDeg: endCapStartDeg,
+        endCapSpan: endCapSpan,
+        isContiguous: isContiguous,
+      ));
+
+      if (canShowStartCap) {
+        drawnTimestampAngles.add((isOuter: isOuterRing, angle: startDeg));
+      }
+      if (canShowEndCap) {
+        drawnTimestampAngles.add((isOuter: isOuterRing, angle: endBoundaryDeg));
+      }
+    }
+
+    // Pass 1: Draw ALL pill bodies first
+    for (final l in pillLayouts) {
+      SectorPillRenderer.drawPillBody(
+        canvas: canvas,
+        pillPath: l.pillPath,
+        event: l.event,
+        isActive: l.isActive,
+        isSelected: l.isSelected,
+        isOuterRing: l.isOuterRing,
+      );
+    }
+
+    // Pass 2: Draw 3D Overlapping End Caps with drop shadows ON TOP of successor blocks!
+    for (final l in pillLayouts) {
+      if (l.showEndCap) {
+        SectorPillRenderer.drawIntegratedCap(
+          canvas: canvas,
+          center: center,
+          rIn: l.rIn,
+          rOut: l.rOut,
+          startDeg: l.endCapStartDeg,
+          sweepDeg: l.endCapSpan,
+          time: l.event.end,
+          eventColor: l.event.color,
+          isStartCap: false,
+          is24HourMode: is24,
+          cornerRadius: l.cornerRadius,
+          roundStart: false,
+          roundEnd: true,
+          isContiguous: l.isContiguous,
+        );
+      }
+    }
+
+    // Pass 3: Draw Start Caps for isolated events
+    for (final l in pillLayouts) {
+      if (l.showStartCap) {
+        SectorPillRenderer.drawIntegratedCap(
+          canvas: canvas,
+          center: center,
+          rIn: l.rIn,
+          rOut: l.rOut,
+          startDeg: l.startDeg,
+          sweepDeg: l.startCapSpan,
+          time: l.event.start,
+          eventColor: l.event.color,
+          isStartCap: true,
+          is24HourMode: is24,
+          cornerRadius: l.cornerRadius,
+          roundStart: true,
+          roundEnd: false,
+        );
+      }
+    }
+
+    // Pass 4: Draw Sector Content (icon, title, duration hours only!)
+    for (final l in pillLayouts) {
+      SectorContentRenderer.drawContent(
+        canvas: canvas,
+        center: center,
+        event: l.event,
+        pillPath: l.pillPath,
+        rIn: l.rIn,
+        rOut: l.rOut,
+        startDeg: l.startDeg,
+        sweepDeg: l.sweepDeg,
         is24HourMode: is24,
-        isOuterRing: isOuterRing,
-        startCapSpanDeg: startCapSpan,
-        endCapSpanDeg: endCapSpan,
+        isOuterRing: l.isOuterRing,
+        startCapSpanDeg: l.startCapSpan,
+        endCapSpanDeg: l.endCapSpan,
       );
     }
   }

@@ -89,17 +89,9 @@ class SectorContentRenderer {
       return;
     }
 
-    // Build subtitle / meta text: show duration and time range if space permits
+    // Build subtitle / meta text: show duration ONLY (hours/minutes), no redundant time range
     final durationStr = TimeFormatters.formatDuration(event.duration);
-    final timeRangeStr =
-        '${TimeFormatters.formatTime(event.start, is24Hour: is24HourMode)} – ${TimeFormatters.formatTime(event.end, is24Hour: is24HourMode)}';
-
-    // For wider sectors (>= 40° in 12H or >= 25° in 24H), show "2h • 11:30 AM–1:30 PM"
-    final showFullRange =
-        sweepDeg >= (is24HourMode ? 28.0 : 45.0) && arcLength >= 90.0;
-    final metaStr = showFullRange
-        ? '$durationStr • $timeRangeStr'
-        : durationStr;
+    final metaStr = durationStr;
 
     final maxTextWidth = math.max(arcLength - 16.0, 36.0);
     final titlePainter = TextPainter(

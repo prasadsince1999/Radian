@@ -193,16 +193,60 @@ class FocusedBlockLayoutResolver {
 
     // 6. Allocate ring IDs
     final outerEventIds = <String>{};
-    if (prev1 != null) outerEventIds.add(prev1.id);
-    if (active != null) outerEventIds.add(active.id);
-    if (next1 != null) outerEventIds.add(next1.id);
-    if (selectedEvent != null) outerEventIds.add(selectedEvent.id);
-
     final innerEventIds = <String>{};
-    if (prev3 != null) innerEventIds.add(prev3.id);
-    if (prev2 != null) innerEventIds.add(prev2.id);
-    if (next2 != null) innerEventIds.add(next2.id);
-    if (next3 != null) innerEventIds.add(next3.id);
+
+    if (is24HourMode) {
+      if (prev1 != null) outerEventIds.add(prev1.id);
+      if (active != null) outerEventIds.add(active.id);
+      if (next1 != null) outerEventIds.add(next1.id);
+      if (selectedEvent != null) outerEventIds.add(selectedEvent.id);
+
+      if (prev3 != null) innerEventIds.add(prev3.id);
+      if (prev2 != null) innerEventIds.add(prev2.id);
+      if (next2 != null) innerEventIds.add(next2.id);
+      if (next3 != null) innerEventIds.add(next3.id);
+    } else {
+      // In 12H mode: Upcoming blocks take over outer ring if space allows,
+      // preventing large empty gaps on the dial face.
+      if (active != null) outerEventIds.add(active.id);
+      if (prev1 != null) outerEventIds.add(prev1.id);
+      if (next1 != null) outerEventIds.add(next1.id);
+      if (selectedEvent != null) outerEventIds.add(selectedEvent.id);
+
+      final outerEvents = <SectorEvent>[];
+      if (active != null) outerEvents.add(active);
+      if (prev1 != null) outerEvents.add(prev1);
+      if (next1 != null) outerEvents.add(next1);
+      if (selectedEvent != null && selectedEvent.id != active?.id) {
+        outerEvents.add(selectedEvent);
+      }
+
+      // Next 2: take outer ring if no collision with existing outer events
+      final n2 = next2;
+      if (n2 != null) {
+        if (!outerEvents.any((e) => _arcsOverlap12H(n2, e))) {
+          outerEventIds.add(n2.id);
+          outerEvents.add(n2);
+        } else {
+          innerEventIds.add(n2.id);
+        }
+      }
+
+      // Next 3: take outer ring if no collision with existing outer events
+      final n3 = next3;
+      if (n3 != null) {
+        if (!outerEvents.any((e) => _arcsOverlap12H(n3, e))) {
+          outerEventIds.add(n3.id);
+          outerEvents.add(n3);
+        } else {
+          innerEventIds.add(n3.id);
+        }
+      }
+
+      // Past secondary blocks (prev2, prev3) stay in inner ring
+      if (prev2 != null) innerEventIds.add(prev2.id);
+      if (prev3 != null) innerEventIds.add(prev3.id);
+    }
 
     // 7. Build visible events list
     final visibleEvents = <SectorEvent>[];
