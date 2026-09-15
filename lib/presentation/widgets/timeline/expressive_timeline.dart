@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_layout_constants.dart';
-import '../../../core/theme/expressive_shapes.dart';
 import '../../../domain/models/sector_event.dart';
 import '../../controllers/clock_controller.dart';
 import '../editor/event_edit_modal.dart';
@@ -80,141 +79,149 @@ class ExpressiveTimeline extends ConsumerWidget {
             constraints: const BoxConstraints(
               maxWidth: AppLayoutConstants.timelineMaxWidth,
             ),
-            child: ListView.builder(
-              padding: const EdgeInsets.only(top: 4, bottom: 96),
-              itemCount: sorted.length,
-              itemBuilder: (context, index) {
-                final ev = sorted[index];
-                return Dismissible(
-                  key: ValueKey(ev.id),
-                  direction: DismissDirection.horizontal,
-                  dismissThresholds: const {
-                    DismissDirection.startToEnd: 0.70,
-                    DismissDirection.endToStart: 0.70,
-                  },
-                  background: Container(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: colorScheme.primary.withValues(alpha: 0.4),
-                        width: 1.2,
-                      ),
-                    ),
-                    alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.edit_outlined,
-                          color: colorScheme.onPrimaryContainer,
-                          size: 22,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: KeyedSubtree(
+                key: ValueKey(showAllEvents),
+                child: ListView.builder(
+                  padding: const EdgeInsets.only(top: 4, bottom: 96),
+                  itemCount: sorted.length,
+                  itemBuilder: (context, index) {
+                    final ev = sorted[index];
+                    return Dismissible(
+                      key: ValueKey(ev.id),
+                      direction: DismissDirection.horizontal,
+                      dismissThresholds: const {
+                        DismissDirection.startToEnd: 0.70,
+                        DismissDirection.endToStart: 0.70,
+                      },
+                      background: Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Edit',
-                          style: TextStyle(
-                            color: colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                            letterSpacing: 0.2,
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: colorScheme.primary.withValues(alpha: 0.4),
+                            width: 1.2,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  secondaryBackground: Container(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.errorContainer,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: colorScheme.error.withValues(alpha: 0.4),
-                        width: 1.2,
+                        alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.edit_outlined,
+                              color: colorScheme.onPrimaryContainer,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Edit',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                                color: colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Delete',
-                          style: TextStyle(
-                            color: colorScheme.onErrorContainer,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                            letterSpacing: 0.2,
+                      secondaryBackground: Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorScheme.errorContainer,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: colorScheme.error.withValues(alpha: 0.4),
+                            width: 1.2,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.delete_outline_rounded,
-                          color: colorScheme.onErrorContainer,
-                          size: 22,
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Delete',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                                color: colorScheme.onErrorContainer,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.delete_outline_rounded,
+                              color: colorScheme.onErrorContainer,
+                              size: 22,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  confirmDismiss: (direction) async {
-                    if (direction == DismissDirection.startToEnd) {
-                      // Slide Right -> Edit Modal
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        showDragHandle: false,
-                        constraints: const BoxConstraints(
-                          maxWidth: AppLayoutConstants.modalMaxWidth,
-                        ),
-                        shape: ExpressiveShapes.modalSheet,
-                        builder: (_) =>
-                            EventEditModal(event: ev, initialDate: selectedDay),
-                      );
-                      return false; // Snap back smoothly after opening edit
-                    } else if (direction == DismissDirection.endToStart) {
-                      // Slide Left -> Delete with Undo
-                      _deleteWithUndo(context, ref, ev);
-                      return true;
-                    }
-                    return false;
+                      ),
+                      confirmDismiss: (direction) async {
+                        if (direction == DismissDirection.startToEnd) {
+                          HapticFeedback.lightImpact();
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            showDragHandle: false,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) => EventEditModal(
+                              event: ev,
+                              initialDate: selectedDay,
+                            ),
+                          );
+                          return false;
+                        } else if (direction == DismissDirection.endToStart) {
+                          return true;
+                        }
+                        return false;
+                      },
+                      onDismissed: (_) {
+                        _deleteWithUndo(context, ref, ev);
+                      },
+                      child: EventCard(
+                        event: ev,
+                        isSelected: selectedEvent?.id == ev.id,
+                        isActive: activeEvent?.id == ev.id,
+                        is24HourMode: is24,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          if (selectedEvent?.id == ev.id) {
+                            ref.read(selectedEventProvider.notifier).state =
+                                null;
+                          } else {
+                            ref.read(selectedEventProvider.notifier).state = ev;
+                          }
+                        },
+                        onEdit: () {
+                          HapticFeedback.lightImpact();
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            showDragHandle: false,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) => EventEditModal(
+                              event: ev,
+                              initialDate: selectedDay,
+                            ),
+                          );
+                        },
+                        onDelete: () => _deleteWithUndo(context, ref, ev),
+                      ),
+                    );
                   },
-                  child: EventCard(
-                    event: ev,
-                    isSelected: selectedEvent?.id == ev.id,
-                    isActive: activeEvent?.id == ev.id,
-                    is24HourMode: is24,
-                    onTap: () {
-                      if (selectedEvent?.id == ev.id) {
-                        ref.read(selectedEventProvider.notifier).state = null;
-                      } else {
-                        ref.read(selectedEventProvider.notifier).state = ev;
-                      }
-                    },
-                    onEdit: () {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        showDragHandle: false,
-                        constraints: const BoxConstraints(
-                          maxWidth: AppLayoutConstants.modalMaxWidth,
-                        ),
-                        shape: ExpressiveShapes.modalSheet,
-                        builder: (_) =>
-                            EventEditModal(event: ev, initialDate: selectedDay),
-                      );
-                    },
-                    onDelete: () => _deleteWithUndo(context, ref, ev),
-                  ),
-                );
-              },
+                ),
+              ),
             ),
           ),
         );

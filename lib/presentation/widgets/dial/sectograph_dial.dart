@@ -407,6 +407,7 @@ class SectographDial extends ConsumerWidget {
 
                     return GestureDetector(
                       onPanDown: (details) {
+                        if (!isDialEditing) return;
                         final hitTarget = DialTimeCapDragHandler.findHitTarget(
                           localOffset: details.localPosition,
                           center: center,
@@ -429,7 +430,7 @@ class SectographDial extends ConsumerWidget {
                       },
                       onPanStart: (details) {
                         var activeCap = ref.read(activeDraggingCapProvider);
-                        if (activeCap == null) {
+                        if (isDialEditing && activeCap == null) {
                           final hitTarget =
                               DialTimeCapDragHandler.findHitTarget(
                                 localOffset: details.localPosition,
@@ -463,7 +464,7 @@ class SectographDial extends ConsumerWidget {
                       },
                       onPanUpdate: (details) {
                         final activeCap = ref.read(activeDraggingCapProvider);
-                        if (activeCap != null) {
+                        if (isDialEditing && activeCap != null) {
                           final touchAngle = SectorMath.touchDeltaToDialAngle(
                             details.localPosition.dx - center.dx,
                             details.localPosition.dy - center.dy,
@@ -505,7 +506,7 @@ class SectographDial extends ConsumerWidget {
                           liveAdjustedEventProvider,
                         );
                         final liveMap = ref.read(liveAdjustedEventsMapProvider);
-                        if (liveMap.isNotEmpty) {
+                        if (isDialEditing && liveMap.isNotEmpty) {
                           for (final updated in liveMap.values) {
                             ref
                                 .read(eventRepositoryProvider)
@@ -522,7 +523,9 @@ class SectographDial extends ConsumerWidget {
                               .read(cloudSyncControllerProvider.notifier)
                               .syncNow();
                           HapticFeedback.mediumImpact();
-                        } else if (activeCap != null && liveAdjusted != null) {
+                        } else if (isDialEditing &&
+                            activeCap != null &&
+                            liveAdjusted != null) {
                           ref
                               .read(eventRepositoryProvider)
                               .updateEvent(liveAdjusted);
@@ -632,141 +635,162 @@ class SectographDial extends ConsumerWidget {
                               activeDraggingCap: activeDraggingCap,
                             ),
                           ),
-                          if (isDialEditing)
-                            ClipOval(
-                              child: SizedBox(
-                                width: innerRadius * 2 * 0.94,
-                                height: innerRadius * 2 * 0.94,
-                                child: Center(
-                                  child: BouncyPressable(
-                                    scaleDownFactor: 0.88,
-                                    onTap: () {
-                                      HapticFeedback.mediumImpact();
-                                      final freeGaps =
-                                          DialTimeCapDragHandler.findFreeGaps(
-                                            events: computedEvents,
-                                            day: viewingDay,
-                                          );
-                                      DateTime newStart;
-                                      DateTime newEnd;
-                                      if (freeGaps.isNotEmpty) {
-                                        final firstGap = freeGaps.first;
-                                        newStart = firstGap.$1;
-                                        final gapMins = firstGap.$2
-                                            .difference(firstGap.$1)
-                                            .inMinutes;
-                                        final dur = math.min(60, gapMins);
-                                        newEnd = newStart.add(
-                                          Duration(minutes: dur),
-                                        );
-                                      } else {
-                                        newStart = DateTime(
-                                          viewingDay.year,
-                                          viewingDay.month,
-                                          viewingDay.day,
-                                          9,
-                                          0,
-                                        );
-                                        newEnd = newStart.add(
-                                          const Duration(hours: 1),
-                                        );
-                                      }
-                                      final newEvent = SectorEvent(
-                                        id: const Uuid().v4(),
-                                        title: 'New Block',
-                                        start: newStart,
-                                        end: newEnd,
-                                        colorHex: '#6366F1',
-                                      );
-                                      ref
-                                          .read(eventRepositoryProvider)
-                                          .addEvent(newEvent);
-                                      ref
-                                              .read(
-                                                selectedEventProvider.notifier,
-                                              )
-                                              .state =
-                                          newEvent;
-                                      ref
-                                          .read(cloudSyncServiceProvider)
-                                          .queueUpsert(newEvent);
-                                      ref
-                                          .read(
-                                            cloudSyncControllerProvider
-                                                .notifier,
-                                          )
-                                          .syncNow();
-
-                                      showModalBottomSheet(
-                                        context: context,
-                                        isScrollControlled: true,
-                                        showDragHandle: false,
-                                        backgroundColor: Colors.transparent,
-                                        builder: (_) => EventEditModal(
-                                          event: newEvent,
-                                          initialDate: viewingDay,
+                          ClipOval(
+                            child: SizedBox(
+                              width: innerRadius * 2 * 0.94,
+                              height: innerRadius * 2 * 0.94,
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 260),
+                                switchInCurve: Curves.easeOutCubic,
+                                switchOutCurve: Curves.easeInCubic,
+                                transitionBuilder: (child, animation) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: ScaleTransition(
+                                      scale: Tween<double>(
+                                        begin: 0.88,
+                                        end: 1.0,
+                                      ).animate(animation),
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: isDialEditing
+                                    ? Center(
+                                        key: const ValueKey(
+                                          'dial_center_edit_btn',
                                         ),
-                                      );
-                                    },
-                                    child: Container(
-                                      width: math.min(52.0, innerRadius * 0.96),
-                                      height: math.min(
-                                        52.0,
-                                        innerRadius * 0.96,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: colorScheme.primary,
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: colorScheme.primary
-                                                .withValues(alpha: 0.45),
-                                            blurRadius: 10,
-                                            spreadRadius: 2,
-                                            offset: const Offset(0, 3),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Icon(
-                                        Icons.add_rounded,
-                                        size: 28,
-                                        color: colorScheme.onPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            )
-                          else
-                            ClipOval(
-                              child: SizedBox(
-                                width: innerRadius * 2 * 0.94,
-                                height: innerRadius * 2 * 0.94,
-                                child: Center(
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      maxWidth: innerRadius * 1.36,
-                                      maxHeight: innerRadius * 1.36,
-                                    ),
-                                    child: CenterSummary(
-                                      currentTime: effectiveTime,
-                                      activeEvent: effectiveActive,
-                                      selectedEvent: selectedEvent,
-                                      is24HourMode: settings.is24HourMode,
-                                      onDismissSelected: () {
-                                        ref
+                                        child: BouncyPressable(
+                                          scaleDownFactor: 0.88,
+                                          onTap: () {
+                                            HapticFeedback.mediumImpact();
+                                            final freeGaps =
+                                                DialTimeCapDragHandler.findFreeGaps(
+                                                  events: computedEvents,
+                                                  day: viewingDay,
+                                                );
+                                            DateTime newStart;
+                                            DateTime newEnd;
+                                            if (freeGaps.isNotEmpty) {
+                                              final firstGap = freeGaps.first;
+                                              newStart = firstGap.$1;
+                                              final gapMins = firstGap.$2
+                                                  .difference(firstGap.$1)
+                                                  .inMinutes;
+                                              final dur = math.min(60, gapMins);
+                                              newEnd = newStart.add(
+                                                Duration(minutes: dur),
+                                              );
+                                            } else {
+                                              newStart = DateTime(
+                                                viewingDay.year,
+                                                viewingDay.month,
+                                                viewingDay.day,
+                                                9,
+                                                0,
+                                              );
+                                              newEnd = newStart.add(
+                                                const Duration(hours: 1),
+                                              );
+                                            }
+                                            final newEvent = SectorEvent(
+                                              id: const Uuid().v4(),
+                                              title: 'New Block',
+                                              start: newStart,
+                                              end: newEnd,
+                                              colorHex: '#6366F1',
+                                            );
+                                            ref
+                                                .read(eventRepositoryProvider)
+                                                .addEvent(newEvent);
+                                            ref
+                                                    .read(
+                                                      selectedEventProvider
+                                                          .notifier,
+                                                    )
+                                                    .state =
+                                                newEvent;
+                                            ref
+                                                .read(cloudSyncServiceProvider)
+                                                .queueUpsert(newEvent);
+                                            ref
                                                 .read(
-                                                  selectedEventProvider
+                                                  cloudSyncControllerProvider
                                                       .notifier,
                                                 )
-                                                .state =
-                                            null;
-                                      },
-                                    ),
-                                  ),
-                                ),
+                                                .syncNow();
+
+                                            showModalBottomSheet(
+                                              context: context,
+                                              isScrollControlled: true,
+                                              showDragHandle: false,
+                                              backgroundColor:
+                                                  Colors.transparent,
+                                              builder: (_) => EventEditModal(
+                                                event: newEvent,
+                                                initialDate: viewingDay,
+                                              ),
+                                            );
+                                          },
+                                          child: Container(
+                                            width: math.min(
+                                              52.0,
+                                              innerRadius * 0.96,
+                                            ),
+                                            height: math.min(
+                                              52.0,
+                                              innerRadius * 0.96,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: colorScheme.primary,
+                                              shape: BoxShape.circle,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: colorScheme.primary
+                                                      .withValues(alpha: 0.45),
+                                                  blurRadius: 10,
+                                                  spreadRadius: 2,
+                                                  offset: const Offset(0, 3),
+                                                ),
+                                              ],
+                                            ),
+                                            child: Icon(
+                                              Icons.add_rounded,
+                                              size: 28,
+                                              color: colorScheme.onPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : Center(
+                                        key: const ValueKey(
+                                          'dial_center_clock_summary',
+                                        ),
+                                        child: ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            maxWidth: innerRadius * 1.36,
+                                            maxHeight: innerRadius * 1.36,
+                                          ),
+                                          child: CenterSummary(
+                                            currentTime: effectiveTime,
+                                            activeEvent: effectiveActive,
+                                            selectedEvent: selectedEvent,
+                                            is24HourMode: settings.is24HourMode,
+                                            onDismissSelected: () {
+                                              ref
+                                                      .read(
+                                                        selectedEventProvider
+                                                            .notifier,
+                                                      )
+                                                      .state =
+                                                  null;
+                                            },
+                                          ),
+                                        ),
+                                      ),
                               ),
                             ),
+                          ),
                         ],
                       ),
                     );
@@ -786,7 +810,9 @@ class SectographDial extends ConsumerWidget {
                       ref.read(isDialEditingProvider.notifier).state = !current;
                       HapticFeedback.mediumImpact();
                     },
-                    child: Container(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeInOutCubic,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 11,
                         vertical: 6,
@@ -814,31 +840,37 @@ class SectographDial extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            isDialEditing
-                                ? Icons.check_rounded
-                                : Icons.tune_rounded,
-                            size: 14,
-                            color: isDialEditing
-                                ? colorScheme.onPrimary
-                                : colorScheme.onSurface,
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            isDialEditing ? 'Done' : 'Edit',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.3,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        child: Row(
+                          key: ValueKey(isDialEditing),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isDialEditing
+                                  ? Icons.check_rounded
+                                  : Icons.tune_rounded,
+                              size: 14,
                               color: isDialEditing
                                   ? colorScheme.onPrimary
                                   : colorScheme.onSurface,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 5),
+                            Text(
+                              isDialEditing ? 'Done' : 'Edit',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.3,
+                                color: isDialEditing
+                                    ? colorScheme.onPrimary
+                                    : colorScheme.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

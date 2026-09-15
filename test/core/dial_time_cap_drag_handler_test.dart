@@ -151,7 +151,7 @@ void main() {
       expect(result.didClamp, true);
     });
 
-    test('findHitTarget detects touch inside sector body as entireBlock', () {
+    test('findHitTarget locks blocks when isDialEditing is false, and detects entireBlock when isDialEditing is true', () {
       // Midpoint of Event B (9:30 PM to 11:30 PM) is 10:30 PM -> 315°
       final midAngleB = SectorMath.timeToDialAngle(
         DateTime(2026, 9, 12, 22, 30),
@@ -163,6 +163,19 @@ void main() {
         center.dy + midR * math.sin(rad),
       );
 
+      // When NOT in Edit mode (isDialEditing: false), blocks are strictly locked against dragging
+      final lockedHit = DialTimeCapDragHandler.findHitTarget(
+        localOffset: touchPos,
+        center: center,
+        rIn: rIn,
+        rOut: rOut,
+        events: [eventA, eventB],
+        is24HourMode: false,
+        isDialEditing: false,
+      );
+      expect(lockedHit, isNull);
+
+      // When in Edit mode (isDialEditing: true), block dragging is unlocked
       final hit = DialTimeCapDragHandler.findHitTarget(
         localOffset: touchPos,
         center: center,
@@ -170,6 +183,7 @@ void main() {
         rOut: rOut,
         events: [eventA, eventB],
         is24HourMode: false,
+        isDialEditing: true,
       );
 
       expect(hit, isNotNull);

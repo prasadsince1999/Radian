@@ -38,11 +38,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     WidgetsBinding.instance.addObserver(this);
     _expansionController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 320),
+      duration: const Duration(milliseconds: 360),
     );
     _expansionAnimation = CurvedAnimation(
       parent: _expansionController,
-      curve: Curves.easeOutCubic,
+      curve: Curves.fastEaseInToSlowEaseOut,
       reverseCurve: Curves.easeInCubic,
     );
     AndroidWidgetService.initialize(
@@ -423,7 +423,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             // with interactive whole-screen / half-screen expansion handle.
             return AnimatedBuilder(
               animation: _expansionAnimation,
-              builder: (context, child) {
+              child: const RepaintBoundary(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(8.0, 4.0, 8.0, 2.0),
+                  child: SectographDial(),
+                ),
+              ),
+              builder: (context, cachedDial) {
                 final expansionProgress = _expansionAnimation.value;
                 final availableHeight = constraints.maxHeight;
                 // Base dial height in half-screen mode (~54% of available height)
@@ -451,15 +457,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                 child: Opacity(
                                   opacity: (1.0 - expansionProgress * 1.6)
                                       .clamp(0.0, 1.0),
-                                  child: const Padding(
-                                    padding: EdgeInsets.fromLTRB(
-                                      8.0,
-                                      4.0,
-                                      8.0,
-                                      2.0,
-                                    ),
-                                    child: SectographDial(),
-                                  ),
+                                  child: cachedDial,
                                 ),
                               ),
                             ),

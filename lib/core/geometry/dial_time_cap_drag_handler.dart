@@ -153,6 +153,8 @@ class DialTimeCapDragHandler {
   }
 
   /// Detects whether [localOffset] hits a cap, an event sector body, or the dial ring.
+  /// When [isDialEditing] is false, time blocks and boundary caps are strictly locked
+  /// against dragging to prevent accidental shifts while scrubbing or viewing.
   static CapHitResult? findHitTarget({
     required Offset localOffset,
     required Offset center,
@@ -163,6 +165,10 @@ class DialTimeCapDragHandler {
     SectorEvent? selectedEvent,
     bool isDialEditing = false,
   }) {
+    if (!isDialEditing) {
+      return null;
+    }
+
     final dist = (localOffset - center).distance;
     final touchAngle = SectorMath.touchDeltaToDialAngle(
       localOffset.dx - center.dx,
