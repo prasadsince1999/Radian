@@ -7,7 +7,6 @@ import '../../../core/constants/app_layout_constants.dart';
 import '../../../core/geometry/dial_time_cap_drag_handler.dart';
 import '../../../core/geometry/fisheye_time_lens.dart';
 import '../../../core/geometry/sector_math.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../domain/models/dial_settings.dart';
 import '../../../domain/models/sector_event.dart';
 import 'components/dial_bezel_renderer.dart';
@@ -125,12 +124,7 @@ class SectographPainter extends CustomPainter {
       routineTrackOut,
     );
 
-    // 6. Dual analog clock hands
-    if (settings.centerClockDisplay != CenterClockDisplay.digital) {
-      _drawAnalogHands(canvas, center, innerRadius);
-    }
-
-    // 7. Rich center clock face for offscreen / widget rendering
+    // 6. Rich center clock face for offscreen / widget rendering
     if (showCenterClock &&
         settings.centerClockDisplay != CenterClockDisplay.analog) {
       _drawCenterClockFace(canvas, center, innerRadius);
@@ -337,7 +331,7 @@ class SectographPainter extends CustomPainter {
 
     final drawnTimestampAngles = <double>[];
     bool angleAlreadyDrawn(double deg) {
-      final threshold = is24 ? 4.5 : 7.0;
+      const threshold = 1.0;
       for (final angle in drawnTimestampAngles) {
         final diff = ((deg - angle).abs()) % 360.0;
         final angularDistance = diff > 180.0 ? 360.0 - diff : diff;
@@ -680,62 +674,6 @@ class SectographPainter extends CustomPainter {
         );
       }
     }
-  }
-
-  void _drawAnalogHands(Canvas canvas, Offset center, double innerRadius) {
-    final is24 = settings.is24HourMode;
-    double hourAngle;
-    double minuteAngle;
-
-    if (scrubAngle != null) {
-      hourAngle = scrubAngle!;
-      final step = is24 ? 15.0 : 30.0;
-      minuteAngle = ((scrubAngle! % step) / step) * 360.0;
-    } else {
-      hourAngle = SectorMath.timeToDialAngle(currentTime, is24HourMode: is24);
-      minuteAngle =
-          (currentTime.minute / 60.0 + currentTime.second / 3600.0) * 360.0;
-    }
-
-    final hourRad = SectorMath.dialAngleToCanvasRadians(hourAngle);
-    final minuteRad = SectorMath.dialAngleToCanvasRadians(minuteAngle);
-
-    // Hour Hand: Olive green rounded capsule bar
-    const hourHandColor = AppColors.hourHand;
-    final hourLength = innerRadius * 0.58;
-    final pHourEnd = Offset(
-      center.dx + hourLength * math.cos(hourRad),
-      center.dy + hourLength * math.sin(hourRad),
-    );
-    final hourPaint = Paint()
-      ..color = hourHandColor
-      ..strokeWidth = 9.5
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(center, pHourEnd, hourPaint);
-
-    // Minute Hand: Soft lavender rounded capsule bar
-    const minuteHandColor = AppColors.minuteHand;
-    final minuteLength = innerRadius * 0.90;
-    final pMinEnd = Offset(
-      center.dx + minuteLength * math.cos(minuteRad),
-      center.dy + minuteLength * math.sin(minuteRad),
-    );
-    final minutePaint = Paint()
-      ..color = minuteHandColor
-      ..strokeWidth = 7.0
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(center, pMinEnd, minutePaint);
-
-    // Center Pivot Cap: Warm cream/gold circle with inner core
-    final pivotPaint = Paint()
-      ..color = AppColors.pivotCap
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, 7.5, pivotPaint);
-
-    final pivotDot = Paint()
-      ..color = AppColors.pivotDot
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, 2.2, pivotDot);
   }
 
   void _drawCenterClockFace(Canvas canvas, Offset center, double innerRadius) {

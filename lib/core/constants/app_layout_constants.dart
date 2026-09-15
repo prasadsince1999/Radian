@@ -50,5 +50,5 @@ abstract final class AppLayoutConstants {
   static const double minContentSweepDeg12H = 34.0;
 
   /// Minimum buffer preserved between distinct non-contiguous blocks on the dial face.
-  static const double minInterBlockGapDeg = 2.0;
+  static const double minInterBlockGapDeg = 3.5;
 }

@@ -926,172 +926,167 @@ class _DialFooterControlBar extends ConsumerWidget {
         : DateFormat('EEE, MMM d').format(viewingDay);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10.0),
-      child: Center(
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 1. Left: Single Unified 12H / 24H Mode Pill (Toggles between 12H and 24H)
-              BouncyPressable.standard(
-                onTap: () {
-                  ref.read(dialSettingsProvider.notifier).toggle24HourMode();
-                },
-                child: Container(
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 13),
-                  decoration: BoxDecoration(
-                    color: settings.is24HourMode
-                        ? colorScheme.primaryContainer
-                        : buttonBg,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: settings.is24HourMode
-                          ? colorScheme.primary.withValues(alpha: 0.35)
-                          : buttonBorder,
-                      width: 1.2,
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    settings.is24HourMode ? '24H' : '12H',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12,
-                      color: settings.is24HourMode
-                          ? colorScheme.onPrimaryContainer
-                          : primaryTextColor,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: Row(
+        children: [
+          // 1. Left: Single Unified 12H / 24H Mode Pill (Toggles between 12H and 24H)
+          BouncyPressable.standard(
+            onTap: () {
+              ref.read(dialSettingsProvider.notifier).toggle24HourMode();
+            },
+            child: Container(
+              height: 36,
+              padding: const EdgeInsets.symmetric(horizontal: 13),
+              decoration: BoxDecoration(
+                color: settings.is24HourMode
+                    ? colorScheme.primaryContainer
+                    : buttonBg,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: settings.is24HourMode
+                      ? colorScheme.primary.withValues(alpha: 0.35)
+                      : buttonBorder,
+                  width: 1.2,
                 ),
               ),
-              const SizedBox(width: 8),
+              alignment: Alignment.center,
+              child: Text(
+                settings.is24HourMode ? '24H' : '12H',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                  color: settings.is24HourMode
+                      ? colorScheme.onPrimaryContainer
+                      : primaryTextColor,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ),
 
-              // 2. Center: [ < ] Today, Mon, Sep 7 [ > ]
-              Row(
+          // 2. Center: [ < ] Today, Mon, Sep 7 [ > ]
+          Expanded(
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Squircle Chevron Left
+                    BouncyPressable.standard(
+                      onTap: () {
+                        ref
+                            .read(customSelectedDayProvider.notifier)
+                            .state = DateTime(
+                          viewingDay.year,
+                          viewingDay.month,
+                          viewingDay.day - 1,
+                          viewingDay.hour,
+                          viewingDay.minute,
+                        );
+                        ref.read(selectedEventProvider.notifier).state = null;
+                      },
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: buttonBg,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: buttonBorder, width: 1.2),
+                        ),
+                        child: Icon(
+                          Icons.chevron_left_rounded,
+                          size: 20,
+                          color: primaryTextColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      dateHeading,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12.5,
+                        color: primaryTextColor,
+                        letterSpacing: 0.1,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    // Squircle Chevron Right
+                    BouncyPressable.standard(
+                      onTap: () {
+                        ref
+                            .read(customSelectedDayProvider.notifier)
+                            .state = DateTime(
+                          viewingDay.year,
+                          viewingDay.month,
+                          viewingDay.day + 1,
+                          viewingDay.hour,
+                          viewingDay.minute,
+                        );
+                        ref.read(selectedEventProvider.notifier).state = null;
+                      },
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: buttonBg,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: buttonBorder, width: 1.2),
+                        ),
+                        child: Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: primaryTextColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // 3. Right: ( 🔄 Now )
+          BouncyPressable.standard(
+            onTap: () {
+              ref.read(dialScrubAngleProvider.notifier).state = null;
+              ref.read(customSelectedDayProvider.notifier).state = null;
+              ref.read(selectedEventProvider.notifier).state = null;
+            },
+            child: Container(
+              height: 36,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: isNotNow ? colorScheme.primaryContainer : buttonBg,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: isNotNow ? colorScheme.primary : buttonBorder,
+                  width: 1.2,
+                ),
+              ),
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Squircle Chevron Left
-                  BouncyPressable.standard(
-                    onTap: () {
-                      ref
-                          .read(customSelectedDayProvider.notifier)
-                          .state = DateTime(
-                        viewingDay.year,
-                        viewingDay.month,
-                        viewingDay.day - 1,
-                        viewingDay.hour,
-                        viewingDay.minute,
-                      );
-                      ref.read(selectedEventProvider.notifier).state = null;
-                    },
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: buttonBg,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: buttonBorder, width: 1.2),
-                      ),
-                      child: Icon(
-                        Icons.chevron_left_rounded,
-                        size: 20,
-                        color: primaryTextColor,
-                      ),
-                    ),
+                  Icon(
+                    Icons.restart_alt_rounded,
+                    size: 15,
+                    color: isNotNow ? colorScheme.primary : primaryTextColor,
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   Text(
-                    dateHeading,
+                    AppStrings.now,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      fontSize: 12.5,
-                      color: primaryTextColor,
-                      letterSpacing: 0.1,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  // Squircle Chevron Right
-                  BouncyPressable.standard(
-                    onTap: () {
-                      ref
-                          .read(customSelectedDayProvider.notifier)
-                          .state = DateTime(
-                        viewingDay.year,
-                        viewingDay.month,
-                        viewingDay.day + 1,
-                        viewingDay.hour,
-                        viewingDay.minute,
-                      );
-                      ref.read(selectedEventProvider.notifier).state = null;
-                    },
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: buttonBg,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: buttonBorder, width: 1.2),
-                      ),
-                      child: Icon(
-                        Icons.chevron_right_rounded,
-                        size: 20,
-                        color: primaryTextColor,
-                      ),
+                      fontSize: 11.5,
+                      color: isNotNow ? colorScheme.primary : primaryTextColor,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(width: 8),
-
-              // 3. Right: ( 🔄 Now )
-              BouncyPressable.standard(
-                onTap: () {
-                  ref.read(dialScrubAngleProvider.notifier).state = null;
-                  ref.read(customSelectedDayProvider.notifier).state = null;
-                  ref.read(selectedEventProvider.notifier).state = null;
-                },
-                child: Container(
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: isNotNow ? colorScheme.primaryContainer : buttonBg,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: isNotNow ? colorScheme.primary : buttonBorder,
-                      width: 1.2,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.restart_alt_rounded,
-                        size: 15,
-                        color: isNotNow
-                            ? colorScheme.primary
-                            : primaryTextColor,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        AppStrings.now,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11.5,
-                          color: isNotNow
-                              ? colorScheme.primary
-                              : primaryTextColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

@@ -134,7 +134,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         backgroundColor: theme.appBarTheme.backgroundColor,
         elevation: 0,
         scrolledUnderElevation: 0,
-        titleSpacing: 12,
+        titleSpacing: 16.0,
         title: BouncyPressable.standard(
           onTap: () {
             ref.read(dialScrubAngleProvider.notifier).state = null;
@@ -317,7 +317,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           ),
 
-          const SizedBox(width: 10),
+          const SizedBox(width: 16.0),
         ],
       ),
       body: LayoutBuilder(

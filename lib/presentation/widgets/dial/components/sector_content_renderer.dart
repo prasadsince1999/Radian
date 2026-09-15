@@ -110,13 +110,13 @@ class SectorContentRenderer {
 
     // BOLD, HIGH-LEGIBILITY FONT SIZES (never microscopic!)
     final isNarrowSector = effectiveSweepDeg < (is24HourMode ? 18.0 : 35.0);
-    final iconFontSize = is24HourMode ? (isNarrowSector ? 11.5 : 13.0) : 14.5;
+    final iconFontSize = is24HourMode ? (isNarrowSector ? 12.0 : 13.5) : 14.5;
     final titleFontSize = is24HourMode
-        ? (isNarrowSector ? 10.2 : 11.5)
-        : (isNarrowSector ? 11.2 : 13.0);
+        ? (isNarrowSector ? 10.5 : 11.8)
+        : (isNarrowSector ? 11.5 : 13.0);
     final metaFontSize = is24HourMode
-        ? (isNarrowSector ? 8.5 : 9.5)
-        : (isNarrowSector ? 9.5 : 10.5);
+        ? (isNarrowSector ? 9.0 : 9.8)
+        : (isNarrowSector ? 9.8 : 10.8);
     final pebbleFontSize = is24HourMode
         ? (isNarrowSector ? 6.5 : 7.2)
         : (isNarrowSector ? 8.0 : 9.0);
@@ -135,8 +135,148 @@ class SectorContentRenderer {
       textDirection: TextDirection.ltr,
     )..layout();
 
-    // Micro / tight sectors: draw icon only (strictly inside boundary with auto-scaling)
-    if (effectiveSweepDeg < (is24HourMode ? 6.0 : 9.0)) {
+    // Split or compact title words based on available sweep space
+    final wordLines = _splitTitleWords(
+      event.title,
+      effectiveSweepDeg: effectiveSweepDeg,
+    );
+
+    final titleStyle = TextStyle(
+      fontFamily: fontKalam,
+      fontFamilyFallback: fontFallbacks,
+      fontSize: titleFontSize,
+      fontWeight: FontWeight.w700,
+      color: textColor,
+      letterSpacing: 0.1,
+      height: 1.05,
+    );
+
+    final fullTitlePainters = wordLines.map((line) {
+      return TextPainter(
+        text: TextSpan(text: line, style: titleStyle),
+        maxLines: 1,
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      )..layout();
+    }).toList();
+
+    // Distilled keyword painter (1 punchy word or 2 short words, bold and clear)
+    final keyword = distillShortKeyword(event.title);
+    final keywordPainter = TextPainter(
+      text: TextSpan(text: keyword, style: titleStyle),
+      maxLines: 1,
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout();
+
+    // Duration badge
+    final durationStr = TimeFormatters.formatDuration(event.duration);
+    final metaPainter = TextPainter(
+      text: TextSpan(
+        text: durationStr,
+        style: TextStyle(
+          fontFamily: fontKalam,
+          fontFamilyFallback: fontFallbacks,
+          fontSize: metaFontSize,
+          fontWeight: FontWeight.w700,
+          color: textColor.withValues(alpha: 0.88),
+          letterSpacing: 0.1,
+          height: 1.05,
+        ),
+      ),
+      maxLines: 1,
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout();
+
+    const iconGap = 1.2;
+    const lineGap = 0.8;
+    const durGap = 1.2;
+
+    // --- TRUE POLAR BOUNDING BOX & NEVER-TOUCH AUDIT ---
+    final hasCaps = startCapSpanDeg > 0.0 || endCapSpanDeg > 0.0;
+    final capSafetyPadding = hasCaps ? 4.5 : 2.0;
+    final rMinEstimate = math.max(rIn + 8.0, midR - (trackThickness * 0.45));
+    final availableInnerArc =
+        rMinEstimate * (effectiveSweepDeg * math.pi / 180.0);
+    final maxAllowedWidth = math.max(
+      12.0,
+      availableInnerArc - capSafetyPadding,
+    );
+    final maxAllowedHeight = math.max(12.0, trackThickness - 16.0);
+
+    // --- PROGRESSIVE CONTENT ADAPTATION TIERS ---
+    // Option A: Full Content (Icon + Title Lines + Duration)
+    double widthA = iconPainter.width;
+    for (final tp in fullTitlePainters) {
+      if (tp.width > widthA) widthA = tp.width;
+    }
+    if (metaPainter.width > widthA) widthA = metaPainter.width;
+
+    double heightA = iconPainter.height + iconGap;
+    for (int i = 0; i < fullTitlePainters.length; i++) {
+      heightA += fullTitlePainters[i].height;
+      if (i < fullTitlePainters.length - 1) heightA += lineGap;
+    }
+    heightA += durGap + metaPainter.height;
+
+    final scaleA = math.min(
+      maxAllowedWidth / widthA,
+      maxAllowedHeight / heightA,
+    );
+
+    // Option B: Compact Keyword (Icon + 1 Short Keyword Line, NO duration)
+    // This allows the title to remain BOLD and LARGE without being squashed!
+    final widthB = math.max(iconPainter.width, keywordPainter.width);
+    final heightB = iconPainter.height + iconGap + keywordPainter.height;
+    final scaleB = math.min(
+      maxAllowedWidth / widthB,
+      maxAllowedHeight / heightB,
+    );
+
+    // Decision:
+    final bool showFull = scaleA >= 0.88;
+    final bool showKeyword = !showFull && scaleB >= 0.85;
+    final bool showIconOnly = !showFull && !showKeyword;
+
+    // Select which painters to draw based on adaptive tier
+    List<TextPainter> titlePaintersToDraw;
+    bool includeMeta;
+    double finalContentWidth;
+    double finalContentHeight;
+    double scale;
+
+    if (showFull) {
+      titlePaintersToDraw = fullTitlePainters;
+      includeMeta = true;
+      finalContentWidth = widthA;
+      finalContentHeight = heightA;
+      scale = scaleA.clamp(0.88, 1.15);
+    } else if (showKeyword) {
+      titlePaintersToDraw = [keywordPainter];
+      includeMeta = false;
+      finalContentWidth = widthB;
+      finalContentHeight = heightB;
+      scale = scaleB.clamp(0.85, 1.15);
+    } else {
+      // Icon only
+      titlePaintersToDraw = const [];
+      includeMeta = false;
+      finalContentWidth = iconPainter.width;
+      finalContentHeight = iconPainter.height;
+      scale = math
+          .min(
+            1.0,
+            math.min(
+              maxAllowedWidth / iconPainter.width,
+              maxAllowedHeight / iconPainter.height,
+            ),
+          )
+          .clamp(0.65, 1.15);
+    }
+
+    // Micro / hairline sectors: draw icon only (strictly inside boundary with auto-scaling)
+    if (showIconOnly && effectiveSweepDeg < (is24HourMode ? 6.0 : 9.0)) {
       canvas.save();
       canvas.clipPath(pillPath);
       final rMin = math.max(rIn + 8.0, midR - (iconPainter.height / 2.0));
@@ -161,104 +301,6 @@ class SectorContentRenderer {
       return;
     }
 
-    // Split or compact title words based on available sweep space
-    final wordLines = _splitTitleWords(
-      event.title,
-      effectiveSweepDeg: effectiveSweepDeg,
-    );
-
-    final titleStyle = TextStyle(
-      fontFamily: fontKalam,
-      fontFamilyFallback: fontFallbacks,
-      fontSize: titleFontSize,
-      fontWeight: FontWeight.w700,
-      color: textColor,
-      letterSpacing: 0.1,
-      height: 1.05,
-    );
-
-    final titlePainters = wordLines.map((line) {
-      return TextPainter(
-        text: TextSpan(text: line, style: titleStyle),
-        maxLines: 1,
-        textDirection: TextDirection.ltr,
-        textAlign: TextAlign.center,
-      )..layout();
-    }).toList();
-
-    // Duration only (hours/minutes e.g. "3h", "1h 30m"), no redundant time range
-    final durationStr = TimeFormatters.formatDuration(event.duration);
-    final metaPainter = TextPainter(
-      text: TextSpan(
-        text: durationStr,
-        style: TextStyle(
-          fontFamily: fontKalam,
-          fontFamilyFallback: fontFallbacks,
-          fontSize: metaFontSize,
-          fontWeight: FontWeight.w700,
-          color: textColor.withValues(alpha: 0.88),
-          letterSpacing: 0.1,
-          height: 1.05,
-        ),
-      ),
-      maxLines: 1,
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    )..layout();
-
-    // Measure raw center content dimensions
-    const iconGap = 1.2;
-    const lineGap = 0.8;
-    const durGap = 1.2;
-
-    double contentWidth = iconPainter.width;
-    for (final tp in titlePainters) {
-      if (tp.width > contentWidth) contentWidth = tp.width;
-    }
-    if (metaPainter.width > contentWidth) contentWidth = metaPainter.width;
-
-    double contentHeight = iconPainter.height + iconGap;
-    for (int i = 0; i < titlePainters.length; i++) {
-      contentHeight += titlePainters[i].height;
-      if (i < titlePainters.length - 1) contentHeight += lineGap;
-    }
-    contentHeight += durGap + metaPainter.height;
-
-    // --- TRUE POLAR BOUNDING BOX & NEVER-TOUCH AUDIT ---
-    final rMinContent = math.max(rIn + 8.0, midR - (contentHeight / 2.0));
-    final availableInnerArc =
-        rMinContent * (effectiveSweepDeg * math.pi / 180.0);
-
-    // Guaranteed cap safety clearance (minimum 2.2dp buffer on both start & end cap sides)
-    final hasCaps = startCapSpanDeg > 0.0 || endCapSpanDeg > 0.0;
-    final capSafetyPadding = hasCaps ? 4.5 : 2.0;
-    final maxAllowedWidth = math.max(
-      12.0,
-      availableInnerArc - capSafetyPadding,
-    );
-
-    // Guaranteed radial clearance (minimum 9dp buffer from inner & outer ring boundaries)
-    final maxAllowedHeight = math.max(12.0, trackThickness - 18.0);
-
-    // Adaptive scale: STRICT LEGIBILITY FLOOR (adapts cleanly to narrow blocks with zero overlap)
-    var scale = 1.0;
-    if (contentWidth > maxAllowedWidth) {
-      scale = math.min(scale, maxAllowedWidth / contentWidth);
-    }
-    if (contentHeight > maxAllowedHeight) {
-      scale = math.min(scale, maxAllowedHeight / contentHeight);
-    }
-    // High-legibility clamp: minimum 0.65 guarantees crisp, readable text without clipping
-    scale = scale.clamp(0.65, 1.15);
-    // Hard ceiling: scaled content width must NEVER exceed available inner arc buffer
-    if (contentWidth * scale > (availableInnerArc - capSafetyPadding) &&
-        contentWidth > 0) {
-      scale = math.max(
-        0.4,
-        (availableInnerArc - capSafetyPadding) / contentWidth,
-      );
-    }
-
     // CRITICAL: Clip to pillPath so no content ever bleeds into bezels or margins!
     canvas.save();
     canvas.clipPath(pillPath);
@@ -277,21 +319,24 @@ class SectorContentRenderer {
       canvas.scale(scale, scale);
     }
 
-    var curY = -contentHeight / 2.0;
+    var curY = -finalContentHeight / 2.0;
 
     // Icon (top, centered)
     iconPainter.paint(canvas, Offset(-iconPainter.width / 2.0, curY));
     curY += iconPainter.height + iconGap;
 
     // Title lines
-    for (int i = 0; i < titlePainters.length; i++) {
-      final tp = titlePainters[i];
+    for (int i = 0; i < titlePaintersToDraw.length; i++) {
+      final tp = titlePaintersToDraw[i];
       tp.paint(canvas, Offset(-tp.width / 2.0, curY));
-      curY += tp.height + (i < titlePainters.length - 1 ? lineGap : durGap);
+      curY +=
+          tp.height + (i < titlePaintersToDraw.length - 1 ? lineGap : durGap);
     }
 
-    // Duration badge (centered)
-    metaPainter.paint(canvas, Offset(-metaPainter.width / 2.0, curY));
+    // Duration badge (centered, only if includeMeta is true)
+    if (includeMeta) {
+      metaPainter.paint(canvas, Offset(-metaPainter.width / 2.0, curY));
+    }
 
     canvas.restore(); // restore from center translate/rotate
 
@@ -315,7 +360,7 @@ class SectorContentRenderer {
         textColor: textColor,
         isDarkSector: isDarkSector,
         pebbleFontSize: pebbleFontSize,
-        centerTitleWidth: contentWidth * scale,
+        centerTitleWidth: finalContentWidth * scale,
         is24HourMode: is24HourMode,
         startCapSpanDeg: startCapSpanDeg,
         endCapSpanDeg: endCapSpanDeg,
