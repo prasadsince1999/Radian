@@ -284,7 +284,9 @@ class FocusedBlockLayoutResolver {
 
     void tryAdd(SectorEvent? e) {
       if (e == null) return;
-      if (visibleEvents.length >= AppLayoutConstants.maxDialVisibleBlocks) return;
+      if (visibleEvents.length >= AppLayoutConstants.maxDialVisibleBlocks) {
+        return;
+      }
       if (visibleEvents.any((existing) => existing.id == e.id)) return;
       if (!visibleEvents.any((existing) => checkOverlap(e, existing))) {
         visibleEvents.add(e);

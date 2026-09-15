@@ -799,82 +799,6 @@ class SectographDial extends ConsumerWidget {
                       const Center(child: CircularProgressIndicator()),
                   error: (err, _) => Center(child: Text('Error: $err')),
                 ),
-
-                // Below circle corner Edit Mode toggle button ("below circle corner")
-                Positioned(
-                  bottom: 4,
-                  right: 4,
-                  child: BouncyPressable.standard(
-                    onTap: () {
-                      final current = ref.read(isDialEditingProvider);
-                      ref.read(isDialEditingProvider.notifier).state = !current;
-                      HapticFeedback.mediumImpact();
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 240),
-                      curve: Curves.easeInOutCubic,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 11,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDialEditing
-                            ? colorScheme.primary
-                            : colorScheme.surfaceContainerHigh.withValues(
-                                alpha: 0.92,
-                              ),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isDialEditing
-                              ? colorScheme.primary
-                              : colorScheme.outlineVariant.withValues(
-                                  alpha: 0.6,
-                                ),
-                          width: 1.2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.12),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 180),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        child: Row(
-                          key: ValueKey(isDialEditing),
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              isDialEditing
-                                  ? Icons.check_rounded
-                                  : Icons.tune_rounded,
-                              size: 14,
-                              color: isDialEditing
-                                  ? colorScheme.onPrimary
-                                  : colorScheme.onSurface,
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              isDialEditing ? 'Done' : 'Edit',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.3,
-                                color: isDialEditing
-                                    ? colorScheme.onPrimary
-                                    : colorScheme.onSurface,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -949,9 +873,14 @@ class _DialFooterControlBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isDialEditing = ref.watch(isDialEditingProvider);
+
     final buttonBg = colorScheme.surfaceContainerHigh;
     final buttonBorder = colorScheme.outlineVariant;
     final primaryTextColor = colorScheme.onSurface;
+
+    final scrubAngle = ref.watch(dialScrubAngleProvider);
+    final isNotNow = !isToday || scrubAngle != null;
 
     final dateHeading = isToday
         ? 'Today, ${DateFormat('EEE, MMM d').format(viewingDay)}'
@@ -964,7 +893,55 @@ class _DialFooterControlBar extends ConsumerWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Center: [ < ] Today, Mon, Sep 7 [ > ]
+            // 1. Left: [ 🔄 Now ] (Sync to current time & today)
+            Positioned(
+              left: 0,
+              child: BouncyPressable.standard(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  ref.read(dialScrubAngleProvider.notifier).state = null;
+                  ref.read(customSelectedDayProvider.notifier).state = null;
+                  ref.read(selectedEventProvider.notifier).state = null;
+                },
+                child: Container(
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 11),
+                  decoration: BoxDecoration(
+                    color: isNotNow ? colorScheme.primaryContainer : buttonBg,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: isNotNow ? colorScheme.primary : buttonBorder,
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.restart_alt_rounded,
+                        size: 15,
+                        color: isNotNow
+                            ? colorScheme.primary
+                            : primaryTextColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        AppStrings.now,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                          color: isNotNow
+                              ? colorScheme.primary
+                              : primaryTextColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // 2. Center: [ < ] Today, Mon, Sep 7 [ > ]
             Center(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
@@ -1045,23 +1022,25 @@ class _DialFooterControlBar extends ConsumerWidget {
               ),
             ),
 
-            // Right: ( 🔄 Now )
+            // 3. Right: [ 🎛️ Edit ] / [ ✓ Done ] (Toggles dial block editing)
             Positioned(
               right: 0,
               child: BouncyPressable.standard(
                 onTap: () {
-                  ref.read(dialScrubAngleProvider.notifier).state = null;
-                  ref.read(customSelectedDayProvider.notifier).state = null;
-                  ref.read(selectedEventProvider.notifier).state = null;
+                  final current = ref.read(isDialEditingProvider);
+                  ref.read(isDialEditingProvider.notifier).state = !current;
+                  HapticFeedback.mediumImpact();
                 },
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOutCubic,
                   height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: isNotNow ? colorScheme.primaryContainer : buttonBg,
+                    color: isDialEditing ? colorScheme.primary : buttonBg,
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
-                      color: isNotNow ? colorScheme.primary : buttonBorder,
+                      color: isDialEditing ? colorScheme.primary : buttonBorder,
                       width: 1.2,
                     ),
                   ),
@@ -1069,20 +1048,23 @@ class _DialFooterControlBar extends ConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.restart_alt_rounded,
+                        isDialEditing
+                            ? Icons.check_rounded
+                            : Icons.tune_rounded,
                         size: 15,
-                        color: isNotNow
-                            ? colorScheme.primary
+                        color: isDialEditing
+                            ? colorScheme.onPrimary
                             : primaryTextColor,
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 5),
                       Text(
-                        AppStrings.now,
+                        isDialEditing ? 'Done' : 'Edit',
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
-                          fontSize: 11.5,
-                          color: isNotNow
-                              ? colorScheme.primary
+                          fontSize: 12,
+                          letterSpacing: 0.2,
+                          color: isDialEditing
+                              ? colorScheme.onPrimary
                               : primaryTextColor,
                         ),
                       ),

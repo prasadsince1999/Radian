@@ -233,7 +233,7 @@ void main() {
           id: 'bed_time',
           title: 'Bed Time',
           start: baseDate.add(const Duration(hours: 1, minutes: 30)), // 01:30
-          end: baseDate.add(const Duration(hours: 8, minutes: 30)),   // 08:30
+          end: baseDate.add(const Duration(hours: 8, minutes: 30)), // 08:30
           colorHex: '#64748B',
           category: 'Rest',
         ),
@@ -241,7 +241,7 @@ void main() {
           id: 'nap_time',
           title: 'Nap Time',
           start: baseDate.add(const Duration(hours: 1, minutes: 30)), // 01:30
-          end: baseDate.add(const Duration(hours: 3, minutes: 0)),    // 03:00
+          end: baseDate.add(const Duration(hours: 3, minutes: 0)), // 03:00
           colorHex: '#3B82F6',
           category: 'Rest',
         ),
@@ -249,7 +249,7 @@ void main() {
           id: 'study_time',
           title: 'Study Time',
           start: baseDate.add(const Duration(hours: 21, minutes: 30)), // 21:30
-          end: baseDate.add(const Duration(hours: 23, minutes: 0)),    // 23:00
+          end: baseDate.add(const Duration(hours: 23, minutes: 0)), // 23:00
           colorHex: '#F97316',
           category: 'Deep Focus',
         ),
@@ -265,7 +265,12 @@ void main() {
       // Nap Time and Bed Time collide at 01:30. Only ONE should be visible on the dial, never both!
       final hasBed = result.visibleEvents.any((e) => e.id == 'bed_time');
       final hasNap = result.visibleEvents.any((e) => e.id == 'nap_time');
-      expect(hasBed && hasNap, isFalse, reason: 'Overlapping events must never both be admitted to the single ring');
+      expect(
+        hasBed && hasNap,
+        isFalse,
+        reason:
+            'Overlapping events must never both be admitted to the single ring',
+      );
     });
 
     test('enforces maxDialVisibleBlocks limit on circular dial', () {

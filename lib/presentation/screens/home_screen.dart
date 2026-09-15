@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_layout_constants.dart';
-import '../../core/constants/app_strings.dart';
 import '../../core/layout/window_size_class.dart';
 import '../../core/services/android_widget_service.dart';
 import '../../core/theme/expressive_shapes.dart';
@@ -11,6 +10,7 @@ import '../controllers/clock_controller.dart';
 import '../controllers/cloud_sync_controller.dart';
 import '../widgets/calendar/calendar_sheet.dart';
 import '../widgets/common/bouncy_pressable.dart';
+import '../widgets/common/radian_logo.dart';
 import '../widgets/dialogs/about_radian_dialog.dart';
 import '../widgets/dial/sectograph_dial.dart';
 import '../widgets/editor/dial_settings_modal.dart';
@@ -19,6 +19,13 @@ import '../widgets/health/health_insights_sheet.dart';
 import '../widgets/health/m3_activity_heatmap.dart';
 import '../widgets/mcp/mcp_status_sheet.dart';
 import '../widgets/timeline/expressive_timeline.dart';
+
+const _kSheetAnimationStyle = AnimationStyle(
+  duration: Duration(milliseconds: 280),
+  reverseDuration: Duration(milliseconds: 240),
+  curve: Curves.easeOutCubic,
+  reverseCurve: Curves.easeInCubic,
+);
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -38,12 +45,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     WidgetsBinding.instance.addObserver(this);
     _expansionController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 360),
+      duration: const Duration(milliseconds: 320),
     );
     _expansionAnimation = CurvedAnimation(
       parent: _expansionController,
-      curve: Curves.fastEaseInToSlowEaseOut,
-      reverseCurve: Curves.easeInCubic,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInOutCubic,
     );
     AndroidWidgetService.initialize(
       onAction: (action) {
@@ -98,6 +105,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       context: context,
       isScrollControlled: true,
       showDragHandle: false,
+      sheetAnimationStyle: AnimationStyle(
+        duration: const Duration(milliseconds: 280),
+        reverseDuration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
       constraints: const BoxConstraints(
         maxWidth: AppLayoutConstants.modalMaxWidth,
       ),
@@ -154,22 +167,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         automaticallyImplyLeading: false,
         leading: null,
         titleSpacing: 16.0,
-        title: BouncyPressable.standard(
-          onTap: () {
-            ref.read(dialScrubAngleProvider.notifier).state = null;
-            ref.read(selectedEventProvider.notifier).state = null;
-          },
-          child: Text(
-            AppStrings.appName,
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 22,
-              color: colorScheme.onSurface,
-              letterSpacing: -0.3,
-              height: 1.1,
-            ),
-          ),
-        ),
+        title: const RadianLogo(),
         actions: [
           // 1. Calendar Squircle Button
           BouncyPressable.standard(
@@ -179,6 +177,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 context: context,
                 isScrollControlled: true,
                 showDragHandle: false,
+                sheetAnimationStyle: _kSheetAnimationStyle,
                 constraints: const BoxConstraints(
                   maxWidth: AppLayoutConstants.modalMaxWidth,
                 ),
@@ -214,6 +213,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 context: context,
                 isScrollControlled: true,
                 showDragHandle: false,
+                sheetAnimationStyle: _kSheetAnimationStyle,
                 constraints: const BoxConstraints(
                   maxWidth: AppLayoutConstants.modalMaxWidth,
                 ),
@@ -260,6 +260,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   context: context,
                   isScrollControlled: true,
                   showDragHandle: false,
+                  sheetAnimationStyle: _kSheetAnimationStyle,
                   constraints: const BoxConstraints(
                     maxWidth: AppLayoutConstants.modalMaxWidth,
                   ),
@@ -271,6 +272,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   context: context,
                   isScrollControlled: true,
                   showDragHandle: false,
+                  sheetAnimationStyle: _kSheetAnimationStyle,
                   constraints: const BoxConstraints(
                     maxWidth: AppLayoutConstants.modalMaxWidth,
                   ),
@@ -454,9 +456,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                 minHeight: baseDialHeight,
                                 maxHeight: baseDialHeight,
                                 alignment: Alignment.topCenter,
-                                child: Opacity(
-                                  opacity: (1.0 - expansionProgress * 1.6)
-                                      .clamp(0.0, 1.0),
+                                child: FadeTransition(
+                                  opacity: Tween<double>(begin: 1.0, end: 0.0)
+                                      .animate(
+                                        CurvedAnimation(
+                                          parent: _expansionController,
+                                          curve: const Interval(
+                                            0.0,
+                                            0.6,
+                                            curve: Curves.easeOut,
+                                          ),
+                                        ),
+                                      ),
                                   child: cachedDial,
                                 ),
                               ),
@@ -562,6 +573,7 @@ class _SupportingInsightsPane extends ConsumerWidget {
                   context: context,
                   isScrollControlled: true,
                   useSafeArea: true,
+                  sheetAnimationStyle: _kSheetAnimationStyle,
                   backgroundColor: Colors.transparent,
                   constraints: const BoxConstraints(
                     maxWidth: AppLayoutConstants.modalMaxWidth,
@@ -664,6 +676,7 @@ class _SupportingInsightsPane extends ConsumerWidget {
                         context: context,
                         isScrollControlled: true,
                         useSafeArea: true,
+                        sheetAnimationStyle: _kSheetAnimationStyle,
                         backgroundColor: Colors.transparent,
                         builder: (_) => const McpStatusSheet(),
                       );

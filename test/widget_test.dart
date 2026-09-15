@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sectograph_mcp/core/constants/app_strings.dart';
 import 'package:sectograph_mcp/main.dart';
 import 'package:sectograph_mcp/presentation/controllers/clock_controller.dart';
 import 'package:sectograph_mcp/presentation/controllers/mcp_server_controller.dart';
 import 'package:sectograph_mcp/presentation/screens/home_screen.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:sectograph_mcp/presentation/widgets/common/radian_logo.dart';
 
 void main() {
   testWidgets('SectographApp smoke test renders title and dial', (
@@ -34,7 +35,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text(AppStrings.appName), findsOneWidget);
+    expect(find.byType(RadianLogo), findsOneWidget);
     expect(find.byType(CustomPaint), findsWidgets);
     expect(find.text('Edit'), findsOneWidget);
     expect(find.byKey(const ValueKey('add_block_fab')), findsNothing);

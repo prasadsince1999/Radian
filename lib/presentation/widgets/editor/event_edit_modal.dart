@@ -59,10 +59,24 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
     _startDate = ev?.start ?? widget.initialDate;
 
     final nextSlotMinutes = ((now.minute ~/ 15) + 1) * 15;
-    final defaultStart = now.add(
-      Duration(minutes: nextSlotMinutes - now.minute),
-    );
-    final defaultEnd = defaultStart.add(const Duration(hours: 1));
+    final DateTime defaultStart;
+    final DateTime defaultEnd;
+    if (now.hour >= 23) {
+      defaultStart = DateTime(now.year, now.month, now.day, 22, 0);
+      defaultEnd = DateTime(now.year, now.month, now.day, 23, 0);
+    } else {
+      defaultStart = now.add(Duration(minutes: nextSlotMinutes - now.minute));
+      final rawEnd = defaultStart.add(const Duration(hours: 1));
+      defaultEnd = rawEnd.day != defaultStart.day
+          ? DateTime(
+              defaultStart.year,
+              defaultStart.month,
+              defaultStart.day,
+              23,
+              59,
+            )
+          : rawEnd;
+    }
 
     _startTime = ev != null
         ? TimeOfDay(hour: ev.start.hour, minute: ev.start.minute)
