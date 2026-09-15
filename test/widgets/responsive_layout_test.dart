@@ -148,7 +148,7 @@ void main() {
           const ValueKey('timeline_expansion_handle'),
         );
         expect(handleFinder, findsOneWidget);
-        expect(find.text('Whole Screen'), findsOneWidget);
+        expect(find.text('All Blocks'), findsOneWidget);
         expect(find.byType(SectographDial), findsOneWidget);
 
         // Tap handle to expand to Whole Screen
@@ -156,8 +156,8 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 350));
 
-        // In whole screen mode, Dial is collapsed/hidden and handle shows 'Half Screen'
-        expect(find.text('Half Screen'), findsOneWidget);
+        // In whole screen mode, Dial is collapsed/hidden and handle shows 'Show Dial'
+        expect(find.text('Show Dial'), findsOneWidget);
         expect(find.byType(SectographDial), findsNothing);
 
         // Tap handle again to collapse back to Half Screen
@@ -166,7 +166,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 350));
 
         // Restored
-        expect(find.text('Whole Screen'), findsOneWidget);
+        expect(find.text('All Blocks'), findsOneWidget);
         expect(find.byType(SectographDial), findsOneWidget);
 
         // Test swipe up to expand
@@ -174,7 +174,7 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 350));
 
-        expect(find.text('Half Screen'), findsOneWidget);
+        expect(find.text('Show Dial'), findsOneWidget);
         expect(find.byType(SectographDial), findsNothing);
 
         // Test swipe down to collapse
@@ -182,7 +182,7 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 350));
 
-        expect(find.text('Whole Screen'), findsOneWidget);
+        expect(find.text('All Blocks'), findsOneWidget);
         expect(find.byType(SectographDial), findsOneWidget);
       },
     );

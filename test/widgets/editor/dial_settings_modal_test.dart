@@ -20,10 +20,10 @@ void main() {
 
       expect(find.text('Dial Customization'), findsOneWidget);
       expect(find.text('24-Hour Dial Mode'), findsOneWidget);
-      expect(find.text('Center Clock Display'), findsOneWidget);
+      expect(find.text('Center Clock Display'), findsNothing);
       expect(find.text('Theme Mode'), findsOneWidget);
       expect(find.text('Expressive Seed Palette'), findsOneWidget);
-      expect(find.text('Dial Face Style'), findsOneWidget);
+      expect(find.text('Dial Face Style'), findsNothing);
     });
 
     testWidgets('toggling 24-Hour Dial Mode updates dialSettingsProvider', (
@@ -55,9 +55,7 @@ void main() {
       expect(container.read(dialSettingsProvider).is24HourMode, isTrue);
     });
 
-    testWidgets('selecting Analog in Center Clock Display updates provider', (
-      tester,
-    ) async {
+    testWidgets('default centerClockDisplay is digital', (tester) async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
@@ -70,22 +68,10 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Default is both
+      // Default is digital
       expect(
         container.read(dialSettingsProvider).centerClockDisplay,
-        equals(CenterClockDisplay.both),
-      );
-
-      // Tap 'Analog'
-      final analogBtn = find.text('Analog');
-      expect(analogBtn, findsOneWidget);
-
-      await tester.tap(analogBtn);
-      await tester.pumpAndSettle();
-
-      expect(
-        container.read(dialSettingsProvider).centerClockDisplay,
-        equals(CenterClockDisplay.analog),
+        equals(CenterClockDisplay.digital),
       );
     });
   });

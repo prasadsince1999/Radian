@@ -12,12 +12,16 @@ import 'event_card.dart';
 final selectedTimelineCategoryProvider = StateProvider<String>((ref) => 'All');
 
 class ExpressiveTimeline extends ConsumerWidget {
-  const ExpressiveTimeline({super.key});
+  final bool showAllEvents;
+
+  const ExpressiveTimeline({super.key, this.showAllEvents = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedDay = ref.watch(selectedDayProvider);
-    final eventsAsync = ref.watch(dayEventsProvider);
+    final eventsAsync = showAllEvents
+        ? ref.watch(allEventsProvider)
+        : ref.watch(dayEventsProvider);
     final selectedEvent = ref.watch(selectedEventProvider);
     final activeEvent = ref.watch(currentActiveEventProvider);
     final is24 = ref.watch(dialSettingsProvider).is24HourMode;
@@ -41,7 +45,9 @@ class ExpressiveTimeline extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Dial is clear',
+                    showAllEvents
+                        ? 'No time blocks created yet'
+                        : 'Dial is clear',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -61,7 +67,12 @@ class ExpressiveTimeline extends ConsumerWidget {
         }
 
         // Automatically reorder blocks: show recent/active one above
-        final sorted = _reorderEvents(events, now, selectedDay);
+        final sorted = _reorderEvents(
+          events,
+          now,
+          selectedDay,
+          showAllEvents: showAllEvents,
+        );
 
         return Align(
           alignment: Alignment.topCenter,
@@ -70,7 +81,7 @@ class ExpressiveTimeline extends ConsumerWidget {
               maxWidth: AppLayoutConstants.timelineMaxWidth,
             ),
             child: ListView.builder(
-              padding: const EdgeInsets.only(top: 4, bottom: 88),
+              padding: const EdgeInsets.only(top: 4, bottom: 96),
               itemCount: sorted.length,
               itemBuilder: (context, index) {
                 final ev = sorted[index];
@@ -259,9 +270,25 @@ class ExpressiveTimeline extends ConsumerWidget {
   List<SectorEvent> _reorderEvents(
     List<SectorEvent> events,
     DateTime now,
-    DateTime selectedDay,
-  ) {
+    DateTime selectedDay, {
+    bool showAllEvents = false,
+  }) {
     if (events.length <= 1) return events;
+
+    if (showAllEvents) {
+      final active = events.where((e) => e.isCurrentlyActive(now)).toList();
+      final upcoming =
+          events
+              .where((e) => e.start.isAfter(now) && !e.isCurrentlyActive(now))
+              .toList()
+            ..sort((a, b) => a.start.compareTo(b.start));
+      final past =
+          events
+              .where((e) => !e.start.isAfter(now) && !e.isCurrentlyActive(now))
+              .toList()
+            ..sort((a, b) => b.start.compareTo(a.start));
+      return [...active, ...upcoming, ...past];
+    }
 
     final isToday = DateUtils.isSameDay(selectedDay, now);
 

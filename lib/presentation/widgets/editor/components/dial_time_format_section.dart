@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../domain/models/dial_settings.dart';
 import '../../../controllers/clock_controller.dart';
-import 'dial_editor_styles.dart';
 
 /// Section managing 24-hour mode, center clock display, dial shape, and past hours style.
 class DialTimeFormatSection extends ConsumerWidget {
@@ -56,126 +54,6 @@ class DialTimeFormatSection extends ConsumerWidget {
             onChanged: (val) {
               ref.read(dialSettingsProvider.notifier).toggle24HourMode();
             },
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // 2. Center Clock Display (Digital / Analog / Both)
-        Container(
-          padding: const EdgeInsets.all(16.0),
-          decoration: DialEditorStyles.cardDecoration(colorScheme),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Center Clock Display',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
-                  color: primaryText,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Show digital time, analog clock hands, or both',
-                style: TextStyle(fontSize: 11.5, color: secondaryText),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: SegmentedButton<CenterClockDisplay>(
-                  style: DialEditorStyles.segmentedButtonStyle(colorScheme),
-                  segments: const [
-                    ButtonSegment(
-                      value: CenterClockDisplay.digital,
-                      label: Text(
-                        'Digital',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      icon: Icon(Icons.numbers_rounded, size: 16),
-                    ),
-                    ButtonSegment(
-                      value: CenterClockDisplay.analog,
-                      label: Text(
-                        'Analog',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      icon: Icon(Icons.access_time_rounded, size: 16),
-                    ),
-                    ButtonSegment(
-                      value: CenterClockDisplay.both,
-                      label: Text(
-                        'Both',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      icon: Icon(Icons.watch_later_outlined, size: 16),
-                    ),
-                  ],
-                  selected: {settings.centerClockDisplay},
-                  onSelectionChanged: (set) {
-                    ref
-                        .read(dialSettingsProvider.notifier)
-                        .setCenterClockDisplay(set.first);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // 2b. Widget & Dial Shape
-        Container(
-          padding: const EdgeInsets.all(16.0),
-          decoration: DialEditorStyles.cardDecoration(colorScheme),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Widget & Dial Shape',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
-                  color: primaryText,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Choose pure circle or organic 12-lobed petal wave',
-                style: TextStyle(fontSize: 11.5, color: secondaryText),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: SegmentedButton<DialShape>(
-                  style: DialEditorStyles.segmentedButtonStyle(colorScheme),
-                  segments: const [
-                    ButtonSegment(
-                      value: DialShape.circle,
-                      label: Text(
-                        'Pure Circle',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      icon: Icon(Icons.circle_outlined, size: 16),
-                    ),
-                    ButtonSegment(
-                      value: DialShape.waveRounded,
-                      label: Text(
-                        'Wave Rounded',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      icon: Icon(Icons.waves_rounded, size: 16),
-                    ),
-                  ],
-                  selected: {settings.dialShape},
-                  onSelectionChanged: (set) {
-                    ref
-                        .read(dialSettingsProvider.notifier)
-                        .setDialShape(set.first);
-                  },
-                ),
-              ),
-            ],
           ),
         ),
       ],

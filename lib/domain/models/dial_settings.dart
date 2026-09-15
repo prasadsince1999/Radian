@@ -36,7 +36,7 @@ class DialSettings {
     this.faceStyle = DialFaceStyle.classicTicks,
     this.sectorStyle = SectorVisualTheme.roundedCaps,
     this.handStyle = HandStyle.sleekNeedle,
-    this.centerClockDisplay = CenterClockDisplay.both,
+    this.centerClockDisplay = CenterClockDisplay.digital,
     this.dialShape = DialShape.circle,
     this.pastHoursStyle = PastHoursStyle.focusedBlock,
     this.showAllDayEvents = true,
@@ -125,7 +125,7 @@ class DialSettings {
       ),
       centerClockDisplay: CenterClockDisplay.values.firstWhere(
         (e) => e.name == json['centerClockDisplay'],
-        orElse: () => CenterClockDisplay.both,
+        orElse: () => CenterClockDisplay.digital,
       ),
       dialShape: DialShape.values.firstWhere(
         (e) => e.name == json['dialShape'],

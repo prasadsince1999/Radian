@@ -166,77 +166,55 @@ class CenterSummary extends ConsumerWidget {
     DialSettings settings,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isPureAnalog =
-        settings.centerClockDisplay == CenterClockDisplay.analog;
-    final isPureDigital =
-        settings.centerClockDisplay == CenterClockDisplay.digital;
 
-    return BouncyPressable(
-      key: ValueKey('clock_${settings.centerClockDisplay}'),
-      scaleDownFactor: 0.94,
-      onTap: () {
-        ref.read(dialSettingsProvider.notifier).cycleCenterClockDisplay();
-      },
-      child: Tooltip(
-        message: 'Tap to switch clock mode (Digital / Analog / Both)',
-        child: Align(
-          alignment: isPureDigital
-              ? Alignment.center
-              : (isPureAnalog
-                    ? const Alignment(0, 0.28)
-                    : const Alignment(0, 0.04)),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (!isPureAnalog) ...[
-                    // 1. PM / AM Tag in Primary Seed Accent
-                    if (!is24HourMode)
-                      Text(
-                        currentTime.hour < 12 ? 'AM' : 'PM',
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w800,
-                          color: colorScheme.primary,
-                          letterSpacing: 0.8,
-                          height: 1.0,
-                        ),
-                      ),
-                    const SizedBox(height: 2),
-
-                    // 2. Bold Digital Clock Readout
-                    Text(
-                      DateFormat(is24HourMode ? 'HH:mm' : 'h:mm')
-                          .format(currentTime),
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
-                        color: colorScheme.onSurface,
-                        letterSpacing: -0.5,
-                        height: 1.0,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                  ],
-
-                  // 3. Weekday, Day Month (e.g. "Mon, 7 Sep")
-                  Text(
-                    DateFormat('EEE, d MMM').format(currentTime),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 12.5,
-                      letterSpacing: 0.1,
-                    ),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // 1. PM / AM Tag in Primary Seed Accent
+              if (!is24HourMode)
+                Text(
+                  currentTime.hour < 12 ? 'AM' : 'PM',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.primary,
+                    letterSpacing: 0.8,
+                    height: 1.0,
                   ),
-                ],
+                ),
+              const SizedBox(height: 2),
+
+              // 2. Bold Digital Clock Readout
+              Text(
+                DateFormat(is24HourMode ? 'HH:mm' : 'h:mm').format(currentTime),
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
+                  color: colorScheme.onSurface,
+                  letterSpacing: -0.5,
+                  height: 1.0,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
-            ),
+              const SizedBox(height: 3),
+
+              // 3. Weekday, Day Month (e.g. "Mon, 7 Sep")
+              Text(
+                DateFormat('EEE, d MMM').format(currentTime),
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 12.5,
+                  letterSpacing: 0.1,
+                ),
+              ),
+            ],
           ),
         ),
       ),

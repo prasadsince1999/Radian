@@ -151,6 +151,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         backgroundColor: theme.appBarTheme.backgroundColor,
         elevation: 0,
         scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        leading: null,
         titleSpacing: 16.0,
         title: BouncyPressable.standard(
           onTap: () {
@@ -433,75 +435,88 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 final dialHeight = baseDialHeight * (1.0 - expansionProgress);
                 final isWholeScreen = expansionProgress > 0.5;
 
-                return Column(
+                return Stack(
                   children: [
-                    // Dial Section (Slides up and fades out cleanly)
-                    if (dialHeight > 1.0)
-                      SizedBox(
-                        height: dialHeight,
-                        child: ClipRect(
-                          child: OverflowBox(
-                            minHeight: baseDialHeight,
-                            maxHeight: baseDialHeight,
-                            alignment: Alignment.topCenter,
-                            child: Opacity(
-                              opacity: (1.0 - expansionProgress * 1.6).clamp(
-                                0.0,
-                                1.0,
-                              ),
-                              child: const Padding(
-                                padding: EdgeInsets.fromLTRB(
-                                  8.0,
-                                  4.0,
-                                  8.0,
-                                  2.0,
+                    Column(
+                      children: [
+                        // Dial Section (Slides up and fades out cleanly)
+                        if (dialHeight > 1.0)
+                          SizedBox(
+                            height: dialHeight,
+                            child: ClipRect(
+                              child: OverflowBox(
+                                minHeight: baseDialHeight,
+                                maxHeight: baseDialHeight,
+                                alignment: Alignment.topCenter,
+                                child: Opacity(
+                                  opacity: (1.0 - expansionProgress * 1.6)
+                                      .clamp(0.0, 1.0),
+                                  child: const Padding(
+                                    padding: EdgeInsets.fromLTRB(
+                                      8.0,
+                                      4.0,
+                                      8.0,
+                                      2.0,
+                                    ),
+                                    child: SectographDial(),
+                                  ),
                                 ),
-                                child: SectographDial(),
                               ),
                             ),
                           ),
-                        ),
-                      ),
 
-                    // Ergonomic Handle Bar (Upper area center of blocks)
-                    _TimelineExpansionHandle(
-                      key: const ValueKey('timeline_expansion_handle'),
-                      isExpanded: isWholeScreen,
-                      onToggle: () {
-                        HapticFeedback.mediumImpact();
-                        if (isWholeScreen) {
-                          _expansionController.reverse();
-                        } else {
-                          _expansionController.forward();
-                        }
-                      },
-                      onVerticalDragUpdate: (details) {
-                        final delta = details.primaryDelta ?? 0.0;
-                        _expansionController.value -=
-                            delta / (baseDialHeight * 0.8);
-                      },
-                      onVerticalDragEnd: (details) {
-                        final velocity = details.primaryVelocity ?? 0.0;
-                        if (velocity < -250) {
-                          // Fast swipe up -> expand to whole screen
-                          HapticFeedback.lightImpact();
-                          _expansionController.forward();
-                        } else if (velocity > 250) {
-                          // Fast swipe down -> collapse to half screen
-                          HapticFeedback.lightImpact();
-                          _expansionController.reverse();
-                        } else {
-                          if (_expansionController.value >= 0.4) {
-                            _expansionController.forward();
-                          } else {
-                            _expansionController.reverse();
-                          }
-                        }
-                      },
+                        // Timeline Blocks Section (fills remaining space)
+                        Expanded(
+                          child: ExpressiveTimeline(
+                            showAllEvents: isWholeScreen,
+                          ),
+                        ),
+                      ],
                     ),
 
-                    // Timeline Blocks Section (fills remaining space)
-                    const Expanded(child: ExpressiveTimeline()),
+                    // Floating Ergonomic Handle Bar (Floating at bottom above the blocks)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 16.0,
+                      child: Center(
+                        child: _TimelineExpansionHandle(
+                          key: const ValueKey('timeline_expansion_handle'),
+                          isExpanded: isWholeScreen,
+                          onToggle: () {
+                            HapticFeedback.mediumImpact();
+                            if (isWholeScreen) {
+                              _expansionController.reverse();
+                            } else {
+                              _expansionController.forward();
+                            }
+                          },
+                          onVerticalDragUpdate: (details) {
+                            final delta = details.primaryDelta ?? 0.0;
+                            _expansionController.value -=
+                                delta / (baseDialHeight * 0.8);
+                          },
+                          onVerticalDragEnd: (details) {
+                            final velocity = details.primaryVelocity ?? 0.0;
+                            if (velocity < -250) {
+                              // Fast swipe up -> expand to whole screen
+                              HapticFeedback.lightImpact();
+                              _expansionController.forward();
+                            } else if (velocity > 250) {
+                              // Fast swipe down -> collapse to half screen
+                              HapticFeedback.lightImpact();
+                              _expansionController.reverse();
+                            } else {
+                              if (_expansionController.value >= 0.4) {
+                                _expansionController.forward();
+                              } else {
+                                _expansionController.reverse();
+                              }
+                            }
+                          },
+                        ),
+                      ),
+                    ),
                   ],
                 );
               },
@@ -694,73 +709,63 @@ class _TimelineExpansionHandle extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: isExpanded ? 'Collapse to half screen' : 'Expand to whole screen',
+      label: isExpanded ? 'Show dial' : 'Show all blocks created',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onToggle,
         onVerticalDragUpdate: onVerticalDragUpdate,
         onVerticalDragEnd: onVerticalDragEnd,
         child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 4.0),
-          child: Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.65,
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.35),
-                  width: 1.0,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isExpanded
-                        ? Icons.keyboard_arrow_down_rounded
-                        : Icons.keyboard_arrow_up_rounded,
-                    size: 16,
-                    color: isExpanded
-                        ? colorScheme.primary
-                        : colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 6),
-                  Container(
-                    width: 32,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: isExpanded
-                          ? colorScheme.primary.withValues(alpha: 0.8)
-                          : colorScheme.outlineVariant.withValues(alpha: 0.8),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    isExpanded ? 'Half Screen' : 'Whole Screen',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.2,
-                      color: isExpanded
-                          ? colorScheme.primary
-                          : colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+              width: 1.2,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isExpanded
+                    ? Icons.keyboard_arrow_down_rounded
+                    : Icons.keyboard_arrow_up_rounded,
+                size: 17,
+                color: isExpanded ? colorScheme.primary : colorScheme.onSurface,
+              ),
+              const SizedBox(width: 6),
+              Container(
+                width: 24,
+                height: 3.5,
+                decoration: BoxDecoration(
+                  color: isExpanded
+                      ? colorScheme.primary.withValues(alpha: 0.85)
+                      : colorScheme.outlineVariant.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isExpanded ? 'Show Dial' : 'All Blocks',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                  color: isExpanded
+                      ? colorScheme.primary
+                      : colorScheme.onSurface,
+                ),
+              ),
+            ],
           ),
         ),
       ),

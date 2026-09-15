@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_layout_constants.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../core/services/android_widget_service.dart';
 import '../common/bouncy_pressable.dart';
-import '../dialogs/about_radian_dialog.dart';
-import 'components/dial_face_section.dart';
 import 'components/dial_system_integrations_section.dart';
 import 'components/dial_theme_section.dart';
 import 'components/dial_time_format_section.dart';
@@ -118,80 +114,10 @@ class DialSettingsModal extends ConsumerWidget {
                 const DialThemeSection(),
                 const SizedBox(height: 12),
 
-                // Dial Face Style
-                const DialFaceSection(),
-
                 // System & Device Integrations (Android Widget, Battery, Health Connect, MCP)
                 if (AndroidWidgetService.isSupported)
                   const DialSystemIntegrationsSection(),
-
-                const SizedBox(height: 14),
-
-                // About Radian Section
-                BouncyPressable(
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    AboutRadianDialog.show(context);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: colorScheme.outlineVariant.withValues(
-                          alpha: 0.6,
-                        ),
-                        width: 1.2,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 34,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: colorScheme.primaryContainer,
-                          ),
-                          child: Icon(
-                            Icons.info_outline_rounded,
-                            color: colorScheme.primary,
-                            size: 18,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'About ${AppStrings.appName}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 14,
-                                  color: primaryText,
-                                ),
-                              ),
-                              Text(
-                                'v${AppStrings.appVersion} • ${AppStrings.mcpServerName}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: secondaryText,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(Icons.chevron_right_rounded, color: secondaryText),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
               ],
             ),
           ),
