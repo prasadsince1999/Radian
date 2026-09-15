@@ -4,22 +4,28 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sectograph_mcp/core/constants/app_strings.dart';
+import 'package:sectograph_mcp/core/services/health_service.dart';
+import 'package:sectograph_mcp/data/repositories/health_repository_impl.dart';
 import 'package:sectograph_mcp/data/repositories/local_event_repository.dart';
 import 'package:sectograph_mcp/domain/models/dial_settings.dart';
 import 'package:sectograph_mcp/domain/models/sector_event.dart';
+import 'package:sectograph_mcp/domain/repositories/health_repository.dart';
 import 'package:sectograph_mcp/mcp/mcp_server.dart';
 
 void main() {
   group('McpServer Automated Integration Tests', () {
     late LocalEventRepository repository;
+    late HealthRepository healthRepository;
     late McpServer server;
     DialSettings settings = const DialSettings();
     const testPort = 8989;
 
     setUp(() async {
       repository = LocalEventRepository();
+      healthRepository = HealthRepositoryImpl(service: MockHealthService());
       server = McpServer(
         repository: repository,
+        healthRepository: healthRepository,
         getSettings: () => settings,
         updateSettings: (s) async => settings = s,
       );
@@ -130,6 +136,7 @@ void main() {
         final tools = decoded['result']['tools'] as List<dynamic>;
         final toolNames = tools.map((t) => t['name'] as String).toList();
 
+        expect(tools.length, 16);
         expect(toolNames, contains('get_clock_state'));
         expect(toolNames, contains('list_sectors'));
         expect(toolNames, contains('find_free_gaps'));
@@ -143,6 +150,9 @@ void main() {
         expect(toolNames, contains('get_dial_settings'));
         expect(toolNames, contains('update_dial_settings'));
         expect(toolNames, contains('analyze_day_balance'));
+        expect(toolNames, contains('get_health_summary'));
+        expect(toolNames, contains('sync_health_to_dial'));
+        expect(toolNames, contains('get_health_status'));
         client.close();
       },
     );
@@ -186,8 +196,16 @@ void main() {
           resources.any((r) => r['uri'] == 'sectograph://dial/free_slots'),
           isTrue,
         );
+        expect(
+          resources.any((r) => r['uri'] == 'sectograph://health/today'),
+          isTrue,
+        );
+        expect(
+          resources.any((r) => r['uri'] == 'sectograph://health/status'),
+          isTrue,
+        );
 
-        // 2. resources/read for today
+        // 2. resources/read for today dial
         final readReq = await client.postUrl(
           Uri.parse('http://127.0.0.1:$testPort/mcp'),
         );
@@ -206,6 +224,27 @@ void main() {
         final contents = readDecoded['result']['contents'] as List<dynamic>;
         expect(contents.first['uri'], 'sectograph://dial/today');
         expect(contents.first['text'], contains('Resource Read Test'));
+
+        // 3. resources/read for health/today
+        final healthReq = await client.postUrl(
+          Uri.parse('http://127.0.0.1:$testPort/mcp'),
+        );
+        healthReq.headers.contentType = ContentType.json;
+        healthReq.write(
+          jsonEncode({
+            'jsonrpc': '2.0',
+            'id': 12,
+            'method': 'resources/read',
+            'params': {'uri': 'sectograph://health/today'},
+          }),
+        );
+        final healthResp = await healthReq.close();
+        final healthBody = await healthResp.transform(utf8.decoder).join();
+        final healthDecoded = jsonDecode(healthBody) as Map<String, dynamic>;
+        final healthContents =
+            healthDecoded['result']['contents'] as List<dynamic>;
+        expect(healthContents.first['uri'], 'sectograph://health/today');
+        expect(healthContents.first['text'], contains('steps'));
 
         client.close();
       },
@@ -449,6 +488,8 @@ void main() {
       expect(openApi['paths']['/api/state'], isNotNull);
       expect(openApi['paths']['/api/sectors'], isNotNull);
       expect(openApi['paths']['/api/settings'], isNotNull);
+      expect(openApi['paths']['/api/health'], isNotNull);
+      expect(openApi['paths']['/api/health/sync'], isNotNull);
       client.close();
     });
 
@@ -465,7 +506,7 @@ void main() {
         final respBody = await response.transform(utf8.decoder).join();
         final decoded = jsonDecode(respBody) as Map<String, dynamic>;
         final tools = decoded['tools'] as List<dynamic>;
-        expect(tools.length, 13);
+        expect(tools.length, 16);
         expect(tools.first['type'], 'function');
         client.close();
       },
@@ -490,9 +531,58 @@ void main() {
         expect(decoded['name'], AppStrings.appName);
         expect(decoded['protocolVersion'], '2024-11-05');
         expect(decoded['status'], 'online');
-        expect(decoded['tools'], hasLength(13));
+        expect(decoded['tools'], hasLength(16));
         client.close();
       },
     );
+
+    test(
+      'MCP tools/call get_health_summary returns authentic health metrics',
+      () async {
+        final client = HttpClient();
+        final request = await client.postUrl(
+          Uri.parse('http://127.0.0.1:$testPort/mcp'),
+        );
+        request.headers.contentType = ContentType.json;
+        request.write(
+          jsonEncode({
+            'jsonrpc': '2.0',
+            'id': 50,
+            'method': 'tools/call',
+            'params': {'name': 'get_health_summary', 'arguments': {}},
+          }),
+        );
+        final response = await request.close();
+        expect(response.statusCode, HttpStatus.ok);
+
+        final respBody = await response.transform(utf8.decoder).join();
+        final decoded = jsonDecode(respBody) as Map<String, dynamic>;
+        final content = decoded['result']['content'][0]['text'] as String;
+        final payload = jsonDecode(content) as Map<String, dynamic>;
+
+        expect(payload['steps'], isNotNull);
+        expect(payload['activeCalories'], isNotNull);
+        expect(payload['totalCalories'], isNotNull);
+        expect(payload['sleepDurationMinutes'], isNotNull);
+        client.close();
+      },
+    );
+
+    test('REST /api/health returns authentic health summary', () async {
+      final client = HttpClient();
+      final request = await client.getUrl(
+        Uri.parse('http://127.0.0.1:$testPort/api/health'),
+      );
+      final response = await request.close();
+      expect(response.statusCode, HttpStatus.ok);
+
+      final respBody = await response.transform(utf8.decoder).join();
+      final decoded = jsonDecode(respBody) as Map<String, dynamic>;
+      expect(decoded['steps'], isNotNull);
+      expect(decoded['activeCalories'], isNotNull);
+      expect(decoded['totalCalories'], isNotNull);
+      expect(decoded['sleepDurationMinutes'], isNotNull);
+      client.close();
+    });
   });
 }

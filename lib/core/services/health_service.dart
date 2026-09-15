@@ -8,6 +8,7 @@ import '../../domain/repositories/health_repository.dart';
 /// Contract for health data synchronization.
 abstract class IHealthService {
   Future<bool> isAvailable();
+  Future<bool> hasPermissions();
   Future<bool> requestPermissions();
   Future<DailyHealthSummary> fetchDailySummary(DateTime date);
   Future<List<HealthExerciseSession>> fetchExerciseSessions(DateTime date);
@@ -24,6 +25,16 @@ class DeviceHealthService implements IHealthService {
   Future<bool> isAvailable() async {
     try {
       final res = await _channel.invokeMethod<bool>('isHealthConnectAvailable');
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> hasPermissions() async {
+    try {
+      final res = await _channel.invokeMethod<bool>('hasHealthPermissions');
       return res ?? false;
     } catch (_) {
       return false;
@@ -70,11 +81,13 @@ class DeviceHealthService implements IHealthService {
 class MockHealthService implements IHealthService {
   final Map<String, DailyHealthSummary> _cache = {};
   final bool isAvailableStatus;
+  final bool hasPermissionsStatus;
   final bool requestPermissionsStatus;
 
   MockHealthService({
     Map<String, DailyHealthSummary>? initialData,
     this.isAvailableStatus = true,
+    this.hasPermissionsStatus = true,
     this.requestPermissionsStatus = true,
   }) {
     if (initialData != null) {
@@ -91,6 +104,9 @@ class MockHealthService implements IHealthService {
 
   @override
   Future<bool> isAvailable() async => isAvailableStatus;
+
+  @override
+  Future<bool> hasPermissions() async => hasPermissionsStatus;
 
   @override
   Future<bool> requestPermissions() async => requestPermissionsStatus;
@@ -127,6 +143,34 @@ class MockHealthService implements IHealthService {
   }
 }
 
+/// Dynamic Health Connect sync status notifier that verifies permissions live.
+class HealthSyncStatusNotifier extends StateNotifier<HealthSyncStatus> {
+  final HealthRepository _repository;
+
+  HealthSyncStatusNotifier(this._repository)
+    : super(HealthSyncStatus.uninitialized) {
+    checkStatus();
+  }
+
+  Future<void> checkStatus() async {
+    try {
+      final available = await _repository.isAvailable();
+      if (!available) {
+        state = HealthSyncStatus.disconnected;
+        return;
+      }
+      final hasPerms = await _repository.hasPermissions();
+      if (!hasPerms) {
+        state = HealthSyncStatus.permissionRequired;
+        return;
+      }
+      state = HealthSyncStatus.connected;
+    } catch (_) {
+      state = HealthSyncStatus.error;
+    }
+  }
+}
+
 /// Riverpod Providers
 final healthServiceProvider = Provider<IHealthService>((ref) {
   return DeviceHealthService();
@@ -137,9 +181,11 @@ final healthRepositoryProvider = Provider<HealthRepository>((ref) {
   return HealthRepositoryImpl(service: service);
 });
 
-final healthSyncStatusProvider = StateProvider<HealthSyncStatus>((ref) {
-  return HealthSyncStatus.connected;
-});
+final healthSyncStatusProvider =
+    StateNotifierProvider<HealthSyncStatusNotifier, HealthSyncStatus>((ref) {
+      final repo = ref.watch(healthRepositoryProvider);
+      return HealthSyncStatusNotifier(repo);
+    });
 
 final dailyHealthSummaryProvider =
     FutureProvider.family<DailyHealthSummary, DateTime>((ref, date) async {

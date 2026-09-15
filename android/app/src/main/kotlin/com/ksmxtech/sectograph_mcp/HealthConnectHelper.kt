@@ -13,6 +13,7 @@ import android.health.connect.TimeInstantRangeFilter
 import android.health.connect.datatypes.ActiveCaloriesBurnedRecord
 import android.health.connect.datatypes.DistanceRecord
 import android.health.connect.datatypes.ExerciseSessionRecord
+import android.health.connect.datatypes.HeartRateRecord
 import android.health.connect.datatypes.HydrationRecord
 import android.health.connect.datatypes.SleepSessionRecord
 import android.health.connect.datatypes.StepsRecord
@@ -145,6 +146,10 @@ class HealthConnectHelper(
                 var sleepEndStr: String? = null
                 var hydration = 0.0
                 val exerciseSessions = mutableListOf<Map<String, Any>>()
+
+                var deepMinutes = 0
+                var remMinutes = 0
+                var restingHr: Int? = null
 
                 if (Build.VERSION.SDK_INT >= 34 && localDate != null && zoneId != null) {
                     val startInstant = localDate.atStartOfDay(zoneId).toInstant()
@@ -286,15 +291,29 @@ class HealthConnectHelper(
                                 object : OutcomeReceiver<ReadRecordsResponse<SleepSessionRecord>, HealthConnectException> {
                                     override fun onResult(res: ReadRecordsResponse<SleepSessionRecord>) {
                                         var maxDur = 0L
+                                        var dMin = 0
+                                        var rMin = 0
                                         for (rec in res.records) {
                                             val dur = Duration.between(rec.startTime, rec.endTime).toMinutes()
                                             if (dur > maxDur) {
                                                 maxDur = dur
                                                 sleepStartStr = rec.startTime.toString()
                                                 sleepEndStr = rec.endTime.toString()
+                                                dMin = 0
+                                                rMin = 0
+                                                for (stage in rec.stages) {
+                                                    val sDur = Duration.between(stage.startTime, stage.endTime).toMinutes().toInt()
+                                                    if (stage.type == SleepSessionRecord.StageType.STAGE_TYPE_SLEEPING_DEEP) {
+                                                        dMin += sDur
+                                                    } else if (stage.type == SleepSessionRecord.StageType.STAGE_TYPE_SLEEPING_REM) {
+                                                        rMin += sDur
+                                                    }
+                                                }
                                             }
                                         }
                                         sleepMinutes = maxDur.toInt()
+                                        deepMinutes = dMin
+                                        remMinutes = rMin
                                         latch.countDown()
                                     }
                                     override fun onError(err: HealthConnectException) {
@@ -371,6 +390,43 @@ class HealthConnectHelper(
                             )
                             latch.await(1, TimeUnit.SECONDS)
                         } catch (_: Exception) {}
+
+                        // 8. Heart Rate
+                        try {
+                            val latch = CountDownLatch(1)
+                            val req = ReadRecordsRequestUsingFilters.Builder(HeartRateRecord::class.java)
+                                .setTimeRangeFilter(
+                                    TimeInstantRangeFilter.Builder()
+                                        .setStartTime(startInstant)
+                                        .setEndTime(endInstant)
+                                        .build()
+                                )
+                                .build()
+                            healthConnectManager.readRecords(
+                                req,
+                                healthExecutor,
+                                object : OutcomeReceiver<ReadRecordsResponse<HeartRateRecord>, HealthConnectException> {
+                                    override fun onResult(res: ReadRecordsResponse<HeartRateRecord>) {
+                                        var totalBeats = 0L
+                                        var totalSamples = 0L
+                                        for (rec in res.records) {
+                                            for (sample in rec.samples) {
+                                                totalBeats += sample.beatsPerMinute
+                                                totalSamples++
+                                            }
+                                        }
+                                        if (totalSamples > 0) {
+                                            restingHr = (totalBeats / totalSamples).toInt()
+                                        }
+                                        latch.countDown()
+                                    }
+                                    override fun onError(err: HealthConnectException) {
+                                        latch.countDown()
+                                    }
+                                }
+                            )
+                            latch.await(1, TimeUnit.SECONDS)
+                        } catch (_: Exception) {}
                     }
                 }
 
@@ -379,9 +435,9 @@ class HealthConnectHelper(
                 val sensorSteps = stepSensorHelper.getTodayStepCount()
                 val finalSteps = Math.max(hcSteps, sensorSteps)
 
-                val effectiveActiveCal = if (activeCal > 0.0) activeCal else (finalSteps * 0.04)
-                val effectiveTotalCal = if (totalCal > 0.0) totalCal else (effectiveActiveCal + 1400.0)
-                val effectiveDist = if (distance > 0.0) distance else (finalSteps * 0.762)
+                val effectiveActiveCal = activeCal
+                val effectiveTotalCal = if (totalCal > 0.0) totalCal else activeCal
+                val effectiveDist = if (distance > 0.0) distance else (if (finalSteps > 0) finalSteps * 0.762 else 0.0)
                 val dateFormatted = if (localDate != null) "${localDate}T00:00:00.000" else (dateArg ?: "2026-09-09T00:00:00.000")
 
                 val resultMap = HashMap<String, Any?>().apply {
@@ -393,10 +449,10 @@ class HealthConnectHelper(
                     put("sleepDurationMinutes", sleepMinutes)
                     put("sleepStart", sleepStartStr)
                     put("sleepEnd", sleepEndStr)
-                    put("deepSleepMinutes", if (sleepMinutes > 60) (sleepMinutes * 0.22).toInt() else 0)
-                    put("remSleepMinutes", if (sleepMinutes > 60) (sleepMinutes * 0.20).toInt() else 0)
+                    put("deepSleepMinutes", deepMinutes)
+                    put("remSleepMinutes", remMinutes)
                     put("hydrationMl", hydration)
-                    put("restingHeartRate", 70)
+                    put("restingHeartRate", restingHr)
                     put("exerciseSessions", exerciseSessions)
                     put("lastSyncTime", if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Instant.now().toString() else "")
                 }

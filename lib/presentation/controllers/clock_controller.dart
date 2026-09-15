@@ -11,6 +11,7 @@ import '../../domain/repositories/event_repository.dart';
 import '../../domain/use_cases/quick_schedule_block_use_case.dart';
 import '../../domain/use_cases/sync_dial_widget_use_case.dart';
 import '../../domain/use_cases/sync_health_sessions_use_case.dart';
+import '../../core/geometry/dial_time_cap_drag_handler.dart';
 
 /// Provider for SharedPreferences instance.
 final sharedPreferencesProvider = Provider<SharedPreferences?>((ref) {
@@ -43,6 +44,14 @@ final dayEventsProvider = StreamProvider<List<SectorEvent>>((ref) {
   final day = ref.watch(selectedDayProvider);
   return repo.watchEventsForDay(day);
 });
+
+/// Live stream of events for an explicit calendar date without depending on currentTimeProvider.
+final eventsForDateProvider =
+    StreamProvider.family<List<SectorEvent>, DateTime>((ref, day) {
+      final repo = ref.watch(eventRepositoryProvider);
+      final targetDay = DateTime(day.year, day.month, day.day);
+      return repo.watchEventsForDay(targetDay);
+    });
 
 /// Live stream of all events across days for seamless rolling widget horizons.
 final allEventsProvider = StreamProvider<List<SectorEvent>>((ref) {
@@ -252,3 +261,17 @@ final syncHealthSessionsUseCaseProvider = Provider<SyncHealthSessionsUseCase>((
 final syncDialWidgetUseCaseProvider = Provider<SyncDialWidgetUseCase>((ref) {
   return SyncDialWidgetUseCase();
 });
+
+/// Whether the dial is in Visual Schedule Drag Editing mode.
+final isDialEditingProvider = StateProvider<bool>((ref) => false);
+
+/// Currently active cap being dragged on the dial (null if not dragging).
+final activeDraggingCapProvider = StateProvider<CapHitResult?>((ref) => null);
+
+/// In-flight live-adjusted event during a cap drag operation.
+final liveAdjustedEventProvider = StateProvider<SectorEvent?>((ref) => null);
+
+/// In-flight live-adjusted events map (for dynamic block pushing cascade).
+final liveAdjustedEventsMapProvider = StateProvider<Map<String, SectorEvent>>(
+  (ref) => const {},
+);

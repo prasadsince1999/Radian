@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/services/health_service.dart';
+import '../data/repositories/health_repository_impl.dart';
 import '../domain/models/dial_settings.dart';
 import '../domain/models/sector_event.dart';
 import '../domain/repositories/event_repository.dart';
+import '../domain/repositories/health_repository.dart';
+import '../domain/use_cases/sync_health_sessions_use_case.dart';
 
 /// Catalog and executor for all MCP tools supported by Sectograph.
 class McpTools {
@@ -276,6 +280,39 @@ class McpTools {
           },
         },
       },
+      {
+        'name': 'get_health_summary',
+        'description': 'Inspect authentic daily health biometrics (steps, active/total calories, distance, sleep duration, sleep debt, hydration, resting heart rate, and detected workout sessions) from Health Connect.',
+        'inputSchema': {
+          'type': 'object',
+          'properties': {
+            'date': {
+              'type': 'string',
+              'description':
+                  'Target date in YYYY-MM-DD format. Defaults to today.',
+            },
+          },
+        },
+      },
+      {
+        'name': 'sync_health_to_dial',
+        'description': 'Sync and project recorded sleep and workout/exercise sessions from Health Connect directly onto the circular dial schedule as non-destructive event sectors.',
+        'inputSchema': {
+          'type': 'object',
+          'properties': {
+            'date': {
+              'type': 'string',
+              'description':
+                  'Target date in YYYY-MM-DD format. Defaults to today.',
+            },
+          },
+        },
+      },
+      {
+        'name': 'get_health_status',
+        'description': 'Check Health Connect availability, integration status, and whether health permissions (steps, sleep, exercise) are currently granted on the device.',
+        'inputSchema': {'type': 'object', 'properties': {}},
+      },
     ];
   }
 
@@ -304,6 +341,8 @@ class McpTools {
     required EventRepository repository,
     required DialSettings Function() getSettings,
     required Future<void> Function(DialSettings) updateSettings,
+    HealthRepository? healthRepository,
+    SyncHealthSessionsUseCase? syncHealthSessionsUseCase,
   }) async {
     final now = DateTime.now();
 
@@ -667,6 +706,64 @@ class McpTools {
               'hours': (v / 60.0).toStringAsFixed(1),
             }),
           ),
+        };
+
+      case 'get_health_summary':
+        final targetDate = parseDate(arguments['date']);
+        final healthRepo =
+            healthRepository ??
+            HealthRepositoryImpl(service: DeviceHealthService());
+        final summary = await healthRepo.getDailySummary(targetDate);
+        final res = summary.toJson();
+        res['sleepHoursFormatted'] = summary.sleepHoursFormatted;
+        res['sleepDebtMinutes'] = summary.sleepDebtMinutes();
+        res['hasSignificantSleepDebt'] = summary.hasSignificantSleepDebt;
+        return res;
+
+      case 'sync_health_to_dial':
+        final targetDate = parseDate(arguments['date']);
+        final healthRepo =
+            healthRepository ??
+            HealthRepositoryImpl(service: DeviceHealthService());
+        final summary = await healthRepo.getDailySummary(targetDate);
+        final existing = await repository.getEventsForDay(targetDate);
+        final syncUseCase =
+            syncHealthSessionsUseCase ??
+            SyncHealthSessionsUseCase(eventRepository: repository);
+        final synced = await syncUseCase.execute(
+          health: summary,
+          existingEvents: existing,
+        );
+        return {
+          'success': true,
+          'date': targetDate.toIso8601String().substring(0, 10),
+          'syncedSessionsCount': synced.length,
+          'syncedEvents': synced.map((e) => e.toJson()).toList(),
+        };
+
+      case 'get_health_status':
+        final healthRepo =
+            healthRepository ??
+            HealthRepositoryImpl(service: DeviceHealthService());
+        final isAvailable = await healthRepo.isAvailable();
+        final hasPermissions = await healthRepo.hasPermissions();
+        return {
+          'isAvailable': isAvailable,
+          'hasPermissions': hasPermissions,
+          'status': !isAvailable
+              ? 'unavailable'
+              : (!hasPermissions ? 'permissionRequired' : 'connected'),
+          'supportedMetrics': [
+            'steps',
+            'activeCalories',
+            'totalCalories',
+            'distanceMeters',
+            'sleepDuration',
+            'sleepStages',
+            'hydrationMl',
+            'restingHeartRate',
+            'exerciseSessions',
+          ],
         };
 
       default:

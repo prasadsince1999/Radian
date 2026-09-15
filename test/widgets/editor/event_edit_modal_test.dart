@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sectograph_mcp/domain/models/sector_event.dart';
+import 'package:sectograph_mcp/domain/models/subtask_item.dart';
 import 'package:sectograph_mcp/presentation/controllers/clock_controller.dart';
 import 'package:sectograph_mcp/presentation/widgets/editor/event_edit_modal.dart';
 import 'package:sectograph_mcp/presentation/widgets/editor/icon_color_picker_sheet.dart';
@@ -37,9 +38,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('New Time Block'), findsOneWidget);
-      expect(find.byType(TextField), findsNWidgets(2)); // Title & Subtasks
+      expect(find.byType(TextField), findsOneWidget); // Title
       expect(find.text('Deep Focus'), findsOneWidget);
       expect(find.text('Create Block'), findsOneWidget);
+      expect(find.text('Add Subtask'), findsOneWidget);
       expect(find.byKey(const ValueKey('select_icon_button')), findsOneWidget);
     });
 
@@ -204,7 +206,7 @@ void main() {
       expect(allEvents.first.title, equals('Updated Title'));
     });
 
-    testWidgets('renders MiniSectorDial preview and duration slider', (
+    testWidgets('renders Start and End time tiles and Create Block button', (
       tester,
     ) async {
       tester.view.devicePixelRatio = 1.0;
@@ -225,11 +227,9 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Verify All-day toggle is present
-      expect(find.byKey(const ValueKey('all_day_toggle')), findsOneWidget);
-
-      // Verify Slider and bottom hero Create Block button
-      expect(find.byType(Slider), findsOneWidget);
+      // Verify Start and End time tiles are present
+      expect(find.byKey(const ValueKey('start_time_tile')), findsOneWidget);
+      expect(find.byKey(const ValueKey('end_time_tile')), findsOneWidget);
       expect(find.text('Create Block'), findsOneWidget);
     });
 
@@ -368,7 +368,114 @@ void main() {
       },
     );
 
-    testWidgets('selecting reminder chip saves reminderMinutes in repository', (
+    testWidgets(
+      'unlimited block without specific weekday filter repeats daily and appears on next day',
+      (tester) async {
+        tester.view.devicePixelRatio = 1.0;
+        tester.view.physicalSize = const Size(800, 1200);
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
+            child: MaterialApp(
+              home: Scaffold(body: EventEditModal(initialDate: testDate)),
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        // Enter title
+        final titleField = find.byType(TextField).first;
+        await tester.enterText(titleField, 'Daily Routine Block');
+        await tester.pumpAndSettle();
+
+        // Verify Unlimited & Daily repeat badge
+        expect(find.text('Unlimited'), findsOneWidget);
+        expect(find.text('Daily'), findsOneWidget);
+
+        // Tap "Create Block"
+        await tester.ensureVisible(find.text('Create Block'));
+        await tester.tap(find.text('Create Block'));
+        await tester.pumpAndSettle();
+
+        final allEvents = await fakeRepo.getAllEvents();
+        expect(allEvents.length, equals(1));
+        final created = allEvents.first;
+        expect(created.title, equals('Daily Routine Block'));
+        expect(created.repeatDays, equals([1, 2, 3, 4, 5, 6, 7]));
+        expect(created.recurrenceEndDate, isNull); // Unlimited
+
+        // Verify appearance on the next day!
+        final nextDay = testDate.add(const Duration(days: 1));
+        final nextDayEvents = await fakeRepo.getEventsForDay(nextDay);
+        expect(nextDayEvents.length, equals(1));
+        expect(nextDayEvents.first.title, equals('Daily Routine Block'));
+        expect(nextDayEvents.first.start.day, equals(nextDay.day));
+      },
+    );
+
+    testWidgets(
+      'toggling off unlimited creates single-day event which does not appear on next day',
+      (tester) async {
+        tester.view.devicePixelRatio = 1.0;
+        tester.view.physicalSize = const Size(800, 1200);
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
+            child: MaterialApp(
+              home: Scaffold(body: EventEditModal(initialDate: testDate)),
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        // Enter title
+        final titleField = find.byType(TextField).first;
+        await tester.enterText(titleField, 'One-time Task');
+        await tester.pumpAndSettle();
+
+        // Tap ∞ toggle to turn off unlimited
+        await tester.tap(find.byKey(const ValueKey('unlimited_date_toggle')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Once'), findsOneWidget);
+
+        // Tap "Create Block"
+        await tester.ensureVisible(find.text('Create Block'));
+        await tester.tap(find.text('Create Block'));
+        await tester.pumpAndSettle();
+
+        final allEvents = await fakeRepo.getAllEvents();
+        expect(allEvents.length, equals(1));
+        final created = allEvents.first;
+        expect(created.title, equals('One-time Task'));
+        expect(created.repeatDays, isNull);
+        expect(created.recurrenceEndDate, isNull);
+
+        // Verify it appears on initial testDate
+        final todayEvents = await fakeRepo.getEventsForDay(testDate);
+        expect(todayEvents.length, equals(1));
+        expect(todayEvents.first.title, equals('One-time Task'));
+
+        // Verify it does NOT appear on next day
+        final nextDay = testDate.add(const Duration(days: 1));
+        final nextDayEvents = await fakeRepo.getEventsForDay(nextDay);
+        expect(nextDayEvents, isEmpty);
+      },
+    );
+
+    testWidgets('selecting category chip auto-fills title and sets color', (
       tester,
     ) async {
       tester.view.devicePixelRatio = 1.0;
@@ -389,16 +496,15 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Enter title
-      final titleField = find.byType(TextField).first;
-      await tester.enterText(titleField, 'Team Standup');
+      // Tap 'Deep Focus' category chip
+      expect(find.text('Deep Focus'), findsOneWidget);
+      await tester.tap(find.text('Deep Focus'));
       await tester.pumpAndSettle();
 
-      // Scroll to Reminder section and tap '15 min'
-      await tester.ensureVisible(find.text('Reminder'));
-      expect(find.text('15 min'), findsOneWidget);
-      await tester.tap(find.text('15 min'));
-      await tester.pumpAndSettle();
+      // Verify title field now has 'Deep Focus'
+      final titleField = find.byType(TextField).first;
+      final textFinder = tester.widget<TextField>(titleField);
+      expect(textFinder.controller?.text, equals('Deep Focus'));
 
       // Tap 'Create Block'
       await tester.ensureVisible(find.text('Create Block'));
@@ -407,47 +513,40 @@ void main() {
 
       final allEvents = await fakeRepo.getAllEvents();
       expect(allEvents.length, equals(1));
-      expect(allEvents.first.title, equals('Team Standup'));
-      expect(allEvents.first.reminderMinutes, equals(15));
+      expect(allEvents.first.title, equals('Deep Focus'));
+      expect(allEvents.first.category, equals('Deep Focus'));
     });
 
-    testWidgets(
-      'toggling All-day collapses time rows and updates dial centerText to 24h',
-      (tester) async {
-        tester.view.devicePixelRatio = 1.0;
-        tester.view.physicalSize = const Size(800, 1200);
-        addTearDown(() {
-          tester.view.resetPhysicalSize();
-          tester.view.resetDevicePixelRatio();
-        });
+    testWidgets('opening subtask sheet presents parent time bounds banner', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(800, 1200);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
 
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
-            child: MaterialApp(
-              home: Scaffold(body: EventEditModal(initialDate: testDate)),
-            ),
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
+          child: MaterialApp(
+            home: Scaffold(body: EventEditModal(initialDate: testDate)),
           ),
-        );
+        ),
+      );
 
-        await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-        // Initially Start & End times are visible
-        expect(find.byKey(const ValueKey('start_time_tile')), findsOneWidget);
-        expect(find.byKey(const ValueKey('end_time_tile')), findsOneWidget);
-        expect(find.byKey(const ValueKey('all_day_toggle')), findsOneWidget);
+      // Subtasks section is elevated directly below timing
+      expect(find.text('Add Subtask'), findsOneWidget);
+      await tester.tap(find.text('Add Subtask'));
+      await tester.pumpAndSettle();
 
-        // Tap the All-day toggle
-        await tester.tap(find.byKey(const ValueKey('all_day_toggle')));
-        await tester.pumpAndSettle();
-
-        // Start & End times should be collapsed, and All-day banner should be visible
-        expect(find.byKey(const ValueKey('start_time_tile')), findsNothing);
-        expect(find.byKey(const ValueKey('end_time_tile')), findsNothing);
-        expect(find.text('All-day Block'), findsOneWidget);
-        expect(find.byType(Slider), findsNothing);
-      },
-    );
+      // In SubtaskEditSheet, verify "Within block:" banner and quick slice buttons are present
+      expect(find.textContaining('Within block:'), findsOneWidget);
+      expect(find.text('Full Block'), findsOneWidget);
+    });
 
     testWidgets(
       'selecting color and icon in IconColorPickerSheet updates sector color on event',
@@ -515,7 +614,7 @@ void main() {
       },
     );
 
-    testWidgets('adding and removing subtasks persists in repository', (
+    testWidgets('subtasks render with completion status and delete button', (
       tester,
     ) async {
       tester.view.devicePixelRatio = 1.0;
@@ -525,55 +624,68 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
+      final eventWithSubtasks = SectorEvent(
+        id: 'ev-sub',
+        title: 'Cook Dinner',
+        start: DateTime(2026, 9, 7, 18, 0),
+        end: DateTime(2026, 9, 7, 19, 0),
+        colorHex: '#6366F1',
+        subtaskItems: const [
+          SubtaskItem(
+            id: 'sub-1',
+            parentEventId: 'ev-sub',
+            title: 'Chop Onions',
+          ),
+          SubtaskItem(
+            id: 'sub-2',
+            parentEventId: 'ev-sub',
+            title: 'Boil Pasta',
+          ),
+        ],
+      );
+      await fakeRepo.addEvent(eventWithSubtasks);
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
           child: MaterialApp(
-            home: Scaffold(body: EventEditModal(initialDate: testDate)),
+            home: Scaffold(
+              body: EventEditModal(
+                event: eventWithSubtasks,
+                initialDate: testDate,
+              ),
+            ),
           ),
         ),
       );
 
       await tester.pumpAndSettle();
 
-      // Enter title
-      final titleField = find.byType(TextField).first;
-      await tester.enterText(titleField, 'Cook Dinner');
-      await tester.pumpAndSettle();
-
-      // Enter subtask in subtask field
-      final subtaskField = find.byType(TextField).last;
-      await tester.ensureVisible(subtaskField);
-      await tester.enterText(subtaskField, 'Chop Onions');
-      await tester.pumpAndSettle();
-
-      // Tap 'Add' button
-      await tester.tap(find.text('Add'));
-      await tester.pumpAndSettle();
-
-      // Enter second subtask
-      await tester.enterText(subtaskField, 'Boil Pasta');
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Add'));
-      await tester.pumpAndSettle();
-
+      expect(find.text('Subtasks (2)'), findsOneWidget);
       expect(find.text('Chop Onions'), findsOneWidget);
       expect(find.text('Boil Pasta'), findsOneWidget);
-      expect(find.text('Subtasks (2)'), findsOneWidget);
+
+      // Tap delete on the first subtask
+      final closeIcons = find.byIcon(Icons.close_rounded);
+      await tester.tap(closeIcons.first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Subtasks (1)'), findsOneWidget);
+      expect(find.text('Chop Onions'), findsNothing);
+      expect(find.text('Boil Pasta'), findsOneWidget);
 
       // Save
-      await tester.ensureVisible(find.text('Create Block'));
-      await tester.tap(find.text('Create Block'));
+      await tester.ensureVisible(find.text('Save Changes'));
+      await tester.tap(find.text('Save Changes'));
       await tester.pumpAndSettle();
 
       final allEvents = await fakeRepo.getAllEvents();
-      expect(allEvents.length, equals(1));
-      expect(allEvents.first.title, equals('Cook Dinner'));
-      expect(allEvents.first.subtasks, equals(['Chop Onions', 'Boil Pasta']));
+      final updated = allEvents.firstWhere((e) => e.id == 'ev-sub');
+      expect(updated.subtasks, equals(['Boil Pasta']));
     });
 
     testWidgets(
-      'typing subtask and directly tapping Create Block without tapping Add auto-commits subtask',
+      'time block edit saves title and category without time lockout',
       (tester) async {
         tester.view.devicePixelRatio = 1.0;
         tester.view.physicalSize = const Size(800, 1200);
@@ -582,37 +694,44 @@ void main() {
           tester.view.resetDevicePixelRatio();
         });
 
+        final existing = SectorEvent(
+          id: 'existing-block',
+          title: 'Deep Focus Session',
+          start: DateTime(2026, 9, 7, 10, 0),
+          end: DateTime(2026, 9, 7, 12, 0),
+          colorHex: '#6366F1',
+        );
+        await fakeRepo.addEvent(existing);
+
         await tester.pumpWidget(
           ProviderScope(
             overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
             child: MaterialApp(
-              home: Scaffold(body: EventEditModal(initialDate: testDate)),
+              home: Scaffold(
+                body: EventEditModal(event: existing, initialDate: testDate),
+              ),
             ),
           ),
         );
-
         await tester.pumpAndSettle();
 
-        // Enter title
+        // Start and End time tiles are shown
+        expect(find.byKey(const ValueKey('start_time_tile')), findsOneWidget);
+        expect(find.byKey(const ValueKey('end_time_tile')), findsOneWidget);
+
+        // Edit title
         final titleField = find.byType(TextField).first;
-        await tester.enterText(titleField, 'Study Time');
+        await tester.enterText(titleField, 'Focus Sprint');
         await tester.pumpAndSettle();
 
-        // Enter subtask in subtask field, but DO NOT tap '+ Add'
-        final subtaskField = find.byType(TextField).last;
-        await tester.ensureVisible(subtaskField);
-        await tester.enterText(subtaskField, 'Read Chapter 4');
-        await tester.pumpAndSettle();
-
-        // Directly tap 'Create Block'
-        await tester.ensureVisible(find.text('Create Block'));
-        await tester.tap(find.text('Create Block'));
+        // Save Changes is directly accessible and active
+        await tester.ensureVisible(find.text('Save Changes'));
+        await tester.tap(find.text('Save Changes'));
         await tester.pumpAndSettle();
 
         final allEvents = await fakeRepo.getAllEvents();
-        expect(allEvents.length, equals(1));
-        expect(allEvents.first.title, equals('Study Time'));
-        expect(allEvents.first.subtasks, equals(['Read Chapter 4']));
+        final updated = allEvents.firstWhere((e) => e.id == 'existing-block');
+        expect(updated.title, equals('Focus Sprint'));
       },
     );
   });

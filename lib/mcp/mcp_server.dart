@@ -9,8 +9,11 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../core/constants/app_strings.dart';
+import '../core/services/health_service.dart';
+import '../data/repositories/health_repository_impl.dart';
 import '../domain/models/dial_settings.dart';
 import '../domain/repositories/event_repository.dart';
+import '../domain/repositories/health_repository.dart';
 import 'mcp_tools.dart';
 
 /// Embedded MCP and REST HTTP/SSE server running inside the Flutter app.
@@ -18,7 +21,11 @@ class McpServer {
   final EventRepository repository;
   final DialSettings Function() getSettings;
   final Future<void> Function(DialSettings) updateSettings;
+  final HealthRepository? healthRepository;
   final void Function(String message)? onLog;
+
+  HealthRepository get _healthRepo =>
+      healthRepository ?? HealthRepositoryImpl(service: DeviceHealthService());
 
   HttpServer? _server;
   int _port = AppStrings.mcpDefaultPort;
@@ -28,6 +35,7 @@ class McpServer {
     required this.repository,
     required this.getSettings,
     required this.updateSettings,
+    this.healthRepository,
     this.onLog,
   });
 
@@ -60,6 +68,8 @@ class McpServer {
     router.post('/api/bulk_plan', _handleRestBulkPlan);
     router.get('/api/settings', _handleRestGetSettings);
     router.post('/api/settings', _handleRestPostSettings);
+    router.get('/api/health', _handleRestGetHealth);
+    router.post('/api/health/sync', _handleRestSyncHealth);
     router.get('/api/openapi.json', _handleOpenApiSchema);
     router.get('/api/grok/tools.json', _handleGrokToolsSchema);
 
@@ -225,6 +235,7 @@ class McpServer {
             repository: repository,
             getSettings: getSettings,
             updateSettings: updateSettings,
+            healthRepository: _healthRepo,
           );
           result = {
             'content': [
@@ -246,6 +257,16 @@ class McpServer {
                 'name': 'Available Free Gaps',
                 'mimeType': 'application/json',
               },
+              {
+                'uri': 'sectograph://health/today',
+                'name': 'Today Health Summary & Biometrics',
+                'mimeType': 'application/json',
+              },
+              {
+                'uri': 'sectograph://health/status',
+                'name': 'Health Connect Integration Status',
+                'mimeType': 'application/json',
+              },
             ],
           };
           break;
@@ -261,6 +282,39 @@ class McpServer {
                   'uri': uri,
                   'mimeType': 'application/json',
                   'text': jsonEncode(events.map((e) => e.toJson()).toList()),
+                },
+              ],
+            };
+          } else if (uri == 'sectograph://health/today') {
+            final health = await _healthRepo.getDailySummary(today);
+            final res = health.toJson();
+            res['sleepHoursFormatted'] = health.sleepHoursFormatted;
+            res['sleepDebtMinutes'] = health.sleepDebtMinutes();
+            res['hasSignificantSleepDebt'] = health.hasSignificantSleepDebt;
+            result = {
+              'contents': [
+                {
+                  'uri': uri,
+                  'mimeType': 'application/json',
+                  'text': jsonEncode(res),
+                },
+              ],
+            };
+          } else if (uri == 'sectograph://health/status') {
+            final available = await _healthRepo.isAvailable();
+            final hasPerms = await _healthRepo.hasPermissions();
+            result = {
+              'contents': [
+                {
+                  'uri': uri,
+                  'mimeType': 'application/json',
+                  'text': jsonEncode({
+                    'isAvailable': available,
+                    'hasPermissions': hasPerms,
+                    'status': !available
+                        ? 'unavailable'
+                        : (!hasPerms ? 'permissionRequired' : 'connected'),
+                  }),
                 },
               ],
             };
@@ -376,6 +430,7 @@ class McpServer {
         repository: repository,
         getSettings: getSettings,
         updateSettings: updateSettings,
+        healthRepository: _healthRepo,
       );
       result = {
         'content': [
@@ -468,6 +523,42 @@ class McpServer {
     );
   }
 
+  Future<Response> _handleRestGetHealth(Request request) async {
+    final date =
+        request.requestedUri.queryParameters['date'] ??
+        request.url.queryParameters['date'];
+    final res = await McpTools.executeTool(
+      name: 'get_health_summary',
+      arguments: date != null ? {'date': date} : {},
+      repository: repository,
+      getSettings: getSettings,
+      updateSettings: updateSettings,
+      healthRepository: _healthRepo,
+    );
+    return Response.ok(
+      jsonEncode(res),
+      headers: {'content-type': 'application/json'},
+    );
+  }
+
+  Future<Response> _handleRestSyncHealth(Request request) async {
+    final date =
+        request.requestedUri.queryParameters['date'] ??
+        request.url.queryParameters['date'];
+    final res = await McpTools.executeTool(
+      name: 'sync_health_to_dial',
+      arguments: date != null ? {'date': date} : {},
+      repository: repository,
+      getSettings: getSettings,
+      updateSettings: updateSettings,
+      healthRepository: _healthRepo,
+    );
+    return Response.ok(
+      jsonEncode(res),
+      headers: {'content-type': 'application/json'},
+    );
+  }
+
   // Auto-generated OpenAPI 3.0 for ChatGPT Actions
   Response _handleOpenApiSchema(Request request) {
     final host = request.headers['host'] ?? '127.0.0.1:$_port';
@@ -553,6 +644,38 @@ class McpServer {
           'post': {
             'summary': 'Update dial customization settings',
             'operationId': 'updateSettings',
+            'responses': {
+              '200': {'description': 'OK'},
+            },
+          },
+        },
+        '/api/health': {
+          'get': {
+            'summary': 'Get authentic Health Connect daily biometrics',
+            'operationId': 'getHealthSummary',
+            'parameters': [
+              {
+                'name': 'date',
+                'in': 'query',
+                'schema': {'type': 'string'},
+              },
+            ],
+            'responses': {
+              '200': {'description': 'OK'},
+            },
+          },
+        },
+        '/api/health/sync': {
+          'post': {
+            'summary': 'Sync Health Connect workouts and sleep to dial',
+            'operationId': 'syncHealthToDial',
+            'parameters': [
+              {
+                'name': 'date',
+                'in': 'query',
+                'schema': {'type': 'string'},
+              },
+            ],
             'responses': {
               '200': {'description': 'OK'},
             },

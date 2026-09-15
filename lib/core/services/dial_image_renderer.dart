@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -7,6 +8,9 @@ import '../../domain/models/dial_settings.dart';
 import '../../domain/models/sector_event.dart';
 import '../../presentation/widgets/dial/sectograph_painter.dart';
 import '../geometry/concentric_solver.dart';
+import '../geometry/dial_sector_layout_stretcher.dart';
+import '../geometry/fisheye_time_lens.dart';
+import '../geometry/focused_block_layout_resolver.dart';
 import '../geometry/sector_math.dart';
 
 /// Service that renders a high-resolution offscreen image of the Sectograph dial
@@ -28,8 +32,8 @@ abstract final class DialImageRenderer {
 
     // Filter events to the active horizon:
     // In 24-hour mode, show events within the 24-hour calendar day of currentTime.
-    // In 12-hour mode, show events within the active 12-hour half (AM: 00:00-12:00 or PM: 12:00-24:00)
-    // matching the in-app dial display so AM and PM events never overlap.
+    // In 12-hour mode, show events within the rolling 12-hour window around currentTime,
+    // matching the in-app dial display so AM and PM events never collide.
     final List<SectorEvent> positionedEvents;
     if (settings.is24HourMode) {
       final todayStart = DateTime(
@@ -60,32 +64,30 @@ abstract final class DialImageRenderer {
         return e;
       }).toList();
     } else {
-      final isPm = currentTime.hour >= 12;
-      final halfStart = DateTime(
-        currentTime.year,
-        currentTime.month,
-        currentTime.day,
-        isPm ? 12 : 0,
-      );
-      final halfEnd = halfStart.add(const Duration(hours: 12));
-      final halfEvents = events.where((e) {
-        return e.start.isBefore(halfEnd) && e.end.isAfter(halfStart);
-      }).toList();
-
+      // Dynamic rolling 12-hour horizon around currentTime:
+      // In 12H mode, only events within 12 hours of currentTime are displayed.
       final rawEvents = <SectorEvent>[];
-      for (final e in halfEvents) {
-        final visibleStart = e.start.isBefore(halfStart) ? halfStart : e.start;
-        final visibleEnd = e.end.isAfter(halfEnd) ? halfEnd : e.end;
-        final visibleDuration = visibleEnd.difference(visibleStart);
-        if (visibleDuration.inMinutes > 0) {
+      for (final e in events) {
+        // Skip events that are more than 12 hours ahead in 12H mode
+        if (e.start.difference(currentTime).inMinutes >= 720) {
+          continue;
+        }
+        // Skip events that completed more than 12 hours ago
+        if (currentTime.difference(e.end).inMinutes >= 720) {
+          continue;
+        }
+
+        final duration = e.end.difference(e.start);
+        if (duration.inMinutes > 0) {
           final startAngle = SectorMath.timeToDialAngle(
-            visibleStart,
+            e.start,
             is24HourMode: false,
           );
           final sweepAngle = SectorMath.durationToSweepAngle(
-            visibleDuration,
+            duration,
             is24HourMode: false,
           );
+
           rawEvents.add(
             e.copyWith(
               topLevel: 0,
@@ -109,15 +111,81 @@ abstract final class DialImageRenderer {
       }).toList();
     }
 
+    final isFocusedBlockMode =
+        settings.pastHoursStyle == PastHoursStyle.focusedBlock;
+    final FocusedHorizonResult? horizonResult = isFocusedBlockMode
+        ? FocusedBlockLayoutResolver.resolve(
+            events: positionedEvents,
+            effectiveTime: currentTime,
+            selectedEvent: selectedEvent,
+            is24HourMode: settings.is24HourMode,
+          )
+        : null;
+
+    final baseDisplayEvents = horizonResult != null
+        ? horizonResult.visibleEvents
+        : positionedEvents;
+
+    SectorEvent? resolvedActive = activeEvent;
+    if (horizonResult?.activeEvent != null) {
+      resolvedActive = horizonResult!.activeEvent;
+    }
+
+    // Fisheye Time Lens focus center
+    final focusEvent = selectedEvent ?? resolvedActive;
+    final double focusAngle;
+    if (focusEvent != null) {
+      final halfDuration = Duration(
+        minutes: focusEvent.duration.inMinutes ~/ 2,
+      );
+      focusAngle = SectorMath.timeToDialAngle(
+        focusEvent.start.add(halfDuration),
+        is24HourMode: settings.is24HourMode,
+      );
+    } else {
+      focusAngle = SectorMath.timeToDialAngle(
+        currentTime,
+        is24HourMode: settings.is24HourMode,
+      );
+    }
+
+    final activeMagnification = selectedEvent != null
+        ? math.max(settings.lensMagnification, 1.85)
+        : settings.lensMagnification;
+
+    final lens = settings.isFocusLensEnabled
+        ? FisheyeTimeLens(
+            focusAngle: focusAngle,
+            magnification: activeMagnification,
+          )
+        : const FisheyeTimeLens.linear();
+
+    final warpedEvents = baseDisplayEvents.map((e) {
+      final warped = lens.warpSector(
+        startDeg: e.startAngle,
+        sweepDeg: e.sweepAngle,
+      );
+      return e.copyWith(
+        startAngle: warped.startDeg,
+        sweepAngle: warped.sweepDeg,
+      );
+    }).toList();
+
+    final finalDisplayEvents = DialSectorLayoutStretcher.stretch(
+      warpedEvents,
+      is24HourMode: settings.is24HourMode,
+    );
+
     final painter = SectographPainter(
-      events: positionedEvents,
+      events: finalDisplayEvents,
       selectedEvent: selectedEvent,
-      activeEvent: activeEvent,
+      activeEvent: resolvedActive,
       currentTime: currentTime,
       scrubAngle: null,
       settings: settings,
       colorScheme: colorScheme,
       showCenterClock: true,
+      lens: lens,
     );
 
     painter.paint(canvas, paintSize);

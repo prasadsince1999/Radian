@@ -34,4 +34,21 @@ abstract final class AppLayoutConstants {
   static const double fabHeight = 48.0;
   static const double dragHandleWidth = 36.0;
   static const double dragHandleHeight = 4.0;
+
+  // --- Dial Capacity & Time Badge Geometry ---
+  static const int maxDialVisibleBlocks = 10;
+  static const double standardCapSpanDeg24H = 5.6;
+  static const double standardCapSpanDeg12H = 6.8;
+  static const double minSweepForCaps24H = 8.0;
+  static const double minSweepForCaps12H = 12.0;
+
+  // --- Content-Aware Natural Block Stretch Constants ---
+  /// Minimum sweep angle in 24H mode so caps + icon + title keyword + duration fit with zero overlap.
+  static const double minContentSweepDeg24H = 24.0;
+
+  /// Minimum sweep angle in 12H mode so caps + icon + title keyword + duration fit with zero overlap.
+  static const double minContentSweepDeg12H = 34.0;
+
+  /// Minimum buffer preserved between distinct non-contiguous blocks on the dial face.
+  static const double minInterBlockGapDeg = 2.0;
 }

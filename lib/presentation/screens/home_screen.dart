@@ -6,7 +6,6 @@ import '../../core/constants/app_layout_constants.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/layout/window_size_class.dart';
 import '../../core/services/android_widget_service.dart';
-import '../../core/theme/app_colors.dart';
 import '../../core/theme/expressive_shapes.dart';
 import '../controllers/clock_controller.dart';
 import '../controllers/cloud_sync_controller.dart';
@@ -16,7 +15,6 @@ import '../widgets/dialogs/about_radian_dialog.dart';
 import '../widgets/dial/sectograph_dial.dart';
 import '../widgets/editor/dial_settings_modal.dart';
 import '../widgets/editor/event_edit_modal.dart';
-import '../widgets/fab/expressive_speed_dial_fab.dart';
 import '../widgets/health/health_insights_sheet.dart';
 import '../widgets/health/m3_activity_heatmap.dart';
 import '../widgets/mcp/mcp_status_sheet.dart';
@@ -95,60 +93,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       shape: ExpressiveShapes.modalSheet,
       builder: (_) => EventEditModal(initialDate: selectedDay),
     );
-  }
-
-  Future<void> _quickScheduleBlock({
-    required String title,
-    required Duration duration,
-    required String colorHex,
-    required IconData icon,
-    String? notes,
-  }) async {
-    await ref
-        .read(quickScheduleBlockUseCaseProvider)
-        .execute(
-          title: title,
-          duration: duration,
-          colorHex: colorHex,
-          notes: notes ?? '',
-        );
-    _syncAndroidWidget();
-    if (mounted) {
-      final colorScheme = Theme.of(context).colorScheme;
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(icon, color: colorScheme.primary, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Scheduled: $title (${duration.inMinutes}m)',
-                  style: TextStyle(
-                    color: colorScheme.brightness == Brightness.dark
-                        ? colorScheme.onSurface
-                        : colorScheme.onInverseSurface,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13.5,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: colorScheme.brightness == Brightness.dark
-              ? colorScheme.surfaceContainerHighest
-              : colorScheme.inverseSurface,
-          behavior: SnackBarBehavior.fixed,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-          ),
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
   }
 
   void _syncAndroidWidget() {
@@ -515,78 +459,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 );
               },
             );
-          }
-        },
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: ExpressiveSpeedDialFab(
-        key: const ValueKey('add_block_fab'),
-        tooltip: 'Add Block',
-        heroColor: colorScheme.primary,
-        heroIconColor: colorScheme.onPrimary,
-        actions: const [
-          SpeedDialAction(
-            id: 'event',
-            icon: Icons.add_task_rounded,
-            label: 'New Event',
-            backgroundColor: AppColors.addBlockBg,
-            foregroundColor: AppColors.addBlockText,
-          ),
-          SpeedDialAction(
-            id: 'focus',
-            icon: Icons.bolt_rounded,
-            label: '90m Focus Block',
-            backgroundColor: Color(0xFF6366F1),
-            foregroundColor: Colors.white,
-          ),
-          SpeedDialAction(
-            id: 'nap',
-            icon: Icons.bedtime_rounded,
-            label: '25m Power Nap',
-            backgroundColor: Color(0xFF4338CA),
-            foregroundColor: Colors.white,
-          ),
-          SpeedDialAction(
-            id: 'workout',
-            icon: Icons.fitness_center_rounded,
-            label: '45m Workout',
-            backgroundColor: Color(0xFFF59E0B),
-            foregroundColor: Colors.white,
-          ),
-        ],
-        onActionSelected: (id) {
-          HapticFeedback.lightImpact();
-          switch (id) {
-            case 'event':
-              _openAddBlock();
-              break;
-            case 'focus':
-              _quickScheduleBlock(
-                title: 'Deep Focus Block',
-                duration: const Duration(minutes: 90),
-                colorHex: '#6366F1',
-                icon: Icons.bolt_rounded,
-                notes: 'Material 3 Expressive Deep Focus Session',
-              );
-              break;
-            case 'nap':
-              _quickScheduleBlock(
-                title: 'Restorative Power Nap',
-                duration: const Duration(minutes: 25),
-                colorHex: '#4338CA',
-                icon: Icons.bedtime_rounded,
-                notes: 'Circadian sleep debt recovery buffer',
-              );
-              break;
-            case 'workout':
-              _quickScheduleBlock(
-                title: 'Workout Session',
-                duration: const Duration(minutes: 45),
-                colorHex: '#F59E0B',
-                icon: Icons.fitness_center_rounded,
-                notes: 'Cardio & Strength Training',
-              );
-              break;
           }
         },
       ),

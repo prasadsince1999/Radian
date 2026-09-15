@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 class TimeFormatters {
@@ -9,6 +10,12 @@ class TimeFormatters {
     } else {
       return DateFormat('h:mm a').format(time);
     }
+  }
+
+  static String formatTimeOfDay(TimeOfDay tod, {bool is24Hour = false}) {
+    final now = DateTime.now();
+    final dt = DateTime(now.year, now.month, now.day, tod.hour, tod.minute);
+    return formatTime(dt, is24Hour: is24Hour);
   }
 
   static String formatTimeRange(

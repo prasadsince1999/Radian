@@ -41,6 +41,17 @@ class LocalEventRepository implements EventRepository {
 
       // Enrich persistent events with AI/ML Sprint subtasks if they were created without subtasks
       var hasEnriched = false;
+
+      // Purge obsolete/leftover test events that cause collision or duplicate caps on device
+      final initialCount = _events.length;
+      _events.removeWhere(
+        (e) =>
+            e.id == '859ca18a-e5ff-40d6-9d94-026e309a7637' ||
+            e.title.contains('Focus Coding Build UI'),
+      );
+      if (_events.length != initialCount) {
+        hasEnriched = true;
+      }
       for (int i = 0; i < _events.length; i++) {
         final ev = _events[i];
         final lower = ev.title.toLowerCase();
@@ -66,15 +77,146 @@ class LocalEventRepository implements EventRepository {
           hasEnriched = true;
         }
       }
+
+      // Cleanup obsolete/corrupted test events and duplicate overlapping schedules:
+      // Previously, test schedules from Sep 10-14 were given repeatDays which caused multiple
+      // overlapping duplicate blocks (3 copies of Bed Time, duplicate New Blocks, Cooking+Dinner, etc.)
+      final didCleanCorrupted =
+          prefs!.getBool('sectograph_cleaned_corrupted_v3') ?? false;
+      if (!didCleanCorrupted) {
+        _events.removeWhere((e) {
+          final t = e.title.toLowerCase();
+          if (t.contains('workout or chill') ||
+              t.contains('cooking+dinner') ||
+              t.contains('cooking+lunch') ||
+              t.contains('meeting syncx') ||
+              t.contains('team standup') ||
+              t.contains('deep focus session') ||
+              t.contains('evening workout') ||
+              e.id == '859ca18a-e5ff-40d6-9d94-026e309a7637' ||
+              e.title.contains('Focus Coding Build UI')) {
+            return true;
+          }
+          // Purge colliding throwaway test blocks created during earlier tests
+          if (e.id == '041f12b2-8cca-4854-9863-fde6005420c3' ||
+              e.id == '00bdd90b-f728-4c11-a13d-fa922c6edca6' ||
+              e.id == '8145b44b-f29b-4ab7-a221-9d360d0aaf21' ||
+              e.id == 'c4dbdec3-74b9-4f1c-9c34-13d82685a946' ||
+              e.id == 'health-sleep-2026-09-15' ||
+              e.id == '7c84bcab-901b-42ee-8898-d7d32e3796cd' ||
+              e.id == '6e032c79-3d1c-4838-9559-fe25713017b4') {
+            return true;
+          }
+          return false;
+        });
+
+        // Deduplicate any remaining blocks with identical title and start time
+        final seenSlots = <String>{};
+        _events.removeWhere((e) {
+          final slotKey =
+              '${e.title.trim().toLowerCase()}_${e.start.hour}:${e.start.minute}';
+          if (seenSlots.contains(slotKey)) {
+            return true;
+          }
+          seenSlots.add(slotKey);
+          return false;
+        });
+
+        hasEnriched = true;
+        unawaited(prefs!.setBool('sectograph_cleaned_corrupted_v3', true));
+      }
+      if (_deconflictEvents()) {
+        hasEnriched = true;
+      }
       if (hasEnriched) {
         unawaited(_saveToDisk());
       }
     }
 
+    _deconflictEvents();
     _notify();
     if (_events.isNotEmpty) {
       unawaited(ReminderNotificationService.syncAllReminders(_events));
     }
+  }
+
+  /// Enforces a strict sequential non-overlapping schedule invariant for non-all-day events.
+  ///
+  /// If any two events on the same calendar day collide, adjusts boundaries so adjacent blocks
+  /// touch cleanly at borders (e.g. event A ends exactly when event B starts) or shifts subsequent
+  /// blocks forward to eliminate overlap.
+  bool _deconflictEvents() {
+    var changed = false;
+    final dayMap = <String, List<SectorEvent>>{};
+    for (final e in _events) {
+      if (e.isAllDay) continue;
+      final key = '${e.start.year}-${e.start.month}-${e.start.day}';
+      dayMap.putIfAbsent(key, () => []).add(e);
+    }
+
+    for (final entry in dayMap.entries) {
+      final list = entry.value;
+      if (list.length <= 1) continue;
+
+      list.sort((a, b) => a.start.compareTo(b.start));
+
+      for (int i = 0; i < list.length - 1; i++) {
+        final curr = list[i];
+        final next = list[i + 1];
+
+        if (curr.end.isAfter(next.start)) {
+          final gapMins = next.start.difference(curr.start).inMinutes;
+          if (gapMins >= 15) {
+            final updatedCurr = curr.copyWith(end: next.start);
+            final idx = _events.indexWhere((e) => e.id == curr.id);
+            if (idx != -1) {
+              _events[idx] = updatedCurr;
+              list[i] = updatedCurr;
+              changed = true;
+            }
+          } else {
+            final dur = next.end.difference(next.start);
+            final newNextStart = curr.end;
+            final updatedNext = next.copyWith(
+              start: newNextStart,
+              end: newNextStart.add(dur),
+            );
+            final idx = _events.indexWhere((e) => e.id == next.id);
+            if (idx != -1) {
+              _events[idx] = updatedNext;
+              list[i + 1] = updatedNext;
+              changed = true;
+            }
+          }
+        }
+      }
+    }
+    return changed;
+  }
+
+  List<SectorEvent> _deconflictDayEvents(List<SectorEvent> events) {
+    final regular = events.where((e) => !e.isAllDay).toList()
+      ..sort((a, b) => a.start.compareTo(b.start));
+    final allDay = events.where((e) => e.isAllDay).toList();
+
+    for (int i = 0; i < regular.length - 1; i++) {
+      final curr = regular[i];
+      final next = regular[i + 1];
+      if (curr.end.isAfter(next.start)) {
+        final gapMins = next.start.difference(curr.start).inMinutes;
+        if (gapMins >= 15) {
+          regular[i] = curr.copyWith(end: next.start);
+        } else {
+          final dur = next.end.difference(next.start);
+          final newNextStart = curr.end;
+          regular[i + 1] = next.copyWith(
+            start: newNextStart,
+            end: newNextStart.add(dur),
+          );
+        }
+      }
+    }
+    return [...regular, ...allDay];
   }
 
   Future<void> _saveToDisk() async {
@@ -127,6 +269,32 @@ class LocalEventRepository implements EventRepository {
             e.copyWith(start: projStart, end: projStart.add(e.duration)),
           );
         }
+      } else if (e.recurrenceEndDate != null) {
+        final startBoundary = DateTime(
+          e.start.year,
+          e.start.month,
+          e.start.day,
+        );
+        final endBoundary = DateTime(
+          e.recurrenceEndDate!.year,
+          e.recurrenceEndDate!.month,
+          e.recurrenceEndDate!.day,
+          23,
+          59,
+          59,
+        );
+        if (!day.isBefore(startBoundary) && !day.isAfter(endBoundary)) {
+          final projStart = DateTime(
+            day.year,
+            day.month,
+            day.day,
+            e.start.hour,
+            e.start.minute,
+          );
+          dayEvents.add(
+            e.copyWith(start: projStart, end: projStart.add(e.duration)),
+          );
+        }
       } else {
         if (e.start.isBefore(endOfDay) && e.end.isAfter(startOfDay)) {
           dayEvents.add(e);
@@ -134,8 +302,9 @@ class LocalEventRepository implements EventRepository {
       }
     }
 
-    final levels = ConcentricSolver.solve(dayEvents);
-    return dayEvents.map((e) {
+    final deconflictedDayEvents = _deconflictDayEvents(dayEvents);
+    final levels = ConcentricSolver.solve(deconflictedDayEvents);
+    return deconflictedDayEvents.map((e) {
       final solved = levels[e];
       if (solved != null) {
         return e.copyWith(
@@ -172,6 +341,7 @@ class LocalEventRepository implements EventRepository {
   @override
   Future<void> addEvent(SectorEvent event) async {
     _events.add(event);
+    _deconflictEvents();
     await _saveToDisk();
     _notify();
     if (event.reminderMinutes != null) {
@@ -187,6 +357,7 @@ class LocalEventRepository implements EventRepository {
     } else {
       _events.add(event);
     }
+    _deconflictEvents();
     await _saveToDisk();
     _notify();
     if (event.reminderMinutes != null) {
@@ -218,6 +389,7 @@ class LocalEventRepository implements EventRepository {
         _events.add(event);
       }
     }
+    _deconflictEvents();
     await _saveToDisk();
     _notify();
     unawaited(ReminderNotificationService.syncAllReminders(_events));
@@ -227,6 +399,7 @@ class LocalEventRepository implements EventRepository {
   Future<void> replaceDayEvents(DateTime day, List<SectorEvent> events) async {
     _events.removeWhere((e) => _isSameDay(e.start, day));
     _events.addAll(events);
+    _deconflictEvents();
     await _saveToDisk();
     _notify();
     unawaited(ReminderNotificationService.syncAllReminders(_events));

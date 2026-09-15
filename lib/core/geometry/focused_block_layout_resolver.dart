@@ -1,3 +1,4 @@
+import '../constants/app_layout_constants.dart';
 import '../../domain/models/sector_event.dart';
 
 /// Represents the resolved 7-block horizon for Focused Block concentric dial mode.
@@ -88,6 +89,14 @@ class FocusedBlockLayoutResolver {
       );
     }
 
+    final effectiveSelected = selectedEvent != null
+        ? events.firstWhere(
+            (e) => e.id == selectedEvent.id,
+            orElse: () =>
+                selectedEvent.withComputedAngles(is24HourMode: is24HourMode),
+          )
+        : null;
+
     // 1. Identify active event
     SectorEvent? active;
     for (final e in events) {
@@ -96,7 +105,7 @@ class FocusedBlockLayoutResolver {
         break;
       }
     }
-    active ??= selectedEvent;
+    active ??= effectiveSelected;
     if (active == null) {
       for (final e in events) {
         if (e.start.isAfter(effectiveTime)) {
@@ -150,7 +159,10 @@ class FocusedBlockLayoutResolver {
       next2 = futureCandidates[1];
       if (futureCandidates.length > 2) {
         final c3 = futureCandidates[2];
-        if (!is24HourMode && _arcsOverlap12H(next2, c3)) {
+        final overlap = is24HourMode
+            ? _arcsOverlap24H(next2, c3)
+            : _arcsOverlap12H(next2, c3);
+        if (overlap) {
           next3 = null;
         } else {
           next3 = c3;
@@ -164,7 +176,7 @@ class FocusedBlockLayoutResolver {
     }
 
     // 5. Allocate Inner Ring Previous Events (Prev 2, Prev 3)
-    // In 12H mode, ensure past candidates do NOT collide with upcoming inner events
+    // Ensure past candidates do NOT collide with upcoming inner events
     // or with each other, avoiding confusing double-rendered angular arcs.
     SectorEvent? prev2;
     SectorEvent? prev3;
@@ -177,15 +189,28 @@ class FocusedBlockLayoutResolver {
             effectiveTime.difference(candidate.end).inMinutes > 360) {
           continue;
         }
-        // Collision check against inner upcoming events
+        // Collision check against ALL active, upcoming, and previous events on 12H face
+        if (active != null && _arcsOverlap12H(candidate, active)) continue;
+        if (next1 != null && _arcsOverlap12H(candidate, next1)) continue;
         if (next2 != null && _arcsOverlap12H(candidate, next2)) continue;
         if (next3 != null && _arcsOverlap12H(candidate, next3)) continue;
+        if (prev1 != null && _arcsOverlap12H(candidate, prev1)) continue;
+      } else {
+        // Collision check against ALL active, upcoming, and previous events on 24H face
+        if (active != null && _arcsOverlap24H(candidate, active)) continue;
+        if (next1 != null && _arcsOverlap24H(candidate, next1)) continue;
+        if (next2 != null && _arcsOverlap24H(candidate, next2)) continue;
+        if (next3 != null && _arcsOverlap24H(candidate, next3)) continue;
+        if (prev1 != null && _arcsOverlap24H(candidate, prev1)) continue;
       }
 
       if (prev2 == null) {
         prev2 = candidate;
       } else if (prev3 == null) {
-        if (!is24HourMode && _arcsOverlap12H(candidate, prev2)) continue;
+        final overlap = is24HourMode
+            ? _arcsOverlap24H(candidate, prev2)
+            : _arcsOverlap12H(candidate, prev2);
+        if (overlap) continue;
         prev3 = candidate;
         break;
       }
@@ -199,7 +224,7 @@ class FocusedBlockLayoutResolver {
       if (prev1 != null) outerEventIds.add(prev1.id);
       if (active != null) outerEventIds.add(active.id);
       if (next1 != null) outerEventIds.add(next1.id);
-      if (selectedEvent != null) outerEventIds.add(selectedEvent.id);
+      if (effectiveSelected != null) outerEventIds.add(effectiveSelected.id);
 
       if (prev3 != null) innerEventIds.add(prev3.id);
       if (prev2 != null) innerEventIds.add(prev2.id);
@@ -211,14 +236,14 @@ class FocusedBlockLayoutResolver {
       if (active != null) outerEventIds.add(active.id);
       if (prev1 != null) outerEventIds.add(prev1.id);
       if (next1 != null) outerEventIds.add(next1.id);
-      if (selectedEvent != null) outerEventIds.add(selectedEvent.id);
+      if (effectiveSelected != null) outerEventIds.add(effectiveSelected.id);
 
       final outerEvents = <SectorEvent>[];
       if (active != null) outerEvents.add(active);
       if (prev1 != null) outerEvents.add(prev1);
       if (next1 != null) outerEvents.add(next1);
-      if (selectedEvent != null && selectedEvent.id != active?.id) {
-        outerEvents.add(selectedEvent);
+      if (effectiveSelected != null && effectiveSelected.id != active?.id) {
+        outerEvents.add(effectiveSelected);
       }
 
       // Next 2: take outer ring if no collision with existing outer events
@@ -248,20 +273,43 @@ class FocusedBlockLayoutResolver {
       if (prev3 != null) innerEventIds.add(prev3.id);
     }
 
-    // 7. Build visible events list
+    // 7. Build visible events list (strict single-ring non-overlapping deconfliction)
     final visibleEvents = <SectorEvent>[];
-    if (prev3 != null) visibleEvents.add(prev3);
-    if (prev2 != null) visibleEvents.add(prev2);
-    if (prev1 != null) visibleEvents.add(prev1);
-    if (active != null) visibleEvents.add(active);
-    if (next1 != null) visibleEvents.add(next1);
-    if (next2 != null) visibleEvents.add(next2);
-    if (next3 != null) visibleEvents.add(next3);
 
-    if (selectedEvent != null &&
-        !visibleEvents.any((e) => e.id == selectedEvent.id)) {
-      visibleEvents.add(selectedEvent);
+    bool checkOverlap(SectorEvent e, SectorEvent existing) {
+      return is24HourMode
+          ? _arcsOverlap24H(e, existing)
+          : _arcsOverlap12H(e, existing);
     }
+
+    void tryAdd(SectorEvent? e) {
+      if (e == null) return;
+      if (visibleEvents.length >= AppLayoutConstants.maxDialVisibleBlocks) return;
+      if (visibleEvents.any((existing) => existing.id == e.id)) return;
+      if (!visibleEvents.any((existing) => checkOverlap(e, existing))) {
+        visibleEvents.add(e);
+      }
+    }
+
+    // Priority 1: User-selected block (if any)
+    if (effectiveSelected != null) {
+      visibleEvents.add(effectiveSelected);
+    }
+    // Priority 2: Current active block
+    tryAdd(active);
+    // Priority 3: Immediate upcoming block
+    tryAdd(next1);
+    // Priority 4: Immediate previous block
+    tryAdd(prev1);
+    // Priority 5: Additional upcoming blocks
+    tryAdd(next2);
+    tryAdd(next3);
+    // Priority 6: Past secondary blocks (only if zero collision with any visible block)
+    tryAdd(prev2);
+    tryAdd(prev3);
+
+    // Maintain clean chronological ordering of visible events on the dial
+    visibleEvents.sort((a, b) => a.start.compareTo(b.start));
 
     return FocusedHorizonResult(
       activeEvent: active,
@@ -274,6 +322,26 @@ class FocusedBlockLayoutResolver {
       outerEventIds: outerEventIds,
       innerEventIds: innerEventIds,
       visibleEvents: visibleEvents,
+    );
+  }
+
+  /// Checks if two events overlap in angular sector space on a 24-hour dial.
+  static bool _arcsOverlap24H(SectorEvent a, SectorEvent b) {
+    final aDurMin = a.end.difference(a.start).inMinutes;
+    final bDurMin = b.end.difference(b.start).inMinutes;
+    if (aDurMin >= 1440 || bDurMin >= 1440) return true;
+
+    final aStartDeg = (a.start.hour * 60 + a.start.minute) * 0.25;
+    final aSweepDeg = (aDurMin * 0.25).clamp(0.0, 360.0);
+
+    final bStartDeg = (b.start.hour * 60 + b.start.minute) * 0.25;
+    final bSweepDeg = (bDurMin * 0.25).clamp(0.0, 360.0);
+
+    return _intervalsOverlapOnCircle(
+      aStartDeg,
+      aSweepDeg,
+      bStartDeg,
+      bSweepDeg,
     );
   }
 

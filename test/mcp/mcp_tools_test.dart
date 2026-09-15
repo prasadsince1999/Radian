@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sectograph_mcp/core/services/health_service.dart';
+import 'package:sectograph_mcp/data/repositories/health_repository_impl.dart';
 import 'package:sectograph_mcp/data/repositories/local_event_repository.dart';
 import 'package:sectograph_mcp/domain/models/dial_settings.dart';
+import 'package:sectograph_mcp/domain/models/health_models.dart';
 import 'package:sectograph_mcp/domain/models/sector_event.dart';
 import 'package:sectograph_mcp/mcp/mcp_tools.dart';
 
 void main() {
-  group('McpTools Comprehensive Test Suite (All 13 Tools)', () {
+  group('McpTools Comprehensive Test Suite (All 16 Tools)', () {
     late LocalEventRepository repository;
     DialSettings settings = const DialSettings();
 
@@ -16,9 +19,9 @@ void main() {
     });
 
     // 1. Tool definitions validation
-    test('getToolDefinitions returns all 13 tools with valid schemas', () {
+    test('getToolDefinitions returns all 16 tools with valid schemas', () {
       final tools = McpTools.getToolDefinitions();
-      expect(tools.length, 13);
+      expect(tools.length, 16);
 
       final names = tools.map((t) => t['name'] as String).toSet();
       expect(names, {
@@ -35,6 +38,9 @@ void main() {
         'get_dial_settings',
         'update_dial_settings',
         'analyze_day_balance',
+        'get_health_summary',
+        'sync_health_to_dial',
+        'get_health_status',
       });
 
       for (final tool in tools) {
@@ -793,6 +799,129 @@ void main() {
       expect(res['activeEvent'], isNull);
       expect(res['upcomingEvents'], isEmpty);
       expect(res['activeEventRemainingMinutes'], 0);
+    });
+
+    // Health MCP Tools Tests
+    test(
+      'get_health_summary returns authentic biometrics and metrics',
+      () async {
+        final mockService = MockHealthService();
+        final today = DateTime.now();
+        mockService.addSummary(
+          DailyHealthSummary(
+            date: DateTime(today.year, today.month, today.day),
+            steps: 8520,
+            activeCalories: 350.0,
+            totalCalories: 350.0,
+            distanceMeters: 6200.0,
+            sleepDurationMinutes: 440,
+            sleepStart: DateTime(today.year, today.month, today.day - 1, 23, 0),
+            sleepEnd: DateTime(today.year, today.month, today.day, 6, 20),
+            exerciseSessions: [
+              HealthExerciseSession(
+                id: 'sess-run-1',
+                title: 'Morning Jog',
+                type: 'running',
+                start: DateTime(today.year, today.month, today.day, 7, 0),
+                end: DateTime(today.year, today.month, today.day, 7, 30),
+                caloriesBurned: 220.0,
+              ),
+            ],
+            lastSyncTime: today,
+          ),
+        );
+        final healthRepo = HealthRepositoryImpl(service: mockService);
+
+        final res = await McpTools.executeTool(
+          name: 'get_health_summary',
+          arguments: {'date': today.toIso8601String().substring(0, 10)},
+          repository: repository,
+          getSettings: () => settings,
+          updateSettings: (s) async => settings = s,
+          healthRepository: healthRepo,
+        );
+
+        expect(res['steps'], 8520);
+        expect(res['activeCalories'], 350.0);
+        expect(res['sleepDurationMinutes'], 440);
+        expect(res['sleepHoursFormatted'], '7h 20m');
+        expect(res['exerciseSessions'], isNotEmpty);
+        expect(res['exerciseSessions'][0]['title'], 'Morning Jog');
+      },
+    );
+
+    test(
+      'sync_health_to_dial adds sleep and workouts to dial schedule',
+      () async {
+        final mockService = MockHealthService();
+        final today = DateTime.now();
+        mockService.addSummary(
+          DailyHealthSummary(
+            date: DateTime(today.year, today.month, today.day),
+            steps: 7000,
+            sleepDurationMinutes: 420,
+            sleepStart: DateTime(
+              today.year,
+              today.month,
+              today.day - 1,
+              23,
+              30,
+            ),
+            sleepEnd: DateTime(today.year, today.month, today.day, 6, 30),
+            exerciseSessions: [
+              HealthExerciseSession(
+                id: 'workout-101',
+                title: 'HIIT Session',
+                type: 'workout',
+                start: DateTime(today.year, today.month, today.day, 8, 0),
+                end: DateTime(today.year, today.month, today.day, 8, 45),
+                caloriesBurned: 300.0,
+              ),
+            ],
+            lastSyncTime: today,
+          ),
+        );
+        final healthRepo = HealthRepositoryImpl(service: mockService);
+
+        final res = await McpTools.executeTool(
+          name: 'sync_health_to_dial',
+          arguments: {'date': today.toIso8601String().substring(0, 10)},
+          repository: repository,
+          getSettings: () => settings,
+          updateSettings: (s) async => settings = s,
+          healthRepository: healthRepo,
+        );
+
+        expect(res['success'], isTrue);
+        expect(res['syncedSessionsCount'], 2); // 1 sleep + 1 workout
+
+        final events = await repository.getEventsForDay(today);
+        expect(events.any((e) => e.title == 'Sleep'), isTrue);
+        expect(events.any((e) => e.title == 'HIIT Session'), isTrue);
+      },
+    );
+
+    test('get_health_status returns availability and permissions', () async {
+      final mockService = MockHealthService(
+        isAvailableStatus: true,
+        hasPermissionsStatus: true,
+      );
+      final healthRepo = HealthRepositoryImpl(service: mockService);
+
+      final res = await McpTools.executeTool(
+        name: 'get_health_status',
+        arguments: {},
+        repository: repository,
+        getSettings: () => settings,
+        updateSettings: (s) async => settings = s,
+        healthRepository: healthRepo,
+      );
+
+      expect(res['isAvailable'], isTrue);
+      expect(res['hasPermissions'], isTrue);
+      expect(res['status'], 'connected');
+      expect(res['supportedMetrics'], contains('steps'));
+      expect(res['supportedMetrics'], contains('sleepDuration'));
     });
 
     // Error handling

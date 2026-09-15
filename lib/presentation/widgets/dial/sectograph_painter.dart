@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../core/constants/app_layout_constants.dart';
+import '../../../core/geometry/dial_time_cap_drag_handler.dart';
 import '../../../core/geometry/fisheye_time_lens.dart';
 import '../../../core/geometry/sector_math.dart';
 import '../../../core/theme/app_colors.dart';
@@ -31,6 +32,7 @@ class SectographPainter extends CustomPainter {
   final ColorScheme colorScheme;
   final bool showCenterClock;
   final FisheyeTimeLens? lens;
+  final CapHitResult? activeDraggingCap;
 
   SectographPainter({
     required this.events,
@@ -42,6 +44,7 @@ class SectographPainter extends CustomPainter {
     required this.colorScheme,
     this.showCenterClock = false,
     this.lens,
+    this.activeDraggingCap,
   });
 
   static const int scallopLobes = AppLayoutConstants.scallopLobes;
@@ -286,19 +289,47 @@ class SectographPainter extends CustomPainter {
       return !effectiveTime.isBefore(e.start) && effectiveTime.isBefore(e.end);
     }
 
-    // Pre-analyze contiguous relationships on the single uniform ring
-    final hasContiguousPredecessor = List<bool>.filled(events.length, false);
-    final hasContiguousSuccessor = List<bool>.filled(events.length, false);
+    // Pre-analyze contiguous relationships on the dial face (checking both DateTime and dial angles)
+    bool areContiguous(SectorEvent a, SectorEvent b) {
+      if ((a.end.difference(b.start).inMinutes).abs() <= 2) return true;
+      // Also check cyclic wrap on the dial face (e.g. crossing midnight / next-day wrap)
+      final aEndAngle = (a.startAngle + a.sweepAngle) % 360.0;
+      final bStartAngle = b.startAngle % 360.0;
+      final diff = (aEndAngle - bStartAngle).abs();
+      final angularDist = diff > 180.0 ? 360.0 - diff : diff;
+      return angularDist <= 0.8;
+    }
 
-    for (int i = 0; i < events.length; i++) {
-      final event = events[i];
-      for (int j = 0; j < events.length; j++) {
+    // In a strict single-ring system, all blocks span the uniform track (routineTrackIn to routineTrackOut).
+    // Sort events so longer blocks are drawn first and shorter / selected blocks are drawn on top,
+    // ensuring no block is hidden on the single ring.
+    final renderEvents = List<SectorEvent>.from(events)
+      ..sort((a, b) {
+        if (selectedEvent != null) {
+          if (a.id == selectedEvent!.id) return 1;
+          if (b.id == selectedEvent!.id) return -1;
+        }
+        return b.duration.compareTo(a.duration);
+      });
+
+    final hasContiguousPredecessor = List<bool>.filled(
+      renderEvents.length,
+      false,
+    );
+    final hasContiguousSuccessor = List<bool>.filled(
+      renderEvents.length,
+      false,
+    );
+
+    for (int i = 0; i < renderEvents.length; i++) {
+      final event = renderEvents[i];
+      for (int j = 0; j < renderEvents.length; j++) {
         if (i == j) continue;
-        final other = events[j];
-        if ((event.start.difference(other.end).inMinutes).abs() <= 2) {
+        final other = renderEvents[j];
+        if (areContiguous(other, event)) {
           hasContiguousPredecessor[i] = true;
         }
-        if ((other.start.difference(event.end).inMinutes).abs() <= 2) {
+        if (areContiguous(event, other)) {
           hasContiguousSuccessor[i] = true;
         }
       }
@@ -306,18 +337,16 @@ class SectographPainter extends CustomPainter {
 
     final drawnTimestampAngles = <double>[];
     bool angleAlreadyDrawn(double deg) {
+      final threshold = is24 ? 4.5 : 7.0;
       for (final angle in drawnTimestampAngles) {
         final diff = ((deg - angle).abs()) % 360.0;
         final angularDistance = diff > 180.0 ? 360.0 - diff : diff;
-        if (angularDistance < 8.0) return true;
+        if (angularDistance < threshold) return true;
       }
       return false;
     }
 
     final double overlapDeg = is24 ? 0.8 : 1.2; // Squeezed 3D overlap extension
-    final cornerRadius = math
-        .min(8.0, (routineTrackOut - routineTrackIn) * 0.22)
-        .clamp(3.0, 8.0);
 
     // Prepare layout data for each event on the single uniform track
     final pillLayouts =
@@ -341,8 +370,8 @@ class SectographPainter extends CustomPainter {
           })
         >[];
 
-    for (int i = 0; i < events.length; i++) {
-      final event = events[i];
+    for (int i = 0; i < renderEvents.length; i++) {
+      final event = renderEvents[i];
       if (event.sweepAngle <= 1.0) continue;
 
       final isActive = isEventActive(event);
@@ -357,22 +386,39 @@ class SectographPainter extends CustomPainter {
       final startDeg = event.startAngle + startGap;
       final sweepDeg = (event.sweepAngle - startGap - endGap).clamp(3.0, 360.0);
 
+      // Strictly single ring: full uniform track thickness for every block
       final eventRIn = routineTrackIn;
       final eventROut = routineTrackOut;
+      final cornerRadius = math
+          .min(8.0, (routineTrackOut - routineTrackIn) * 0.22)
+          .clamp(3.0, 8.0);
 
       final isContiguous = hasContiguousSuccessor[i];
-      // Squeezed, ultra-compact time badge span so blocks have maximum breathing room for titles
-      final baseCapSpanDeg = is24
-          ? math.min(2.4, sweepDeg * 0.12)
-          : math.min(3.6, sweepDeg * 0.12);
+      // Standardized time badge cap span matching Image 3 (08:30)
+      final standardCapSpan = is24
+          ? AppLayoutConstants.standardCapSpanDeg24H
+          : AppLayoutConstants.standardCapSpanDeg12H;
+      final baseCapSpanDeg = math.min(standardCapSpan, sweepDeg * 0.35);
 
+      final isActivelyDraggingThis =
+          activeDraggingCap != null && activeDraggingCap!.event.id == event.id;
+
+      final minSweepForCaps = is24
+          ? AppLayoutConstants.minSweepForCaps24H
+          : AppLayoutConstants.minSweepForCaps12H;
       final canShowStartCap =
-          !hasContiguousPredecessor[i] &&
-          sweepDeg >= (is24 ? 14.0 : 18.0) &&
-          !angleAlreadyDrawn(startDeg);
+          (isActivelyDraggingThis &&
+              (activeDraggingCap!.isStartCap ||
+                  activeDraggingCap!.isEntireBlock)) ||
+          (!hasContiguousPredecessor[i] &&
+              sweepDeg >= minSweepForCaps &&
+              !angleAlreadyDrawn(startDeg));
       final canShowEndCap =
-          sweepDeg >= (is24 ? 8.0 : 12.0) &&
-          !angleAlreadyDrawn(startDeg + sweepDeg);
+          (isActivelyDraggingThis &&
+              (activeDraggingCap!.isEndCap ||
+                  activeDraggingCap!.isEntireBlock)) ||
+          (sweepDeg >= minSweepForCaps &&
+              !angleAlreadyDrawn(startDeg + sweepDeg));
 
       final startCapSpan = canShowStartCap ? baseCapSpanDeg : 0.0;
       final endCapSpan = canShowEndCap
@@ -462,6 +508,29 @@ class SectographPainter extends CustomPainter {
           isContiguous: l.isContiguous,
           overlapDeg: l.isContiguous ? overlapDeg : 0.0,
         );
+
+        if (activeDraggingCap != null &&
+            l.event.id == activeDraggingCap!.event.id &&
+            (!activeDraggingCap!.isStartCap ||
+                activeDraggingCap!.isEntireBlock)) {
+          final highlightPath = SectorPillRenderer.buildPillPath(
+            center: center,
+            rIn: l.rIn - 2.0,
+            rOut: l.rOut + 2.0,
+            startDeg: l.endCapStartDeg,
+            sweepDeg: l.endCapSpan,
+            cornerRadius: l.cornerRadius,
+            roundStart: false,
+            roundEnd: true,
+          );
+          canvas.drawPath(
+            highlightPath,
+            Paint()
+              ..color = Colors.white
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2.0,
+          );
+        }
       }
     }
 
@@ -483,29 +552,133 @@ class SectographPainter extends CustomPainter {
           roundStart: true,
           roundEnd: false,
         );
+
+        if (activeDraggingCap != null &&
+            l.event.id == activeDraggingCap!.event.id &&
+            (activeDraggingCap!.isStartCap ||
+                activeDraggingCap!.isEntireBlock)) {
+          final highlightPath = SectorPillRenderer.buildPillPath(
+            center: center,
+            rIn: l.rIn - 2.0,
+            rOut: l.rOut + 2.0,
+            startDeg: l.startDeg,
+            sweepDeg: l.startCapSpan,
+            cornerRadius: l.cornerRadius,
+            roundStart: true,
+            roundEnd: false,
+          );
+          canvas.drawPath(
+            highlightPath,
+            Paint()
+              ..color = Colors.white
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2.0,
+          );
+        }
+      }
+    }
+
+    // Determine which events display subtasks on the dial:
+    // User rule: only show previous one, current one, and upcoming one (plus selectedEvent).
+    final subtaskAllowedEventIds = <String>{};
+    if (events.isNotEmpty) {
+      SectorEvent? current = activeEvent;
+      if (current == null) {
+        for (final e in events) {
+          if (!currentTime.isBefore(e.start) && currentTime.isBefore(e.end)) {
+            current = e;
+            break;
+          }
+        }
+      }
+      current ??= selectedEvent;
+      if (current == null) {
+        for (final e in events) {
+          if (e.start.isAfter(currentTime)) {
+            if (current == null || e.start.isBefore(current.start)) {
+              current = e;
+            }
+          }
+        }
+      }
+
+      if (current != null) {
+        subtaskAllowedEventIds.add(current.id);
+
+        // Find immediate previous event (prev1) ending closest to current.start
+        SectorEvent? prev1;
+        Duration minPrevDiff = const Duration(days: 999);
+        for (final e in events) {
+          if (e.id == current.id) continue;
+          if (e.end.isBefore(current.start) ||
+              e.end.isAtSameMomentAs(current.start)) {
+            final diff = current.start.difference(e.end);
+            if (diff < minPrevDiff) {
+              minPrevDiff = diff;
+              prev1 = e;
+            }
+          }
+        }
+        if (prev1 != null) {
+          subtaskAllowedEventIds.add(prev1.id);
+        }
+
+        // Find immediate upcoming event (next1) starting closest after current.end
+        SectorEvent? next1;
+        Duration minNextDiff = const Duration(days: 999);
+        for (final e in events) {
+          if (e.id == current.id) continue;
+          if (e.start.isAfter(current.end) ||
+              e.start.isAtSameMomentAs(current.end)) {
+            final diff = e.start.difference(current.end);
+            if (diff < minNextDiff) {
+              minNextDiff = diff;
+              next1 = e;
+            }
+          }
+        }
+        if (next1 != null) {
+          subtaskAllowedEventIds.add(next1.id);
+        }
+      }
+
+      if (selectedEvent != null) {
+        subtaskAllowedEventIds.add(selectedEvent!.id);
       }
     }
 
     // Pass 4: Draw Sector Content (icon, title, duration hours only!)
+    final drawnContentAngles = <double>[];
     for (int i = 0; i < pillLayouts.length; i++) {
       final l = pillLayouts[i];
       final effectiveStartCap = l.showStartCap
           ? l.startCapSpan
           : (hasContiguousPredecessor[i] ? overlapDeg : 0.0);
 
-      SectorContentRenderer.drawContent(
-        canvas: canvas,
-        center: center,
-        event: l.event,
-        pillPath: l.pillPath,
-        rIn: l.rIn,
-        rOut: l.rOut,
-        startDeg: l.startDeg,
-        sweepDeg: l.sweepDeg,
-        is24HourMode: is24,
-        startCapSpanDeg: effectiveStartCap,
-        endCapSpanDeg: l.endCapSpan,
-      );
+      final midDeg = (l.startDeg + (l.sweepDeg / 2.0)) % 360.0;
+      final collidesWithDrawn = drawnContentAngles.any((a) {
+        final diff = ((midDeg - a).abs()) % 360.0;
+        final angularDist = diff > 180.0 ? 360.0 - diff : diff;
+        return angularDist < 12.0;
+      });
+
+      if (!collidesWithDrawn || l.isSelected || l.isActive) {
+        drawnContentAngles.add(midDeg);
+        SectorContentRenderer.drawContent(
+          canvas: canvas,
+          center: center,
+          event: l.event,
+          pillPath: l.pillPath,
+          rIn: l.rIn,
+          rOut: l.rOut,
+          startDeg: l.startDeg,
+          sweepDeg: l.sweepDeg,
+          is24HourMode: is24,
+          startCapSpanDeg: effectiveStartCap,
+          endCapSpanDeg: l.endCapSpan,
+          showSubtasks: subtaskAllowedEventIds.contains(l.event.id),
+        );
+      }
     }
   }
 
@@ -587,9 +760,10 @@ class SectographPainter extends CustomPainter {
       fontWeight: FontWeight.w900,
     );
 
-    // Draw AM/PM
+    // Measure AM/PM
+    TextPainter? amPmPainter;
     if (!is24) {
-      final amPmPainter = TextPainter(
+      amPmPainter = TextPainter(
         text: TextSpan(
           text: amPmStr,
           style: TextStyle(
@@ -602,17 +776,9 @@ class SectographPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
         textAlign: TextAlign.center,
       )..layout();
-
-      amPmPainter.paint(
-        canvas,
-        Offset(
-          center.dx - amPmPainter.width / 2,
-          center.dy - innerRadius * 0.55,
-        ),
-      );
     }
 
-    // Draw Digital Time
+    // Measure Digital Time
     final timePainter = TextPainter(
       text: TextSpan(
         text: timeStr,
@@ -622,15 +788,7 @@ class SectographPainter extends CustomPainter {
       textAlign: TextAlign.center,
     )..layout();
 
-    timePainter.paint(
-      canvas,
-      Offset(
-        center.dx - timePainter.width / 2,
-        center.dy - timePainter.height / 2 - (is24 ? 0 : innerRadius * 0.08),
-      ),
-    );
-
-    // Draw Date
+    // Measure Date
     final datePainter = TextPainter(
       text: TextSpan(
         text: dateStr,
@@ -645,69 +803,141 @@ class SectographPainter extends CustomPainter {
       textAlign: TextAlign.center,
     )..layout();
 
-    datePainter.paint(
-      canvas,
-      Offset(
-        center.dx - datePainter.width / 2,
-        center.dy + (is24 ? innerRadius * 0.28 : innerRadius * 0.22),
-      ),
-    );
-
-    // Draw Active Event Chip (Full parity with CenterSummary for Android widget sync)
+    // Measure Active Event Chip (1:1 parity with CenterSummary)
+    TextPainter? chipPainter;
+    TextPainter? iconPainter;
+    double chipWidth = 0.0;
+    double chipHeight = 0.0;
     if (activeEvent != null) {
-      final chipKeyword = SectorContentRenderer.distillShortKeyword(
-        activeEvent!.title,
-      );
-      final remainingMins = activeEvent!.end.difference(currentTime).inMinutes;
-      final chipText = remainingMins > 0
-          ? '$chipKeyword ${remainingMins}m'
-          : chipKeyword;
+      final chipTitle = activeEvent!.title
+          .replaceAll('+', ' + ')
+          .replaceAll('-', ' - ');
 
-      final chipPainter = TextPainter(
+      final titlePainter = TextPainter(
         text: TextSpan(
-          text: chipText,
+          text: chipTitle,
           style: TextStyle(
-            color: activeEvent!.color,
-            fontSize: innerRadius * 0.13,
+            fontFamily: 'Kalam',
+            fontFamilyFallback: const ['Patrick Hand', 'Caveat', 'sans-serif'],
             fontWeight: FontWeight.w700,
-            letterSpacing: 0.2,
+            color: colorScheme.onSecondaryContainer,
+            fontSize: innerRadius * 0.125,
+            letterSpacing: 0.1,
+            height: 1.10,
           ),
         ),
         textDirection: TextDirection.ltr,
         textAlign: TextAlign.center,
+        maxLines: 2,
+      )..layout(maxWidth: innerRadius * 1.15);
+
+      final iconSpan = TextSpan(
+        text: String.fromCharCode(activeEvent!.resolvedIcon.codePoint),
+        style: TextStyle(
+          inherit: false,
+          fontFamily: activeEvent!.resolvedIcon.fontFamily,
+          package: activeEvent!.resolvedIcon.fontPackage,
+          fontSize: innerRadius * 0.13,
+          color: colorScheme.onSecondaryContainer,
+        ),
+      );
+      final iPainter = TextPainter(
+        text: iconSpan,
+        textDirection: TextDirection.ltr,
       )..layout();
 
-      final chipWidth = chipPainter.width + 12.0;
-      final chipHeight = chipPainter.height + 4.0;
-      final chipY =
-          center.dy + (is24 ? innerRadius * 0.52 : innerRadius * 0.46);
+      iconPainter = iPainter;
+      chipPainter = titlePainter;
 
+      chipWidth = (iconPainter.width + 4.0 + titlePainter.width + 14.0).clamp(
+        0.0,
+        innerRadius * 1.35,
+      );
+      chipHeight = math.max(iconPainter.height, titlePainter.height) + 5.0;
+    }
+
+    // Vertical sequential layout calculation:
+    // Centered around center.dy with guaranteed positive gaps between all elements
+    final hasAmPm = amPmPainter != null;
+    final hasChip = chipPainter != null;
+
+    final amPmH = hasAmPm ? amPmPainter.height : 0.0;
+    final timeH = timePainter.height;
+    final dateH = datePainter.height;
+    final chipH = hasChip ? chipHeight : 0.0;
+
+    final gapAmPm = hasAmPm ? 2.0 : 0.0;
+    const gapDate = 3.5;
+    final gapChip = hasChip ? 5.5 : 0.0;
+
+    final totalHeight =
+        amPmH + gapAmPm + timeH + gapDate + dateH + gapChip + chipH;
+    var curY = center.dy - totalHeight / 2.0;
+
+    // Paint AM/PM
+    if (hasAmPm) {
+      amPmPainter.paint(
+        canvas,
+        Offset(center.dx - amPmPainter.width / 2.0, curY),
+      );
+      curY += amPmH + gapAmPm;
+    }
+
+    // Paint Digital Time
+    timePainter.paint(
+      canvas,
+      Offset(center.dx - timePainter.width / 2.0, curY),
+    );
+    curY += timeH + gapDate;
+
+    // Paint Date
+    datePainter.paint(
+      canvas,
+      Offset(center.dx - datePainter.width / 2.0, curY),
+    );
+    curY += dateH + gapChip;
+
+    // Paint Active Event Chip
+    if (hasChip) {
       final chipRect = Rect.fromCenter(
-        center: Offset(center.dx, chipY),
+        center: Offset(center.dx, curY + chipH / 2.0),
         width: chipWidth,
         height: chipHeight,
       );
       final chipRRect = RRect.fromRectAndRadius(
         chipRect,
-        const Radius.circular(8.0),
+        const Radius.circular(12.0),
       );
 
       final chipBg = Paint()
-        ..color = activeEvent!.color.withValues(alpha: 0.18)
+        ..color = colorScheme.secondaryContainer
         ..style = PaintingStyle.fill;
       final chipBorder = Paint()
-        ..color = activeEvent!.color.withValues(alpha: 0.45)
+        ..color = colorScheme.secondary.withValues(alpha: 0.3)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0;
 
       canvas.drawRRect(chipRRect, chipBg);
       canvas.drawRRect(chipRRect, chipBorder);
 
+      final contentTotalW =
+          (iconPainter?.width ?? 0.0) +
+          (iconPainter != null ? 4.0 : 0.0) +
+          chipPainter.width;
+      final startX = center.dx - contentTotalW / 2.0;
+
+      if (iconPainter != null) {
+        iconPainter.paint(
+          canvas,
+          Offset(startX, curY + (chipH - iconPainter.height) / 2.0),
+        );
+      }
+
       chipPainter.paint(
         canvas,
         Offset(
-          center.dx - chipPainter.width / 2,
-          chipY - chipPainter.height / 2,
+          startX + (iconPainter != null ? iconPainter.width + 4.0 : 0.0),
+          curY + (chipH - chipPainter.height) / 2.0,
         ),
       );
     }
@@ -721,6 +951,8 @@ class SectographPainter extends CustomPainter {
         oldDelegate.activeEvent != activeEvent ||
         oldDelegate.events != events ||
         oldDelegate.settings != settings ||
-        oldDelegate.colorScheme != colorScheme;
+        oldDelegate.colorScheme != colorScheme ||
+        oldDelegate.lens != lens ||
+        oldDelegate.activeDraggingCap != activeDraggingCap;
   }
 }

@@ -105,6 +105,79 @@ void main() {
       },
     );
 
+    test('guarantees zero angular sector overlap in 12H mode between next1 (Bed Time) and past afternoon/evening blocks', () {
+      // Exact user scenario: 10:48 PM (22:48)
+      // Today:
+      //   - 'workout': 15:00 - 17:30 (3:00 PM - 5:30 PM) -> angles 90° - 165°
+      //   - 'flex': 17:30 - 20:30 (5:30 PM - 8:30 PM) -> angles 165° - 255°
+      //   - 'lunch': 20:30 - 21:30 (8:30 PM - 9:30 PM) -> angles 255° - 285° (prev1)
+      //   - 'study': 21:30 - 01:30 (9:30 PM - 1:30 AM) -> angles 285° - 45° (active)
+      // Tomorrow:
+      //   - 'bed_time': 01:30 - 08:30 (1:30 AM - 8:30 AM) -> angles 45° - 255° (next1)
+      final workout = SectorEvent(
+        id: 'workout',
+        title: 'Workout or Chill Time',
+        start: DateTime(2026, 9, 11, 15, 0),
+        end: DateTime(2026, 9, 11, 17, 30),
+        colorHex: '#6B7280',
+      );
+      final flex = SectorEvent(
+        id: 'flex',
+        title: 'Flexible Hours',
+        start: DateTime(2026, 9, 11, 17, 30),
+        end: DateTime(2026, 9, 11, 20, 30),
+        colorHex: '#6B7280',
+      );
+      final lunch = SectorEvent(
+        id: 'lunch',
+        title: 'Cooking+Lunch',
+        start: DateTime(2026, 9, 11, 20, 30),
+        end: DateTime(2026, 9, 11, 21, 30),
+        colorHex: '#10B981',
+      );
+      final study = SectorEvent(
+        id: 'study',
+        title: 'Study Time',
+        start: DateTime(2026, 9, 11, 21, 30),
+        end: DateTime(2026, 9, 12, 1, 30),
+        colorHex: '#3B82F6',
+      );
+      final bedTime = SectorEvent(
+        id: 'bed_time',
+        title: 'Bed Time',
+        start: DateTime(2026, 9, 12, 1, 30),
+        end: DateTime(2026, 9, 12, 8, 30),
+        colorHex: '#8B5CF6',
+      );
+
+      final events = [workout, flex, lunch, study, bedTime];
+      final effectiveTime = DateTime(2026, 9, 11, 22, 48); // 10:48 PM
+
+      final result = FocusedBlockLayoutResolver.resolve(
+        events: events,
+        effectiveTime: effectiveTime,
+        is24HourMode: false, // 12H dial
+      );
+
+      // Active is Study Time
+      expect(result.activeEvent?.id, 'study');
+      // Prev1 is Cooking+Lunch
+      expect(result.prev1?.id, 'lunch');
+      // Next1 is Bed Time
+      expect(result.next1?.id, 'bed_time');
+
+      // Bed Time covers 45° to 255°
+      // workout (90°-165°) and flex (165°-255°) collide directly with Bed Time's angle in 12H!
+      // They must NOT be included in visibleEvents to avoid grey wash and text collision:
+      expect(result.visibleEvents.any((e) => e.id == 'workout'), isFalse);
+      expect(result.visibleEvents.any((e) => e.id == 'flex'), isFalse);
+
+      // Visible events should be exactly lunch (255°-285°), study (285°-45°), bed_time (45°-255°)
+      final visibleIds = result.visibleEvents.map((e) => e.id).toSet();
+      expect(visibleIds, containsAll(['lunch', 'study', 'bed_time']));
+      expect(visibleIds.length, 3);
+    });
+
     test('handles schedule with fewer than 3 previous and upcoming events', () {
       final events = [
         makeEvent('e1', 6, 8), // Prev 1
@@ -152,6 +225,60 @@ void main() {
       expect(result.next1?.id, 'e4');
       expect(result.outerEventIds, containsAll(['e2', 'e3', 'e4']));
       expect(result.innerEventIds, contains('e1'));
+    });
+
+    test('deconflicts overlapping events in 24H mode (Nap Time vs Bed Time collision)', () {
+      final events = [
+        SectorEvent(
+          id: 'bed_time',
+          title: 'Bed Time',
+          start: baseDate.add(const Duration(hours: 1, minutes: 30)), // 01:30
+          end: baseDate.add(const Duration(hours: 8, minutes: 30)),   // 08:30
+          colorHex: '#64748B',
+          category: 'Rest',
+        ),
+        SectorEvent(
+          id: 'nap_time',
+          title: 'Nap Time',
+          start: baseDate.add(const Duration(hours: 1, minutes: 30)), // 01:30
+          end: baseDate.add(const Duration(hours: 3, minutes: 0)),    // 03:00
+          colorHex: '#3B82F6',
+          category: 'Rest',
+        ),
+        SectorEvent(
+          id: 'study_time',
+          title: 'Study Time',
+          start: baseDate.add(const Duration(hours: 21, minutes: 30)), // 21:30
+          end: baseDate.add(const Duration(hours: 23, minutes: 0)),    // 23:00
+          colorHex: '#F97316',
+          category: 'Deep Focus',
+        ),
+      ];
+
+      final effectiveTime = baseDate.add(const Duration(hours: 2, minutes: 0));
+      final result = FocusedBlockLayoutResolver.resolve(
+        events: events,
+        effectiveTime: effectiveTime,
+        is24HourMode: true,
+      );
+
+      // Nap Time and Bed Time collide at 01:30. Only ONE should be visible on the dial, never both!
+      final hasBed = result.visibleEvents.any((e) => e.id == 'bed_time');
+      final hasNap = result.visibleEvents.any((e) => e.id == 'nap_time');
+      expect(hasBed && hasNap, isFalse, reason: 'Overlapping events must never both be admitted to the single ring');
+    });
+
+    test('enforces maxDialVisibleBlocks limit on circular dial', () {
+      // Create 15 non-overlapping 1-hour events
+      final events = List.generate(15, (i) => makeEvent('e$i', i, i + 1));
+      final effectiveTime = baseDate.add(const Duration(hours: 7, minutes: 30));
+      final result = FocusedBlockLayoutResolver.resolve(
+        events: events,
+        effectiveTime: effectiveTime,
+        is24HourMode: true,
+      );
+
+      expect(result.visibleEvents.length, lessThanOrEqualTo(10));
     });
   });
 }

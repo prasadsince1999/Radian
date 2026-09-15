@@ -6,13 +6,13 @@ import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_presets.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/models/sector_event.dart';
+import '../../../domain/models/subtask_item.dart';
+import '../../../core/utils/time_formatters.dart';
 import '../../controllers/clock_controller.dart';
 import '../../controllers/cloud_sync_controller.dart';
 import '../common/bouncy_pressable.dart';
-import 'components/event_category_selector.dart';
+import 'subtask_edit_sheet.dart';
 import 'components/event_date_repeat_card.dart';
-import 'components/event_reminder_card.dart';
-import 'components/event_time_card.dart';
 import 'icon_color_picker_sheet.dart';
 
 /// Modal bottom sheet for creating or editing a Sectograph time block.
@@ -36,9 +36,8 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
   late String _selectedCategory;
   late String _selectedColorHex;
   late String _selectedIconName;
-  late List<String> _subtasks;
-  late TextEditingController _subtaskInputController;
-  bool _isAllDay = false;
+  late List<SubtaskItem> _subtaskItems;
+  late bool _isAllDay;
   int? _selectedReminderMinutes;
   late Set<int> _selectedWeeklyDays;
   late bool _isUnlimitedEndDate;
@@ -55,8 +54,7 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
 
     _titleController = TextEditingController(text: ev?.title ?? '');
     _notesController = TextEditingController(text: ev?.notes ?? '');
-    _subtasks = List<String>.from(ev?.subtasks ?? const []);
-    _subtaskInputController = TextEditingController();
+    _subtaskItems = List<SubtaskItem>.from(ev?.subtaskItems ?? const []);
 
     _startDate = ev?.start ?? widget.initialDate;
 
@@ -86,21 +84,31 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
     _selectedIconName = ev?.effectiveIconName ?? '';
     _selectedReminderMinutes = ev?.reminderMinutes;
 
-    _selectedWeeklyDays = ev?.repeatDays != null
-        ? Set<int>.from(ev!.repeatDays!)
-        : <int>{};
-    _isUnlimitedEndDate = ev?.recurrenceEndDate == null;
-    _recurrenceEndDate = ev?.recurrenceEndDate;
-  }
+    final isRepeating =
+        (ev?.repeatDays != null && ev!.repeatDays!.isNotEmpty) ||
+        (ev?.recurrenceEndDate != null);
 
-  void _addSubtask() {
-    final text = _subtaskInputController.text.trim();
-    if (text.isNotEmpty) {
-      setState(() {
-        _subtasks.add(text);
-        _subtaskInputController.clear();
-      });
+    if (ev == null) {
+      _isUnlimitedEndDate = true;
+      _selectedWeeklyDays = <int>{};
+      _recurrenceEndDate = null;
+      _endDate = _startDate;
+    } else if (isRepeating) {
+      _isUnlimitedEndDate = ev.recurrenceEndDate == null;
+      _recurrenceEndDate = ev.recurrenceEndDate;
+      _endDate = ev.recurrenceEndDate ?? _startDate;
+      _selectedWeeklyDays = ev.repeatDays != null && ev.repeatDays!.isNotEmpty
+          ? (ev.repeatDays!.length == 7
+                ? <int>{}
+                : Set<int>.from(ev.repeatDays!))
+          : <int>{};
+    } else {
+      _isUnlimitedEndDate = false;
+      _recurrenceEndDate = null;
+      _endDate = _startDate;
+      _selectedWeeklyDays = <int>{};
     }
+    _isAllDay = ev?.isAllDay ?? false;
   }
 
   IconData? get _selectedIconData {
@@ -130,7 +138,6 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
   void dispose() {
     _titleController.dispose();
     _notesController.dispose();
-    _subtaskInputController.dispose();
     super.dispose();
   }
 
@@ -161,14 +168,6 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
     return '${hours}h ${remMins}m';
   }
 
-  void _applyDurationMinutes(int targetMinutes) {
-    setState(() {
-      final totalStartMin = _startTime.hour * 60 + _startTime.minute;
-      final targetEndMin = (totalStartMin + targetMinutes) % (24 * 60);
-      _endTime = TimeOfDay(hour: targetEndMin ~/ 60, minute: targetEndMin % 60);
-    });
-  }
-
   DateTime _combine(DateTime date, TimeOfDay tod) {
     return DateTime(date.year, date.month, date.day, tod.hour, tod.minute);
   }
@@ -180,20 +179,24 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
       } else {
         _selectedWeeklyDays.add(day);
       }
+      if (_selectedWeeklyDays.isNotEmpty &&
+          !_isUnlimitedEndDate &&
+          (_recurrenceEndDate == null ||
+              !_recurrenceEndDate!.isAfter(_startDate))) {
+        _isUnlimitedEndDate = true;
+      }
     });
   }
 
   void _toggleUnlimitedEndDate() {
     setState(() {
       _isUnlimitedEndDate = !_isUnlimitedEndDate;
-      if (!_isUnlimitedEndDate) {
-        if (_recurrenceEndDate != null &&
-            _recurrenceEndDate!.isAfter(_startDate)) {
-          _endDate = _recurrenceEndDate!;
-        } else {
-          _endDate = _startDate.add(const Duration(days: 7));
-          _recurrenceEndDate = _endDate;
-        }
+      if (_isUnlimitedEndDate) {
+        _recurrenceEndDate = null;
+      } else {
+        _selectedWeeklyDays.clear();
+        _endDate = _startDate;
+        _recurrenceEndDate = null;
       }
     });
   }
@@ -297,103 +300,20 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
 
   Future<void> _pickTime(bool isStart) async {
     final initial = isStart ? _startTime : _endTime;
-    final accent = _currentColor;
-    final onAccent =
-        ThemeData.estimateBrightnessForColor(accent) == Brightness.dark
-        ? Colors.white
-        : Colors.black;
-
-    final baseTheme = Theme.of(context);
-    final colorScheme = baseTheme.colorScheme;
-    final isDark = baseTheme.brightness == Brightness.dark;
-
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: initial,
-      builder: (context, child) {
-        return Theme(
-          data: baseTheme.copyWith(
-            colorScheme: colorScheme.copyWith(
-              primary: accent,
-              onPrimary: onAccent,
-            ),
-            timePickerTheme: TimePickerThemeData(
-              backgroundColor: isDark
-                  ? colorScheme.surfaceContainerHigh
-                  : colorScheme.surface,
-              helpTextStyle: TextStyle(
-                color: colorScheme.onSurface,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-              hourMinuteShape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: colorScheme.outlineVariant, width: 1.2),
-              ),
-              hourMinuteColor: isDark
-                  ? colorScheme.surfaceContainerHighest
-                  : colorScheme.surfaceContainerHigh,
-              hourMinuteTextColor: colorScheme.onSurface,
-              dialBackgroundColor: isDark
-                  ? colorScheme.surfaceContainerHighest
-                  : colorScheme.surfaceContainerHigh,
-              dialHandColor: accent,
-              dialTextColor: colorScheme.onSurface,
-              entryModeIconColor: accent,
-              dayPeriodShape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-                side: BorderSide(color: colorScheme.outlineVariant, width: 1.2),
-              ),
-              dayPeriodColor: WidgetStateColor.resolveWith(
-                (states) => states.contains(WidgetState.selected)
-                    ? accent.withValues(alpha: 0.25)
-                    : (isDark
-                          ? colorScheme.surfaceContainerHighest
-                          : colorScheme.surfaceContainerHigh),
-              ),
-              dayPeriodTextColor: WidgetStateColor.resolveWith(
-                (states) => states.contains(WidgetState.selected)
-                    ? accent
-                    : colorScheme.onSurfaceVariant,
-              ),
-              dayPeriodBorderSide: BorderSide(
-                color: colorScheme.outlineVariant,
-              ),
-              cancelButtonStyle: TextButton.styleFrom(
-                foregroundColor: colorScheme.onSurfaceVariant,
-                textStyle: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              confirmButtonStyle: TextButton.styleFrom(
-                foregroundColor: accent,
-                textStyle: const TextStyle(fontWeight: FontWeight.w900),
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
+    final picked = await showTimePicker(context: context, initialTime: initial);
     if (picked != null) {
       setState(() {
         if (isStart) {
           _startTime = picked;
-          final sMin = _startTime.hour * 60 + _startTime.minute;
-          final eMin = _endTime.hour * 60 + _endTime.minute;
-          if (eMin <= sMin) {
-            _endTime = TimeOfDay(
-              hour: (_startTime.hour + 1) % 24,
-              minute: _startTime.minute,
-            );
+          final sMins = picked.hour * 60 + picked.minute;
+          final eMins = _endTime.hour * 60 + _endTime.minute;
+          if (eMins <= sMins) {
+            final newEMins = (sMins + 60) % (24 * 60);
+            _endTime = TimeOfDay(hour: newEMins ~/ 60, minute: newEMins % 60);
           }
         } else {
           _endTime = picked;
         }
-        final isOvernight =
-            _endTime.hour * 60 + _endTime.minute <=
-            _startTime.hour * 60 + _startTime.minute;
-        _endDate = isOvernight
-            ? _startDate.add(const Duration(days: 1))
-            : _startDate;
       });
     }
   }
@@ -446,15 +366,6 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
     final title = _titleController.text.trim();
     if (title.isEmpty) return;
 
-    // Auto-commit any pending subtask still in the input field
-    final pendingSubtask = _subtaskInputController.text.trim();
-    final effectiveSubtasks = List<String>.from(_subtasks);
-    if (pendingSubtask.isNotEmpty) {
-      effectiveSubtasks.add(pendingSubtask);
-      _subtasks.add(pendingSubtask);
-      _subtaskInputController.clear();
-    }
-
     final repo = ref.read(eventRepositoryProvider);
     final startDt = _isAllDay
         ? DateTime(_startDate.year, _startDate.month, _startDate.day, 0, 0)
@@ -475,6 +386,24 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
       endDt = startDt.add(const Duration(hours: 1));
     }
 
+    final effectiveRepeatDays = () {
+      if (_selectedWeeklyDays.isNotEmpty) {
+        return _selectedWeeklyDays.toList()..sort();
+      }
+      if (_isUnlimitedEndDate) {
+        return [1, 2, 3, 4, 5, 6, 7];
+      }
+      if (_recurrenceEndDate != null &&
+          _recurrenceEndDate!.isAfter(_startDate)) {
+        return [1, 2, 3, 4, 5, 6, 7];
+      }
+      return null;
+    }();
+
+    final effectiveRecurrenceEndDate = _isUnlimitedEndDate
+        ? null
+        : (_endDate.isAfter(_startDate) ? _endDate : null);
+
     final newEvent = SectorEvent(
       id: widget.event?.id ?? const Uuid().v4(),
       title: title,
@@ -483,13 +412,12 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
       colorHex: _selectedColorHex,
       notes: _notesController.text.trim(),
       category: _selectedCategory,
+      isAllDay: _isAllDay,
       iconName: _selectedIconName.isEmpty ? null : _selectedIconName,
       reminderMinutes: _selectedReminderMinutes,
-      repeatDays: _selectedWeeklyDays.isEmpty
-          ? null
-          : _selectedWeeklyDays.toList(),
-      recurrenceEndDate: _isUnlimitedEndDate ? null : _recurrenceEndDate,
-      subtasks: effectiveSubtasks,
+      repeatDays: effectiveRepeatDays,
+      recurrenceEndDate: effectiveRecurrenceEndDate,
+      subtaskItems: _subtaskItems,
     );
 
     if (widget.event == null) {
@@ -529,7 +457,6 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
     final chassisBg = isDark
         ? colorScheme.surfaceContainerLow
         : colorScheme.surface;
-
     return Container(
       decoration: BoxDecoration(
         color: chassisBg,
@@ -649,7 +576,7 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
               ),
               const SizedBox(height: 14),
 
-              // Title input with Icon button
+              // 1. Unified Title & Category Card
               Container(
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerHigh,
@@ -659,61 +586,137 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
                     width: 1.2,
                   ),
                 ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                child: Row(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    BouncyPressable(
-                      key: const ValueKey('select_icon_button'),
-                      scaleDownFactor: 0.92,
-                      onTap: () => _openIconPicker(context),
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: currentColor.withValues(alpha: 0.22),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: currentColor, width: 1.2),
-                        ),
-                        child: Center(
-                          child: Icon(
-                            _selectedIconData ?? Icons.add_rounded,
-                            size: 22,
-                            color: currentColor,
+                    Row(
+                      children: [
+                        BouncyPressable(
+                          key: const ValueKey('select_icon_button'),
+                          scaleDownFactor: 0.92,
+                          onTap: () => _openIconPicker(context),
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: currentColor.withValues(alpha: 0.22),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: currentColor,
+                                width: 1.2,
+                              ),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                _selectedIconData ?? Icons.add_rounded,
+                                size: 22,
+                                color: currentColor,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _titleController,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.onSurface,
+                            ),
+                            maxLength: 30,
+                            buildCounter: (
+                              _, {
+                              required currentLength,
+                              required isFocused,
+                              maxLength,
+                            }) => null,
+                            decoration: InputDecoration(
+                              hintText: 'Event name',
+                              hintStyle: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _save(),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _titleController,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.onSurface,
-                        ),
-                        maxLength: 30,
-                        buildCounter: (
-                          _, {
-                          required currentLength,
-                          required isFocused,
-                          maxLength,
-                        }) => null,
-                        decoration: InputDecoration(
-                          hintText: 'Event name',
-                          hintStyle: TextStyle(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _save(),
+                    const SizedBox(height: 10),
+                    Divider(
+                      height: 1,
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+                    ),
+                    const SizedBox(height: 10),
+                    // Merged Category Chips directly inside Title Block
+                    SizedBox(
+                      height: 34,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: AppPresets.defaultCategories.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 8),
+                        itemBuilder: (ctx, i) {
+                          final cat = AppPresets.defaultCategories[i];
+                          final isSelected = _selectedCategory == cat;
+                          return BouncyPressable(
+                            scaleDownFactor: 0.94,
+                            onTap: () {
+                              setState(() {
+                                _selectedCategory = cat;
+                                final currentTitle = _titleController.text
+                                    .trim();
+                                if (currentTitle.isEmpty ||
+                                    currentTitle == 'New Block' ||
+                                    AppPresets.defaultCategories.contains(
+                                      currentTitle,
+                                    )) {
+                                  _titleController.text = cat;
+                                }
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? currentColor
+                                    : colorScheme.surfaceContainer,
+                                borderRadius: BorderRadius.circular(9),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? currentColor
+                                      : colorScheme.outlineVariant,
+                                  width: 1.0,
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  cat,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: isSelected
+                                        ? (ThemeData.estimateBrightnessForColor(
+                                                    currentColor,
+                                                  ) ==
+                                                  Brightness.dark
+                                              ? Colors.white
+                                              : Colors.black87)
+                                        : colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -721,58 +724,158 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
               ),
               const SizedBox(height: 12),
 
-              // Category Selector
-              EventCategorySelector(
-                selectedCategory: _selectedCategory,
-                currentColor: currentColor,
-                onCategorySelected: (cat) =>
-                    setState(() => _selectedCategory = cat),
+              // 2. Start & End Time Card (Clean & Tappable, No All-day / drag helper)
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: cardBorder, width: 1.2),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.schedule_rounded,
+                          size: 18,
+                          color: currentColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'TIME',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: currentColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            _durationLabel,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: currentColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            key: const ValueKey('start_time_tile'),
+                            onTap: () => _pickTime(true),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorScheme.surfaceContainerHigh,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: colorScheme.outlineVariant,
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'START',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    TimeFormatters.formatTimeOfDay(_startTime),
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800,
+                                      color: colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 18,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        Expanded(
+                          child: InkWell(
+                            key: const ValueKey('end_time_tile'),
+                            onTap: () => _pickTime(false),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorScheme.surfaceContainerHigh,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: colorScheme.outlineVariant,
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'END',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    TimeFormatters.formatTimeOfDay(_endTime),
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800,
+                                      color: colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
 
-              // Time Card
-              EventTimeCard(
-                startTime: _startTime,
-                endTime: _endTime,
-                isAllDay: _isAllDay,
-                durationMinutes: _durationMinutes,
-                durationLabel: _durationLabel,
-                currentColor: currentColor,
-                cardBg: cardBg,
-                cardBorder: cardBorder,
-                onPickTime: _pickTime,
-                onToggleAllDay: () => setState(() => _isAllDay = !_isAllDay),
-                onDurationChanged: _applyDurationMinutes,
-              ),
-              const SizedBox(height: 12),
-
-              // Date & Repeat Card
-              EventDateRepeatCard(
-                startDate: _startDate,
-                endDate: _endDate,
-                isUnlimitedEndDate: _isUnlimitedEndDate,
-                selectedWeeklyDays: _selectedWeeklyDays,
-                currentColor: currentColor,
-                cardBg: cardBg,
-                cardBorder: cardBorder,
-                onPickDate: _pickDate,
-                onToggleUnlimited: _toggleUnlimitedEndDate,
-                onToggleWeekday: _toggleWeekday,
-              ),
-              const SizedBox(height: 12),
-
-              // Reminder Card
-              EventReminderCard(
-                selectedReminderMinutes: _selectedReminderMinutes,
-                currentColor: currentColor,
-                cardBg: cardBg,
-                cardBorder: cardBorder,
-                onReminderSelected: (mins) =>
-                    setState(() => _selectedReminderMinutes = mins),
-              ),
-              const SizedBox(height: 12),
-
-              // Subtasks Card
+              // 3. Subtasks Card (Moved to Upper Side + In-Block Scheduling)
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -791,148 +894,250 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
                           color: currentColor,
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          'Subtasks (${_subtasks.length})',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
                         Expanded(
-                          child: Container(
-                            height: 40,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.05)
-                                  : Colors.black.withValues(alpha: 0.04),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: isDark ? Colors.white12 : Colors.black12,
-                              ),
-                            ),
-                            child: TextField(
-                              controller: _subtaskInputController,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: colorScheme.onSurface,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: 'Add a subtask...',
-                                hintStyle: TextStyle(
-                                  fontSize: 12,
-                                  color: colorScheme.onSurface.withValues(
-                                    alpha: 0.4,
-                                  ),
-                                ),
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 10,
-                                ),
-                              ),
-                              textInputAction: TextInputAction.done,
-                              onSubmitted: (_) => _addSubtask(),
+                          child: Text(
+                            'Subtasks (${_subtaskItems.length})',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: colorScheme.onSurface,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
                         BouncyPressable(
-                          onTap: _addSubtask,
+                          onTap: () async {
+                            final created = await SubtaskEditSheet.show(
+                              context,
+                              initialParentEventId: widget.event?.id,
+                              initialDate: _startDate,
+                              parentStartTime: _startTime,
+                              parentEndTime: _endTime,
+                            );
+                            if (created != null && mounted) {
+                              setState(() {
+                                _subtaskItems.add(created);
+                              });
+                            }
+                          },
                           child: Container(
-                            height: 40,
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
-                              color: currentColor.withValues(alpha: 0.18),
-                              borderRadius: BorderRadius.circular(10),
+                              color: currentColor.withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: currentColor.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            child: Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.add_rounded,
-                                    size: 16,
-                                    color: currentColor,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Add',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: currentColor,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (_subtasks.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: _subtasks.asMap().entries.map((entry) {
-                          final idx = entry.key;
-                          final sub = entry.value;
-                          return Container(
-                            padding: const EdgeInsets.only(
-                              left: 10,
-                              right: 6,
-                              top: 5,
-                              bottom: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: currentColor.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: currentColor.withValues(alpha: 0.25),
                               ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(
-                                  sub,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: colorScheme.onSurface,
-                                  ),
+                                Icon(
+                                  Icons.add_rounded,
+                                  size: 14,
+                                  color: currentColor,
                                 ),
                                 const SizedBox(width: 4),
-                                GestureDetector(
-                                  onTap: () =>
-                                      setState(() => _subtasks.removeAt(idx)),
-                                  child: Icon(
-                                    Icons.close_rounded,
-                                    size: 14,
-                                    color: colorScheme.onSurface.withValues(
-                                      alpha: 0.6,
-                                    ),
+                                Text(
+                                  'Add Subtask',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: currentColor,
                                   ),
                                 ),
                               ],
                             ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_subtaskItems.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _subtaskItems.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 6),
+                        itemBuilder: (context, idx) {
+                          final item = _subtaskItems[idx];
+                          final timeStr =
+                              item.startTime != null && item.endTime != null
+                              ? '${TimeFormatters.formatTimeOfDay(item.startTime!)} – ${TimeFormatters.formatTimeOfDay(item.endTime!)}'
+                              : null;
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: () async {
+                              final updated = await SubtaskEditSheet.show(
+                                context,
+                                subtask: item,
+                                initialParentEventId: widget.event?.id,
+                                initialDate: _startDate,
+                                parentStartTime: _startTime,
+                                parentEndTime: _endTime,
+                              );
+                              if (updated != null && mounted) {
+                                setState(() {
+                                  _subtaskItems[idx] = updated;
+                                });
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.04)
+                                    : Colors.black.withValues(alpha: 0.03),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: isDark
+                                      ? Colors.white12
+                                      : Colors.black12,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _subtaskItems[idx] = item.copyWith(
+                                          isCompleted: !item.isCompleted,
+                                        );
+                                      });
+                                    },
+                                    child: Icon(
+                                      item.isCompleted
+                                          ? Icons.check_circle_rounded
+                                          : Icons
+                                                .radio_button_unchecked_rounded,
+                                      size: 18,
+                                      color: item.isCompleted
+                                          ? currentColor
+                                          : colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.title,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: colorScheme.onSurface,
+                                            decoration: item.isCompleted
+                                                ? TextDecoration.lineThrough
+                                                : null,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        if (timeStr != null ||
+                                            item.reminderMinutes != null) ...[
+                                          const SizedBox(height: 2),
+                                          Row(
+                                            children: [
+                                              if (timeStr != null) ...[
+                                                Icon(
+                                                  Icons.schedule_rounded,
+                                                  size: 11,
+                                                  color: colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  timeStr,
+                                                  style: TextStyle(
+                                                    fontSize: 10.5,
+                                                    color: colorScheme
+                                                        .onSurfaceVariant,
+                                                  ),
+                                                ),
+                                              ],
+                                              if (timeStr != null &&
+                                                  item.reminderMinutes != null)
+                                                const SizedBox(width: 8),
+                                              if (item.reminderMinutes !=
+                                                  null) ...[
+                                                Icon(
+                                                  Icons
+                                                      .notifications_active_outlined,
+                                                  size: 11,
+                                                  color: currentColor,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  '${item.reminderMinutes}m before',
+                                                  style: TextStyle(
+                                                    fontSize: 10.5,
+                                                    color: currentColor,
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.close_rounded,
+                                      size: 16,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: () {
+                                      setState(() {
+                                        _subtaskItems.removeAt(idx);
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
                           );
-                        }).toList(),
+                        },
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        'No subtasks yet. Tap "+ Add Subtask" to schedule a dedicated task with timing & reminder.',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontStyle: FontStyle.italic,
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.7,
+                          ),
+                        ),
                       ),
                     ],
                   ],
                 ),
+              ),
+              const SizedBox(height: 12),
+
+              // 4. Date & Repeat Card
+              EventDateRepeatCard(
+                startDate: _startDate,
+                endDate: _endDate,
+                isUnlimitedEndDate: _isUnlimitedEndDate,
+                selectedWeeklyDays: _selectedWeeklyDays,
+                currentColor: currentColor,
+                cardBg: cardBg,
+                cardBorder: cardBorder,
+                onPickDate: _pickDate,
+                onToggleUnlimited: _toggleUnlimitedEndDate,
+                onToggleWeekday: _toggleWeekday,
               ),
               const SizedBox(height: 16),
 

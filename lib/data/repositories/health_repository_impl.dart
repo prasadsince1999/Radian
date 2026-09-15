@@ -12,6 +12,9 @@ class HealthRepositoryImpl implements HealthRepository {
   Future<bool> isAvailable() => service.isAvailable();
 
   @override
+  Future<bool> hasPermissions() => service.hasPermissions();
+
+  @override
   Future<bool> requestPermissions() => service.requestPermissions();
 
   @override

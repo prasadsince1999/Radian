@@ -78,8 +78,8 @@ class ExpressiveTimeline extends ConsumerWidget {
                   key: ValueKey(ev.id),
                   direction: DismissDirection.horizontal,
                   dismissThresholds: const {
-                    DismissDirection.startToEnd: 0.25,
-                    DismissDirection.endToStart: 0.35,
+                    DismissDirection.startToEnd: 0.70,
+                    DismissDirection.endToStart: 0.70,
                   },
                   background: Container(
                     margin: const EdgeInsets.symmetric(

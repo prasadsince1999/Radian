@@ -29,9 +29,12 @@ class SectorPillRenderer {
 
     final endDeg = startDeg + sweepDeg;
     final radialThickness = rOut - rIn;
-    final actualCornerR = cornerRadius
-        .clamp(1.5, radialThickness * 0.45)
-        .clamp(1.5, 12.0);
+    // Calculate maximum allowable corner radius so dThIn never exceeds sweepDeg / 2.2
+    final maxCornerFromSweep = (rIn * sweepDeg * math.pi / 180.0) / 2.2;
+    final actualCornerR = math
+        .min(cornerRadius, math.min(radialThickness * 0.45, maxCornerFromSweep))
+        .clamp(1.0, 12.0)
+        .toDouble();
 
     final dThOut = (actualCornerR / rOut) * (180.0 / math.pi);
     final dThIn = (actualCornerR / rIn) * (180.0 / math.pi);
@@ -81,13 +84,16 @@ class SectorPillRenderer {
     final sweepInStart = roundEnd ? endDeg - dThIn : endDeg;
     final sweepInEnd = roundStart ? startDeg + dThIn : startDeg;
     final sweepIn = sweepInStart - sweepInEnd;
-    if (sweepIn > 0) {
+    if (sweepIn > 0.05) {
       path.arcTo(
         Rect.fromCircle(center: center, radius: rIn),
         SectorMath.dialAngleToCanvasRadians(sweepInStart),
         -SectorMath.degToRad(sweepIn),
         false,
       );
+    } else {
+      final pEnd = pt(rIn, sweepInEnd);
+      path.lineTo(pEnd.dx, pEnd.dy);
     }
 
     // 7. Corner 3 (Start-Inner)
@@ -211,11 +217,12 @@ class SectorPillRenderer {
       center.dy + midR * math.sin(midRad),
     );
 
+    final fontSize = is24HourMode ? 6.8 : 7.4;
     final textPainter = TextPainter(
       text: TextSpan(
         text: timeStr,
         style: TextStyle(
-          fontSize: is24HourMode ? 7.0 : 7.6,
+          fontSize: fontSize,
           fontWeight: FontWeight.w800,
           color: const Color(0xFFFFFFFF),
           letterSpacing: -0.2,
@@ -226,6 +233,18 @@ class SectorPillRenderer {
       textAlign: TextAlign.center,
     )..layout();
 
+    // Ensure text fits strictly inside cap arc and radial clearance
+    final availableArcAtMidR = midR * (sweepDeg * math.pi / 180.0);
+    final availableRadial = (rOut - rIn) - 14.0;
+    var scale = 1.0;
+    if (textPainter.height > availableArcAtMidR * 0.88) {
+      scale = math.min(scale, (availableArcAtMidR * 0.88) / textPainter.height);
+    }
+    if (textPainter.width > availableRadial) {
+      scale = math.min(scale, availableRadial / textPainter.width);
+    }
+    scale = scale.clamp(0.65, 1.0);
+
     canvas.save();
     canvas.clipPath(capPath);
     canvas.translate(textCenter.dx, textCenter.dy);
@@ -235,6 +254,10 @@ class SectorPillRenderer {
       rotation += math.pi;
     }
     canvas.rotate(rotation);
+
+    if (scale < 1.0) {
+      canvas.scale(scale, scale);
+    }
 
     textPainter.paint(
       canvas,

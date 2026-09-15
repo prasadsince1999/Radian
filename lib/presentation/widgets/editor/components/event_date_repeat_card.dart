@@ -40,6 +40,30 @@ class EventDateRepeatCard extends StatelessWidget {
     ('S', 'Sun', 7),
   ];
 
+  String get _repeatSummary {
+    if (selectedWeeklyDays.isNotEmpty) {
+      if (selectedWeeklyDays.length == 7) return 'Every day';
+      if (selectedWeeklyDays.length == 5 &&
+          selectedWeeklyDays.contains(1) &&
+          selectedWeeklyDays.contains(2) &&
+          selectedWeeklyDays.contains(3) &&
+          selectedWeeklyDays.contains(4) &&
+          selectedWeeklyDays.contains(5)) {
+        return 'Weekdays';
+      }
+      if (selectedWeeklyDays.length == 2 &&
+          selectedWeeklyDays.contains(6) &&
+          selectedWeeklyDays.contains(7)) {
+        return 'Weekends';
+      }
+      return '${selectedWeeklyDays.length}d/wk';
+    }
+    if (isUnlimitedEndDate) {
+      return 'Daily';
+    }
+    return 'Once';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -189,7 +213,7 @@ class EventDateRepeatCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          // Repeat row: Repeat label + 7 Calendar Day bubbles
+          // Repeat row: Repeat label + summary badge + 7 Calendar Day bubbles
           Row(
             children: [
               Text(
@@ -200,7 +224,27 @@ class EventDateRepeatCard extends StatelessWidget {
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: (isUnlimitedEndDate || selectedWeeklyDays.isNotEmpty)
+                      ? currentColor.withValues(alpha: 0.15)
+                      : colorScheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(
+                  _repeatSummary,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: (isUnlimitedEndDate || selectedWeeklyDays.isNotEmpty)
+                        ? currentColor
+                        : colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

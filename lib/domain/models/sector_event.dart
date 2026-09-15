@@ -4,6 +4,7 @@ import '../../core/constants/app_presets.dart';
 import '../../core/geometry/concentric_solver.dart';
 import '../../core/geometry/polar_hit_test.dart';
 import '../../core/geometry/sector_math.dart';
+import 'subtask_item.dart';
 
 /// Immutable domain model representing a time block sector on the circular dial.
 ///
@@ -24,7 +25,8 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
   final int? reminderMinutes;
   final List<int>? repeatDays;
   final DateTime? recurrenceEndDate;
-  final List<String> subtasks;
+  final List<SubtaskItem> subtaskItems;
+  List<String> get subtasks => subtaskItems.map((s) => s.title).toList();
 
   @override
   final int topLevel;
@@ -49,12 +51,19 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
     this.reminderMinutes,
     this.repeatDays,
     this.recurrenceEndDate,
-    this.subtasks = const [],
+    List<SubtaskItem>? subtaskItems,
+    List<String>? subtasks,
     this.topLevel = 0,
     this.bottomLevel = 1000,
     this.startAngle = 0.0,
     this.sweepAngle = 0.0,
-  });
+  }) : subtaskItems =
+           subtaskItems ??
+           (subtasks != null
+               ? subtasks
+                     .map((s) => SubtaskItem.fromString(s, parentEventId: id))
+                     .toList()
+               : const []);
 
   IconData get iconData => AppPresets.getIconById(iconName);
 
@@ -189,6 +198,7 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
     bool clearRepeatDays = false,
     DateTime? recurrenceEndDate,
     bool clearRecurrenceEndDate = false,
+    List<SubtaskItem>? subtaskItems,
     List<String>? subtasks,
     int? topLevel,
     int? bottomLevel,
@@ -212,7 +222,18 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
       recurrenceEndDate: clearRecurrenceEndDate
           ? null
           : (recurrenceEndDate ?? this.recurrenceEndDate),
-      subtasks: subtasks ?? this.subtasks,
+      subtaskItems:
+          subtaskItems ??
+          (subtasks != null
+              ? subtasks
+                    .map(
+                      (s) => SubtaskItem.fromString(
+                        s,
+                        parentEventId: id ?? this.id,
+                      ),
+                    )
+                    .toList()
+              : this.subtaskItems),
       topLevel: topLevel ?? this.topLevel,
       bottomLevel: bottomLevel ?? this.bottomLevel,
       startAngle: startAngle ?? this.startAngle,
@@ -234,6 +255,7 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
     'repeatDays': repeatDays,
     'recurrenceEndDate': recurrenceEndDate?.toIso8601String(),
     'subtasks': subtasks,
+    'subtaskItems': subtaskItems.map((s) => s.toJson()).toList(),
     'topLevel': topLevel,
     'bottomLevel': bottomLevel,
     'startAngle': startAngle,
@@ -241,8 +263,20 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
   };
 
   factory SectorEvent.fromJson(Map<String, dynamic> json) {
+    final id = json['id'] as String;
+    List<SubtaskItem> parsedSubtasks = const [];
+    if (json['subtaskItems'] is List) {
+      parsedSubtasks = (json['subtaskItems'] as List<dynamic>)
+          .map((item) => SubtaskItem.fromJson(item as Map<String, dynamic>, id))
+          .toList();
+    } else if (json['subtasks'] is List) {
+      parsedSubtasks = (json['subtasks'] as List<dynamic>)
+          .map((e) => SubtaskItem.fromString(e.toString(), parentEventId: id))
+          .toList();
+    }
+
     return SectorEvent(
-      id: json['id'] as String,
+      id: id,
       title: json['title'] as String,
       start: DateTime.parse(json['start'] as String),
       end: DateTime.parse(json['end'] as String),
@@ -258,11 +292,7 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
       recurrenceEndDate: json['recurrenceEndDate'] != null
           ? DateTime.parse(json['recurrenceEndDate'] as String)
           : null,
-      subtasks:
-          (json['subtasks'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const [],
+      subtaskItems: parsedSubtasks,
       topLevel: json['topLevel'] as int? ?? 0,
       bottomLevel: json['bottomLevel'] as int? ?? 1000,
       startAngle: (json['startAngle'] as num?)?.toDouble() ?? 0.0,

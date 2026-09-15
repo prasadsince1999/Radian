@@ -83,12 +83,13 @@ class SectorContentRenderer {
     bool isOuterRing = true,
     double startCapSpanDeg = 0.0,
     double endCapSpanDeg = 0.0,
+    bool showSubtasks = true,
   }) {
     final effectiveStartDeg = startDeg + startCapSpanDeg;
     final effectiveSweepDeg = sweepDeg - startCapSpanDeg - endCapSpanDeg;
 
     // Skip content on hairline / micro sectors
-    if (effectiveSweepDeg < (is24HourMode ? 5.0 : 7.0)) return;
+    if (effectiveSweepDeg < (is24HourMode ? 2.5 : 4.0)) return;
 
     final midDeg = effectiveStartDeg + (effectiveSweepDeg / 2.0);
     final midRad = SectorMath.dialAngleToCanvasRadians(midDeg);
@@ -116,7 +117,9 @@ class SectorContentRenderer {
     final metaFontSize = is24HourMode
         ? (isNarrowSector ? 8.5 : 9.5)
         : (isNarrowSector ? 9.5 : 10.5);
-    final pebbleFontSize = is24HourMode ? 9.0 : 10.0;
+    final pebbleFontSize = is24HourMode
+        ? (isNarrowSector ? 6.5 : 7.2)
+        : (isNarrowSector ? 8.0 : 9.0);
 
     final iconData = _getEventIcon(event);
     final iconPainter = TextPainter(
@@ -132,17 +135,28 @@ class SectorContentRenderer {
       textDirection: TextDirection.ltr,
     )..layout();
 
-    // Micro / tight sectors: draw icon only (strictly inside boundary)
-    if (effectiveSweepDeg < (is24HourMode ? 8.0 : 11.0)) {
+    // Micro / tight sectors: draw icon only (strictly inside boundary with auto-scaling)
+    if (effectiveSweepDeg < (is24HourMode ? 6.0 : 9.0)) {
       canvas.save();
       canvas.clipPath(pillPath);
+      final rMin = math.max(rIn + 8.0, midR - (iconPainter.height / 2.0));
+      final availArc = rMin * (effectiveSweepDeg * math.pi / 180.0);
+      final iconScale = (availArc / (iconPainter.width + 3.0)).clamp(0.4, 1.0);
+      canvas.save();
+      canvas.translate(pos.dx, pos.dy);
+      var tangentAngle = midRad + (math.pi / 2.0);
+      if (math.cos(tangentAngle) < 0.05) {
+        tangentAngle += math.pi;
+      }
+      canvas.rotate(tangentAngle);
+      if (iconScale < 1.0) {
+        canvas.scale(iconScale, iconScale);
+      }
       iconPainter.paint(
         canvas,
-        Offset(
-          pos.dx - iconPainter.width / 2.0,
-          pos.dy - iconPainter.height / 2.0,
-        ),
+        Offset(-iconPainter.width / 2.0, -iconPainter.height / 2.0),
       );
+      canvas.restore();
       canvas.restore();
       return;
     }
@@ -234,8 +248,16 @@ class SectorContentRenderer {
     if (contentHeight > maxAllowedHeight) {
       scale = math.min(scale, maxAllowedHeight / contentHeight);
     }
-    // High-legibility clamp: minimum 0.68 guarantees crisp, readable text without clipping
-    scale = scale.clamp(0.68, 1.15);
+    // High-legibility clamp: minimum 0.65 guarantees crisp, readable text without clipping
+    scale = scale.clamp(0.65, 1.15);
+    // Hard ceiling: scaled content width must NEVER exceed available inner arc buffer
+    if (contentWidth * scale > (availableInnerArc - capSafetyPadding) &&
+        contentWidth > 0) {
+      scale = math.max(
+        0.4,
+        (availableInnerArc - capSafetyPadding) / contentWidth,
+      );
+    }
 
     // CRITICAL: Clip to pillPath so no content ever bleeds into bezels or margins!
     canvas.save();
@@ -274,8 +296,12 @@ class SectorContentRenderer {
     canvas.restore(); // restore from center translate/rotate
 
     // 2. DRAW "RIVER PEBBLE" SUBTASKS ORGANICALLY AROUND CENTER TITLE
-    // In wide or expanded blocks (>= 32° sweep), scatter subtask keywords like smooth river stones
-    if (event.subtasks.isNotEmpty && effectiveSweepDeg >= 32.0) {
+    // Only in blocks with sufficient sweep (>= 22° in 24H, >= 32° in 12H), scatter subtasks like smooth river stones
+    final minPebbleSweep = is24HourMode ? 22.0 : 32.0;
+    if (showSubtasks &&
+        event.subtasks.isNotEmpty &&
+        effectiveSweepDeg >= minPebbleSweep &&
+        trackThickness >= 24.0) {
       _drawRiverPebbles(
         canvas: canvas,
         center: center,
@@ -283,18 +309,25 @@ class SectorContentRenderer {
         midDeg: midDeg,
         effectiveSweepDeg: effectiveSweepDeg,
         midR: midR,
+        rIn: rIn,
+        rOut: rOut,
         trackThickness: trackThickness,
         textColor: textColor,
         isDarkSector: isDarkSector,
         pebbleFontSize: pebbleFontSize,
         centerTitleWidth: contentWidth * scale,
+        is24HourMode: is24HourMode,
+        startCapSpanDeg: startCapSpanDeg,
+        endCapSpanDeg: endCapSpanDeg,
       );
     }
 
     canvas.restore(); // restore from clipPath
   }
 
-  /// Draws organic "river pebbles" scattered naturally around the main center title.
+  /// Draws organic "river pebbles" scattered naturally around the main center title,
+  /// strictly bounded in the open water bays (left & right of title) so they never touch
+  /// the center title, never sit below/above the title, and never cross sector boundary caps.
   static void _drawRiverPebbles({
     required Canvas canvas,
     required Offset center,
@@ -302,13 +335,18 @@ class SectorContentRenderer {
     required double midDeg,
     required double effectiveSweepDeg,
     required double midR,
+    required double rIn,
+    required double rOut,
     required double trackThickness,
     required Color textColor,
     required bool isDarkSector,
     required double pebbleFontSize,
     required double centerTitleWidth,
+    required bool is24HourMode,
+    required double startCapSpanDeg,
+    required double endCapSpanDeg,
   }) {
-    // Take up to 4 subtasks to scatter like river pebbles
+    // Take up to 4 subtasks to scatter like smooth river pebbles
     final pebbles = subtasks
         .take(4)
         .map((s) => distillShortKeyword(s))
@@ -335,35 +373,17 @@ class SectorContentRenderer {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.9;
 
-    // Minimum angular clearance from center title (converted from pixel width to polar angle)
+    // Minimum angular span of the center title block
     final titleHalfDeg = (centerTitleWidth / 2.0) / (midR * math.pi / 180.0);
-    final minSafeOffsetDeg = titleHalfDeg + 3.5;
 
-    // Organic offsets: upstream and downstream along the river shores
-    final dTh = math.max(minSafeOffsetDeg + 6.0, effectiveSweepDeg * 0.28);
-    final rShift = trackThickness * 0.22;
+    // Subtle natural tilt variations like smooth stones resting in a gentle river flow
+    const tilts = [-0.04, 0.05, -0.05, 0.04];
 
-    // Subtle natural tilt variations like stones resting casually on the riverbank
-    const tilts = [-0.08, 0.10, -0.12, 0.07];
-    const cornerRadii = [9.5, 8.0, 10.0, 8.5];
+    // Measure each pebble first to compute required angular spans
+    final textPainters = <TextPainter>[];
+    final pebbleDimensions = <({double w, double h, double halfDeg})>[];
 
-    final offsets = [
-      (angleOffset: -dTh, rOffset: rShift), // Flank 1: upstream, outer bank
-      (angleOffset: dTh, rOffset: -rShift), // Flank 2: downstream, inner bank
-      (
-        angleOffset: -dTh * 1.36,
-        rOffset: -rShift * 0.85,
-      ), // Flank 3: far upstream, inner bank
-      (
-        angleOffset: dTh * 1.36,
-        rOffset: rShift * 0.85,
-      ), // Flank 4: far downstream, outer bank
-    ];
-
-    for (int i = 0; i < pebbles.length && i < offsets.length; i++) {
-      final keyword = pebbles[i];
-      final offset = offsets[i];
-
+    for (final keyword in pebbles) {
       final tp = TextPainter(
         text: TextSpan(text: keyword, style: pebbleStyle),
         maxLines: 1,
@@ -371,58 +391,224 @@ class SectorContentRenderer {
         textAlign: TextAlign.center,
       )..layout();
 
-      final pebbleW = tp.width + 11.0;
-      final pebbleH = tp.height + 5.0;
-      final pR = (midR + offset.rOffset).clamp(
-        midR - trackThickness * 0.35,
-        midR + trackThickness * 0.35,
-      );
-      final pebbleHalfDeg = (pebbleW / 2.0) / (pR * math.pi / 180.0);
+      final w = tp.width + (is24HourMode ? 5.0 : 8.0);
+      final h = tp.height + (is24HourMode ? 2.5 : 4.0);
+      final halfDeg = (w / 2.0) / (midR * math.pi / 180.0);
 
-      // Check collision with center title: must stay outside center title half angle
-      if (offset.angleOffset.abs() - pebbleHalfDeg < minSafeOffsetDeg) continue;
-
-      // Check collision with sector boundaries & caps: must stay safely inside
-      if (offset.angleOffset.abs() + pebbleHalfDeg >
-          (effectiveSweepDeg * 0.45)) {
-        continue;
-      }
-
-      final pDeg = midDeg + offset.angleOffset;
-      final pRad = SectorMath.dialAngleToCanvasRadians(pDeg);
-      final pPos = Offset(
-        center.dx + pR * math.cos(pRad),
-        center.dy + pR * math.sin(pRad),
-      );
-
-      canvas.save();
-      canvas.translate(pPos.dx, pPos.dy);
-
-      // Rotate along the local tangent + organic pebble tilt
-      var pTangent = pRad + (math.pi / 2.0);
-      if (math.cos(pTangent) < 0.05) {
-        pTangent += math.pi;
-      }
-      pTangent += tilts[i % tilts.length];
-      canvas.rotate(pTangent);
-
-      // River stone rounded capsule
-      final pebbleRect = Rect.fromCenter(
-        center: Offset.zero,
-        width: pebbleW,
-        height: pebbleH,
-      );
-      final pebbleRRect = RRect.fromRectAndRadius(
-        pebbleRect,
-        Radius.circular(cornerRadii[i % cornerRadii.length]),
-      );
-
-      canvas.drawRRect(pebbleRRect, pebbleBgPaint);
-      canvas.drawRRect(pebbleRRect, pebbleBorderPaint);
-
-      tp.paint(canvas, Offset(-tp.width / 2.0, -tp.height / 2.0));
-      canvas.restore();
+      textPainters.add(tp);
+      pebbleDimensions.add((w: w, h: h, halfDeg: halfDeg));
     }
+
+    final halfSweep = effectiveSweepDeg / 2.0;
+
+    // Safety margins to prevent touching block boundaries or center title
+    final boundaryBufferDeg = is24HourMode ? 2.2 : 3.8;
+    final titleBufferDeg = is24HourMode ? 3.0 : 5.5;
+
+    // 1. Upstream (Left) Water Bay: between start boundary cap and center title
+    final leftBayStartDeg = -halfSweep + startCapSpanDeg + boundaryBufferDeg;
+    final leftBayEndDeg = -titleHalfDeg - titleBufferDeg;
+    final leftBayWidth = leftBayEndDeg - leftBayStartDeg;
+
+    // 2. Downstream (Right) Water Bay: between center title and end boundary cap
+    final rightBayStartDeg = titleHalfDeg + titleBufferDeg;
+    final rightBayEndDeg = halfSweep - endCapSpanDeg - boundaryBufferDeg;
+    final rightBayWidth = rightBayEndDeg - rightBayStartDeg;
+
+    // Decide assignment of pebbles into Left Bay and Right Bay:
+    final leftPebbleIndices = <int>[];
+    final rightPebbleIndices = <int>[];
+
+    final int count = pebbles.length;
+    if (count == 1) {
+      if (rightBayWidth >= leftBayWidth && rightBayWidth > 7.0) {
+        rightPebbleIndices.add(0);
+      } else if (leftBayWidth > 7.0) {
+        leftPebbleIndices.add(0);
+      }
+    } else if (count == 2) {
+      if (leftBayWidth > 7.0) leftPebbleIndices.add(0);
+      if (rightBayWidth > 7.0) rightPebbleIndices.add(1);
+    } else if (count == 3) {
+      if (leftBayWidth > 7.0) leftPebbleIndices.add(0);
+      if (rightBayWidth > 16.0) {
+        rightPebbleIndices.add(1);
+        rightPebbleIndices.add(2);
+      } else if (rightBayWidth > 7.0) {
+        rightPebbleIndices.add(1);
+      }
+    } else {
+      // 4 pebbles
+      if (leftBayWidth > 16.0) {
+        leftPebbleIndices.add(0);
+        leftPebbleIndices.add(2);
+      } else if (leftBayWidth > 7.0) {
+        leftPebbleIndices.add(0);
+      }
+      if (rightBayWidth > 16.0) {
+        rightPebbleIndices.add(1);
+        rightPebbleIndices.add(3);
+      } else if (rightBayWidth > 7.0) {
+        rightPebbleIndices.add(1);
+      }
+    }
+
+    void renderBayPebbles({
+      required List<int> indices,
+      required double bayStart,
+      required double bayEnd,
+      required double bayWidth,
+    }) {
+      if (indices.isEmpty) return;
+
+      if (indices.length == 1) {
+        final idx = indices[0];
+        final dim = pebbleDimensions[idx];
+        if (bayWidth < dim.halfDeg * 2.0) return;
+
+        final targetAngle = (bayStart + bayEnd) / 2.0;
+        final pDeg = midDeg + targetAngle;
+        final pRad = SectorMath.dialAngleToCanvasRadians(pDeg);
+        final pR = midR; // Exactly floating at centerline of the river
+
+        _renderSinglePebble(
+          canvas: canvas,
+          center: center,
+          tp: textPainters[idx],
+          dim: dim,
+          pRad: pRad,
+          pR: pR,
+          tilt: tilts[idx % tilts.length],
+          pebbleBgPaint: pebbleBgPaint,
+          pebbleBorderPaint: pebbleBorderPaint,
+        );
+      } else if (indices.length == 2) {
+        final idx1 = indices[0];
+        final idx2 = indices[1];
+        final dim1 = pebbleDimensions[idx1];
+        final dim2 = pebbleDimensions[idx2];
+        final totalNeeded = (dim1.halfDeg * 2.0) + (dim2.halfDeg * 2.0) + 2.0;
+
+        if (bayWidth < totalNeeded) {
+          // If 2 don't fit comfortably along the arc, render just the 1st one centered
+          final targetAngle = (bayStart + bayEnd) / 2.0;
+          final pDeg = midDeg + targetAngle;
+          final pRad = SectorMath.dialAngleToCanvasRadians(pDeg);
+          _renderSinglePebble(
+            canvas: canvas,
+            center: center,
+            tp: textPainters[idx1],
+            dim: dim1,
+            pRad: pRad,
+            pR: midR,
+            tilt: tilts[idx1 % tilts.length],
+            pebbleBgPaint: pebbleBgPaint,
+            pebbleBorderPaint: pebbleBorderPaint,
+          );
+          return;
+        }
+
+        // Space the 2 pebbles comfortably along the bay
+        final p1Angle = bayStart + bayWidth * 0.30;
+        final p2Angle = bayStart + bayWidth * 0.72;
+
+        // Subtle radial stagger: one slightly inner, one slightly outer
+        final rStagger = trackThickness * 0.14;
+        final p1R = (midR - rStagger).clamp(
+          rIn + dim1.h / 2.0 + 3.0,
+          rOut - dim1.h / 2.0 - 3.0,
+        );
+        final p2R = (midR + rStagger).clamp(
+          rIn + dim2.h / 2.0 + 3.0,
+          rOut - dim2.h / 2.0 - 3.0,
+        );
+
+        final p1Deg = midDeg + p1Angle;
+        final p2Deg = midDeg + p2Angle;
+
+        _renderSinglePebble(
+          canvas: canvas,
+          center: center,
+          tp: textPainters[idx1],
+          dim: dim1,
+          pRad: SectorMath.dialAngleToCanvasRadians(p1Deg),
+          pR: p1R,
+          tilt: tilts[idx1 % tilts.length],
+          pebbleBgPaint: pebbleBgPaint,
+          pebbleBorderPaint: pebbleBorderPaint,
+        );
+
+        _renderSinglePebble(
+          canvas: canvas,
+          center: center,
+          tp: textPainters[idx2],
+          dim: dim2,
+          pRad: SectorMath.dialAngleToCanvasRadians(p2Deg),
+          pR: p2R,
+          tilt: tilts[idx2 % tilts.length],
+          pebbleBgPaint: pebbleBgPaint,
+          pebbleBorderPaint: pebbleBorderPaint,
+        );
+      }
+    }
+
+    renderBayPebbles(
+      indices: leftPebbleIndices,
+      bayStart: leftBayStartDeg,
+      bayEnd: leftBayEndDeg,
+      bayWidth: leftBayWidth,
+    );
+
+    renderBayPebbles(
+      indices: rightPebbleIndices,
+      bayStart: rightBayStartDeg,
+      bayEnd: rightBayEndDeg,
+      bayWidth: rightBayWidth,
+    );
+  }
+
+  static void _renderSinglePebble({
+    required Canvas canvas,
+    required Offset center,
+    required TextPainter tp,
+    required ({double w, double h, double halfDeg}) dim,
+    required double pRad,
+    required double pR,
+    required double tilt,
+    required Paint pebbleBgPaint,
+    required Paint pebbleBorderPaint,
+  }) {
+    final pPos = Offset(
+      center.dx + pR * math.cos(pRad),
+      center.dy + pR * math.sin(pRad),
+    );
+
+    canvas.save();
+    canvas.translate(pPos.dx, pPos.dy);
+
+    var pTangent = pRad + (math.pi / 2.0);
+    if (math.cos(pTangent) < 0.05) {
+      pTangent += math.pi;
+    }
+    pTangent += tilt;
+    canvas.rotate(pTangent);
+
+    // River stone smooth rounded pill capsule
+    final pebbleRect = Rect.fromCenter(
+      center: Offset.zero,
+      width: dim.w,
+      height: dim.h,
+    );
+    final pebbleRRect = RRect.fromRectAndRadius(
+      pebbleRect,
+      Radius.circular(dim.h / 2.0),
+    );
+
+    canvas.drawRRect(pebbleRRect, pebbleBgPaint);
+    canvas.drawRRect(pebbleRRect, pebbleBorderPaint);
+
+    tp.paint(canvas, Offset(-tp.width / 2.0, -tp.height / 2.0));
+    canvas.restore();
   }
 
   /// Splits event title into stacked lines, with smart single-keyword compaction

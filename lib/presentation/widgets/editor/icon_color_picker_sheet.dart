@@ -27,6 +27,7 @@ class IconColorPickerSheet extends StatefulWidget {
   }) {
     return showModalBottomSheet<(String, String)>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(

@@ -53,7 +53,13 @@ class PolarHitTest {
         .round()
         .clamp(0, 1000);
 
-    for (final sector in sectors) {
+    // In single-ring layout, shorter/smaller sectors are drawn on top of larger sectors.
+    // Sort candidate sectors by sweepAngle ascending so that topmost visible sectors
+    // receive hit test priority over underlying background sectors.
+    final candidateSectors = List<T>.from(sectors)
+      ..sort((a, b) => a.sweepAngle.abs().compareTo(b.sweepAngle.abs()));
+
+    for (final sector in candidateSectors) {
       final start = sector.startAngle;
       final effectiveSweep = math.max(
         sector.sweepAngle,

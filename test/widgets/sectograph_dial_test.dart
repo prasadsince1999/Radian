@@ -366,10 +366,91 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(find.byType(SectographDial), findsOneWidget);
 
-        // Verify footer shows 12H button and does NOT show AM/PM toggle badge
+        // Verify footer shows 12H button and does NOT show AM toggle badge
         expect(find.text('12H'), findsOneWidget);
         expect(find.text('AM'), findsNothing);
-        expect(find.text('PM'), findsNothing);
+        // PM is displayed in the center circle digital time display for 14:30
+        expect(find.text('PM'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'renders all blocks on single ring for selected day in 12H mode and edit toggle',
+      (tester) async {
+        // Current time is Monday Sep 14 night
+        final nowMonday = DateTime(2026, 9, 14, 23, 30);
+        // User is viewing Sunday Sep 13 with 3 blocks (2 overlapping)
+        final pastSunday = DateTime(2026, 9, 13);
+        final multiBlockRepo = FakeEventRepository([
+          SectorEvent(
+            id: 'block-1',
+            title: 'Deep Focus',
+            start: DateTime(2026, 9, 13, 4, 15),
+            end: DateTime(2026, 9, 13, 7, 20),
+            colorHex: '#3B82F6',
+          ),
+          SectorEvent(
+            id: 'block-2',
+            title: 'Morning Run',
+            start: DateTime(2026, 9, 13, 6, 0),
+            end: DateTime(2026, 9, 13, 7, 0),
+            colorHex: '#10B981',
+          ),
+          SectorEvent(
+            id: 'block-3',
+            title: 'Study Session',
+            start: DateTime(2026, 9, 13, 8, 50),
+            end: DateTime(2026, 9, 13, 11, 40),
+            colorHex: '#F59E0B',
+          ),
+        ]);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              eventRepositoryProvider.overrideWithValue(multiBlockRepo),
+              currentTimeProvider.overrideWith(
+                (ref) => Stream.value(nowMonday),
+              ),
+              selectedDayProvider.overrideWith((ref) => pastSunday),
+              dialSettingsProvider.overrideWith(
+                (ref) => _TestDialSettingsNotifier(
+                  const DialSettings(
+                    pastHoursStyle: PastHoursStyle.focusedBlock,
+                    is24HourMode: false,
+                  ),
+                ),
+              ),
+            ],
+            child: const MaterialApp(
+              home: Scaffold(
+                body: Center(
+                  child: SizedBox(
+                    width: 360,
+                    height: 360,
+                    child: SectographDial(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(SectographDial), findsOneWidget);
+        // Header displays relative day or date
+        expect(find.text('Edit'), findsOneWidget);
+
+        // Tap Edit button to toggle dial editing mode
+        await tester.tap(find.text('Edit'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.text('Done'), findsOneWidget);
+        expect(tester.takeException(), isNull);
       },
     );
   });

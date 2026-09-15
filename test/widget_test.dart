@@ -36,7 +36,7 @@ void main() {
 
     expect(find.text(AppStrings.appName), findsOneWidget);
     expect(find.byType(CustomPaint), findsWidgets);
-    expect(find.byTooltip('Add Block'), findsOneWidget);
-    expect(find.byKey(const ValueKey('add_block_fab')), findsOneWidget);
+    expect(find.text('Edit'), findsOneWidget);
+    expect(find.byKey(const ValueKey('add_block_fab')), findsNothing);
   });
 }

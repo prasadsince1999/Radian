@@ -123,8 +123,8 @@ class AndroidWidgetService {
         'date': date,
         'dialBytes': dialBytes,
       });
-    } catch (_) {
-      // Ignored if platform channel is unavailable (e.g. running unit tests)
+    } catch (e, st) {
+      debugPrint('syncWidget error: $e\n$st');
     }
   }
 }

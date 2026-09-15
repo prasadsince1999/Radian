@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/services/device_settings_service.dart';
 import '../../../core/services/health_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/expressive_shapes.dart';
@@ -15,11 +16,40 @@ class HealthInsightsSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedDay = ref.watch(selectedDayProvider);
     final healthAsync = ref.watch(dailyHealthSummaryProvider(selectedDay));
-    final eventsAsync = ref.watch(dayEventsProvider);
+    final allEventsAsync = ref.watch(allEventsProvider);
     final syncStatus = ref.watch(healthSyncStatusProvider);
-    final currentEvents = eventsAsync.value ?? const [];
+    final allEvents = allEventsAsync.value ?? const [];
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
+    String syncLabel;
+    Color syncColor;
+    switch (syncStatus) {
+      case HealthSyncStatus.connected:
+        syncLabel = 'Google Health Connect Active';
+        syncColor = AppColors.statusSuccess;
+        break;
+      case HealthSyncStatus.syncing:
+        syncLabel = 'Health Connect Syncing...';
+        syncColor = Colors.orangeAccent;
+        break;
+      case HealthSyncStatus.permissionRequired:
+        syncLabel = 'Permissions Required';
+        syncColor = Colors.amber;
+        break;
+      case HealthSyncStatus.disconnected:
+        syncLabel = 'Health Connect Unavailable';
+        syncColor = Colors.grey;
+        break;
+      case HealthSyncStatus.error:
+        syncLabel = 'Sync Error';
+        syncColor = Colors.redAccent;
+        break;
+      case HealthSyncStatus.uninitialized:
+        syncLabel = 'Checking Health Connect...';
+        syncColor = Colors.blueGrey;
+        break;
+    }
 
     return Container(
       constraints: BoxConstraints(
@@ -78,16 +108,14 @@ class HealthInsightsSheet extends ConsumerWidget {
                         Container(
                           width: 6,
                           height: 6,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: AppColors.statusSuccess,
+                            color: syncColor,
                           ),
                         ),
                         const SizedBox(width: 5),
                         Text(
-                          syncStatus == HealthSyncStatus.connected
-                              ? 'Google Health Connect Active'
-                              : 'Health Connect Syncing',
+                          syncLabel,
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -101,6 +129,18 @@ class HealthInsightsSheet extends ConsumerWidget {
               ),
               IconButton(
                 icon: Icon(
+                  Icons.sync_rounded,
+                  size: 20,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                tooltip: 'Sync Health Data',
+                onPressed: () {
+                  ref.invalidate(dailyHealthSummaryProvider(selectedDay));
+                  ref.read(healthSyncStatusProvider.notifier).checkStatus();
+                },
+              ),
+              IconButton(
+                icon: Icon(
                   Icons.close_rounded,
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -109,6 +149,57 @@ class HealthInsightsSheet extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 18),
+
+          // Permission banner if permission is needed
+          if (syncStatus == HealthSyncStatus.permissionRequired)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: InkWell(
+                onTap: () async {
+                  await DeviceSettingsService.openHealthConnectSettings();
+                  ref.read(healthSyncStatusProvider.notifier).checkStatus();
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.amber.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.security_update_warning_rounded,
+                        color: Colors.amber,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Tap to grant Google Health Connect permissions',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 12,
+                        color: Colors.amber,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
           // Body Content
           Flexible(
@@ -158,9 +249,11 @@ class HealthInsightsSheet extends ConsumerWidget {
                               iconColor: const Color(0xFF818CF8),
                               label: 'Sleep',
                               value: health.sleepHoursFormatted,
-                              subValue: health.hasSignificantSleepDebt
-                                  ? '-${health.sleepDebtMinutes()}m debt'
-                                  : 'Optimal recovery',
+                              subValue: health.sleepDurationMinutes == 0
+                                  ? 'No sleep logged'
+                                  : (health.hasSignificantSleepDebt
+                                        ? '-${health.sleepDebtMinutes()}m debt'
+                                        : 'Optimal recovery'),
                               progress: (health.sleepDurationMinutes / 480)
                                   .clamp(0.0, 1.0),
                             ),
@@ -176,8 +269,9 @@ class HealthInsightsSheet extends ConsumerWidget {
                               iconColor: const Color(0xFFFB923C),
                               label: 'Active Burn',
                               value: '${health.activeCalories.toInt()} kcal',
-                              subValue:
-                                  'Total: ${health.totalCalories.toInt()} kcal',
+                              subValue: health.totalCalories > 0
+                                  ? 'Total: ${health.totalCalories.toInt()} kcal'
+                                  : 'Active calories',
                               progress: (health.activeCalories / 600).clamp(
                                 0.0,
                                 1.0,
@@ -222,8 +316,9 @@ class HealthInsightsSheet extends ConsumerWidget {
                           title: 'Sleep Session',
                           timeRange:
                               '${_fmtTime(health.sleepStart!)} – ${_fmtTime(health.sleepEnd!)}',
-                          detail:
-                              '${health.sleepHoursFormatted} • ${health.deepSleepMinutes}m Deep Sleep',
+                          detail: health.deepSleepMinutes > 0
+                              ? '${health.sleepHoursFormatted} • ${health.deepSleepMinutes}m Deep Sleep'
+                              : '${health.sleepHoursFormatted} Recorded Sleep',
                         ),
 
                       ...health.exerciseSessions.map(
@@ -241,7 +336,7 @@ class HealthInsightsSheet extends ConsumerWidget {
                       const SizedBox(height: 18),
 
                       // 4. Material 3 Expressive Activity Heatmap
-                      M3ActivityHeatmap.fromEvents(events: currentEvents),
+                      M3ActivityHeatmap.fromEvents(events: allEvents),
 
                       const SizedBox(height: 6),
                     ],

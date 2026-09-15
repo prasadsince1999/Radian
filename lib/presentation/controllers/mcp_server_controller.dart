@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/app_strings.dart';
+import '../../core/services/health_service.dart';
 import '../../mcp/mcp_server.dart';
 import 'clock_controller.dart';
 
@@ -119,11 +120,13 @@ class McpServerController extends StateNotifier<McpServerState> {
     final targetPort = port ?? state.port;
 
     final repo = _ref.read(eventRepositoryProvider);
+    final healthRepo = _ref.read(healthRepositoryProvider);
     _server = McpServer(
       repository: repo,
       getSettings: () => _ref.read(dialSettingsProvider),
       updateSettings: (s) =>
           _ref.read(dialSettingsProvider.notifier).updateSettings(s),
+      healthRepository: healthRepo,
       onLog: _addLog,
     );
 

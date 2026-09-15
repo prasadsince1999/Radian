@@ -57,6 +57,32 @@ class FakeEventRepository implements EventRepository {
             e.copyWith(start: projStart, end: projStart.add(e.duration)),
           );
         }
+      } else if (e.recurrenceEndDate != null) {
+        final startBoundary = DateTime(
+          e.start.year,
+          e.start.month,
+          e.start.day,
+        );
+        final endBoundary = DateTime(
+          e.recurrenceEndDate!.year,
+          e.recurrenceEndDate!.month,
+          e.recurrenceEndDate!.day,
+          23,
+          59,
+          59,
+        );
+        if (!day.isBefore(startBoundary) && !day.isAfter(endBoundary)) {
+          final projStart = DateTime(
+            day.year,
+            day.month,
+            day.day,
+            e.start.hour,
+            e.start.minute,
+          );
+          dayEvents.add(
+            e.copyWith(start: projStart, end: projStart.add(e.duration)),
+          );
+        }
       } else {
         if (e.start.isBefore(endOfDay) && e.end.isAfter(startOfDay)) {
           dayEvents.add(e);
@@ -67,8 +93,9 @@ class FakeEventRepository implements EventRepository {
   }
 
   @override
-  Stream<List<SectorEvent>> watchEventsForDay(DateTime day) {
-    return _controller.stream.map((list) => _filterAndProjectForDay(list, day));
+  Stream<List<SectorEvent>> watchEventsForDay(DateTime day) async* {
+    yield await getEventsForDay(day);
+    yield* _controller.stream.map((list) => _filterAndProjectForDay(list, day));
   }
 
   @override
@@ -77,8 +104,9 @@ class FakeEventRepository implements EventRepository {
   }
 
   @override
-  Stream<List<SectorEvent>> watchAllEvents() {
-    return _controller.stream;
+  Stream<List<SectorEvent>> watchAllEvents() async* {
+    yield List<SectorEvent>.unmodifiable(_events);
+    yield* _controller.stream;
   }
 
   @override
