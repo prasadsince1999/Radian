@@ -74,6 +74,26 @@ class MainActivity : FlutterActivity() {
                 methodChannel?.invokeMethod("onOpenEvent", eventId)
             }
         }
+
+        // Handle URI schemes: radian://new_block, radian://today, radian://dial, radian://event?id=...
+        val dataUri = intent.data
+        if (dataUri != null && dataUri.scheme == "radian") {
+            when (dataUri.host) {
+                "new_block" -> {
+                    pendingAction = "add_block"
+                    methodChannel?.invokeMethod("onWidgetAction", "add_block")
+                }
+                "today", "dial" -> {
+                    methodChannel?.invokeMethod("onWidgetAction", "open_today")
+                }
+                "event" -> {
+                    val eventId = dataUri.getQueryParameter("id")
+                    if (!eventId.isNullOrEmpty()) {
+                        methodChannel?.invokeMethod("onOpenEvent", eventId)
+                    }
+                }
+            }
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

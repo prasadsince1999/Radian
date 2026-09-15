@@ -26,15 +26,25 @@ class AndroidWidgetService {
       !WidgetsBinding.instance.runtimeType.toString().contains('Test');
 
   static void Function(String action)? onActionReceived;
+  static void Function(String eventId)? onOpenEventReceived;
 
-  static void initialize({void Function(String action)? onAction}) {
+  static void initialize({
+    void Function(String action)? onAction,
+    void Function(String eventId)? onOpenEvent,
+  }) {
     if (!isSupported) return;
     onActionReceived = onAction;
+    onOpenEventReceived = onOpenEvent;
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'onWidgetAction') {
         final action = call.arguments as String?;
         if (action != null) {
           onActionReceived?.call(action);
+        }
+      } else if (call.method == 'onOpenEvent') {
+        final eventId = call.arguments as String?;
+        if (eventId != null) {
+          onOpenEventReceived?.call(eventId);
         }
       }
     });

@@ -21,7 +21,7 @@ class SectorContentRenderer {
     'sans-serif',
   ];
 
-  /// Distills a verbose task or title string into a punchy, short keyword (1-2 words, max 11 chars)
+  /// Distills a verbose task or title string into a punchy, single keyword (1 word, max 10 chars)
   /// so it fits cleanly in circular dial sectors without overflow or touching boundaries.
   static String distillShortKeyword(String text) {
     final clean = text.trim();
@@ -31,42 +31,20 @@ class SectorContentRenderer {
     if (lower.contains('linear algebra') || lower.contains('linalg')) {
       return 'LinAlg';
     }
-    if (lower.contains('pytorch')) return 'PyTorch';
     if (lower.contains('transformer')) return 'Transformers';
-    if (lower.contains('backprop')) return 'Backprop';
-    if (lower.contains('data pipeline') || lower.contains('data prep')) {
-      return 'Data Prep';
-    }
-    if (lower.contains('lora') || lower.contains('fine-tune')) {
-      return 'LoRA Tune';
-    }
-    if (lower.contains('eval') || lower.contains('loss')) return 'Loss & Eval';
-    if (lower.contains('leetcode')) return 'LeetCode';
-    if (lower.contains('mock')) return 'Mock Prep';
-    if (lower.contains('arxiv')) return 'ArXiv';
-    if (lower.contains('math')) return 'Math Notes';
-    if (lower.contains('cooking') || lower.contains('lunch')) return 'Lunch';
-    if (lower.contains('dinner')) return 'Dinner';
-    if (lower.contains('workout') || lower.contains('gym')) return 'Workout';
     if (lower.contains('flexible')) return 'Flex';
-    if (lower.contains('study')) return 'Study';
-    if (lower.contains('chill')) return 'Chill';
+    if (lower.contains('lunch')) return 'Lunch';
     if (lower.contains('nap')) return 'Nap';
-    if (lower.contains('coffee')) return 'Coffee';
-    if (lower.contains('rest')) return 'Rest';
 
-    final words = clean
+    // Universal clean single-word extraction for arbitrary user titles
+    final sanitized = clean.replaceAll(RegExp(r'[\+\-\:\|\(\)]+'), ' ').trim();
+    final words = sanitized
         .split(RegExp(r'\s+'))
         .where((w) => w.isNotEmpty)
         .toList();
     if (words.isEmpty) return clean;
-    if (words.length == 1) {
-      return words[0].length > 11 ? words[0].substring(0, 10) : words[0];
-    }
-    if (words[0].length + words[1].length < 11) {
-      return '${words[0]} ${words[1]}';
-    }
-    return words[0];
+
+    return words[0].length > 10 ? words[0].substring(0, 9) : words[0];
   }
 
   /// Draws the sector content strictly clipped inside [pillPath] with full auto-alignment.
@@ -108,18 +86,25 @@ class SectorContentRenderer {
         ? const Color(0xFFF7F3EE)
         : const Color(0xFF1E1A16);
 
-    // BOLD, HIGH-LEGIBILITY FONT SIZES (never microscopic!)
-    final isNarrowSector = effectiveSweepDeg < (is24HourMode ? 18.0 : 35.0);
-    final iconFontSize = is24HourMode ? (isNarrowSector ? 12.0 : 13.5) : 14.5;
-    final titleFontSize = is24HourMode
-        ? (isNarrowSector ? 10.5 : 11.8)
-        : (isNarrowSector ? 11.5 : 13.0);
-    final metaFontSize = is24HourMode
-        ? (isNarrowSector ? 9.0 : 9.8)
-        : (isNarrowSector ? 9.8 : 10.8);
-    final pebbleFontSize = is24HourMode
-        ? (isNarrowSector ? 6.5 : 7.2)
-        : (isNarrowSector ? 8.0 : 9.0);
+    // --- TRUE POLAR BOUNDING BOX & NEVER-TOUCH AUDIT ---
+    final hasCaps = startCapSpanDeg > 0.0 || endCapSpanDeg > 0.0;
+    final capSafetyPadding = hasCaps ? 4.5 : 2.0;
+    final rMinEstimate = math.max(rIn + 8.0, midR - (trackThickness * 0.45));
+    final availableInnerArc =
+        rMinEstimate * (effectiveSweepDeg * math.pi / 180.0);
+    final maxAllowedWidth = math.max(
+      12.0,
+      availableInnerArc - capSafetyPadding,
+    );
+    final maxAllowedHeight = math.max(12.0, trackThickness - 16.0);
+
+    // FLUID ARC-BASED TYPOGRAPHY SIZING:
+    // Size type from available arc length: fontSize = clamp(arcWidth * 0.22, 8, 13.5)
+    final dynamicTypeSize = (availableInnerArc * 0.22).clamp(8.0, 13.5);
+    final iconFontSize = (dynamicTypeSize * 1.15).clamp(10.0, 15.0);
+    final titleFontSize = dynamicTypeSize;
+    final metaFontSize = (dynamicTypeSize * 0.85).clamp(8.0, 11.0);
+    final pebbleFontSize = (dynamicTypeSize * 0.65).clamp(6.5, 9.0);
 
     final iconData = _getEventIcon(event);
     final iconPainter = TextPainter(
@@ -193,18 +178,6 @@ class SectorContentRenderer {
     const lineGap = 0.8;
     const durGap = 1.2;
 
-    // --- TRUE POLAR BOUNDING BOX & NEVER-TOUCH AUDIT ---
-    final hasCaps = startCapSpanDeg > 0.0 || endCapSpanDeg > 0.0;
-    final capSafetyPadding = hasCaps ? 4.5 : 2.0;
-    final rMinEstimate = math.max(rIn + 8.0, midR - (trackThickness * 0.45));
-    final availableInnerArc =
-        rMinEstimate * (effectiveSweepDeg * math.pi / 180.0);
-    final maxAllowedWidth = math.max(
-      12.0,
-      availableInnerArc - capSafetyPadding,
-    );
-    final maxAllowedHeight = math.max(12.0, trackThickness - 16.0);
-
     // --- PROGRESSIVE CONTENT ADAPTATION TIERS ---
     // Option A: Full Content (Icon + Title Lines + Duration)
     double widthA = iconPainter.width;
@@ -226,7 +199,7 @@ class SectorContentRenderer {
     );
 
     // Option B: Compact Keyword (Icon + 1 Short Keyword Line, NO duration)
-    // This allows the title to remain BOLD and LARGE without being squashed!
+    // This allows the title to remain clean and legible without being squashed!
     final widthB = math.max(iconPainter.width, keywordPainter.width);
     final heightB = iconPainter.height + iconGap + keywordPainter.height;
     final scaleB = math.min(
@@ -234,9 +207,15 @@ class SectorContentRenderer {
       maxAllowedHeight / heightB,
     );
 
-    // Decision:
-    final bool showFull = scaleA >= 0.88;
-    final bool showKeyword = !showFull && scaleB >= 0.85;
+    // 3 Content Tiers:
+    // Small sweep (< 14° in 24H, < 20° in 12H) or tight fit -> Tier 1: Icon only
+    // Medium sweep (< 30° in 24H, < 45° in 12H) or moderate fit -> Tier 2: Icon + One Word
+    // Large sweep (>= 30° in 24H, >= 45° in 12H) with comfortable scale -> Tier 3: Full Title + Duration
+    final isLargeSector = effectiveSweepDeg >= (is24HourMode ? 28.0 : 42.0);
+    final isMediumSector = effectiveSweepDeg >= (is24HourMode ? 14.0 : 20.0);
+
+    final bool showFull = isLargeSector && scaleA >= 0.85;
+    final bool showKeyword = !showFull && isMediumSector && scaleB >= 0.80;
     final bool showIconOnly = !showFull && !showKeyword;
 
     // Select which painters to draw based on adaptive tier
@@ -251,13 +230,13 @@ class SectorContentRenderer {
       includeMeta = true;
       finalContentWidth = widthA;
       finalContentHeight = heightA;
-      scale = scaleA.clamp(0.88, 1.15);
+      scale = scaleA.clamp(0.85, 1.15);
     } else if (showKeyword) {
       titlePaintersToDraw = [keywordPainter];
       includeMeta = false;
       finalContentWidth = widthB;
       finalContentHeight = heightB;
-      scale = scaleB.clamp(0.85, 1.15);
+      scale = scaleB.clamp(0.80, 1.15);
     } else {
       // Icon only
       titlePaintersToDraw = const [];
@@ -341,8 +320,8 @@ class SectorContentRenderer {
     canvas.restore(); // restore from center translate/rotate
 
     // 2. DRAW "RIVER PEBBLE" SUBTASKS ORGANICALLY AROUND CENTER TITLE
-    // Only in blocks with sufficient sweep (>= 22° in 24H, >= 32° in 12H), scatter subtasks like smooth river stones
-    final minPebbleSweep = is24HourMode ? 22.0 : 32.0;
+    // Only in large blocks with ample sweep (>= 45°), scatter subtasks like smooth river stones
+    const minPebbleSweep = 45.0;
     if (showSubtasks &&
         event.subtasks.isNotEmpty &&
         effectiveSweepDeg >= minPebbleSweep &&

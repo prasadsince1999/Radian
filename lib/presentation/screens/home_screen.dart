@@ -49,7 +49,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       onAction: (action) {
         if (action == 'add_block') {
           _openAddBlock();
+        } else if (action == 'open_today' || action == 'view_dial') {
+          ref.read(customSelectedDayProvider.notifier).state = null;
+          ref.read(dialScrubAngleProvider.notifier).state = null;
+          ref.read(selectedEventProvider.notifier).state = null;
         }
+      },
+      onOpenEvent: (eventId) {
+        final events = ref.read(allEventsProvider).value ?? [];
+        try {
+          final ev = events.firstWhere((e) => e.id == eventId);
+          ref.read(selectedEventProvider.notifier).state = ev;
+        } catch (_) {}
       },
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -121,12 +132,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    // Keep Android Home Screen Widget in sync
+    // Keep Android Home Screen Widget in sync (throttled to minute boundaries & state changes)
     ref.listen(allEventsProvider, (_, _) => _syncAndroidWidget());
     ref.listen(dayEventsProvider, (_, _) => _syncAndroidWidget());
     ref.listen(currentActiveEventProvider, (_, _) => _syncAndroidWidget());
     ref.listen(dialSettingsProvider, (_, _) => _syncAndroidWidget());
-    ref.listen(currentTimeProvider, (_, _) => _syncAndroidWidget());
+    ref.listen(currentTimeProvider, (prev, next) {
+      final prevMin = prev?.value?.minute;
+      final nextMin = next.value?.minute;
+      if (prevMin != nextMin) {
+        _syncAndroidWidget();
+      }
+    });
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -185,44 +202,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 6),
 
-          // 2. Health Squircle Button
-          BouncyPressable.standard(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                showDragHandle: false,
-                constraints: const BoxConstraints(
-                  maxWidth: AppLayoutConstants.modalMaxWidth,
-                ),
-                shape: ExpressiveShapes.modalSheet,
-                builder: (_) => const HealthInsightsSheet(),
-              );
-            },
-            child: Container(
-              width: AppLayoutConstants.actionButtonSize,
-              height: AppLayoutConstants.actionButtonSize,
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(
-                  color: colorScheme.outlineVariant,
-                  width: 1.2,
-                ),
-              ),
-              child: Icon(
-                Icons.favorite_rounded,
-                size: 17,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          const SizedBox(width: 5),
-
-          // 3. Dial Settings / Custom Squircle Button (Powered by Seed Primary)
+          // 2. Dial Settings / Custom Squircle Button (Powered by Seed Primary)
           BouncyPressable.standard(
             onTap: () {
               HapticFeedback.lightImpact();
@@ -255,49 +237,114 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 6),
 
-          // 4. AI Agent & MCP Hub Squircle Button
-          BouncyPressable.standard(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                showDragHandle: false,
-                constraints: const BoxConstraints(
-                  maxWidth: AppLayoutConstants.modalMaxWidth,
-                ),
-                shape: ExpressiveShapes.modalSheet,
-                builder: (_) => const McpStatusSheet(),
-              );
-            },
-            child: Container(
-              width: AppLayoutConstants.actionButtonSize,
-              height: AppLayoutConstants.actionButtonSize,
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(
-                  color: colorScheme.outlineVariant,
-                  width: 1.2,
-                ),
-              ),
-              child: Icon(
-                Icons.hub_rounded,
-                size: 17,
-                color: colorScheme.primary,
+          // 3. Overflow Menu: Health, MCP Hub, About
+          PopupMenuButton<String>(
+            tooltip: 'More options',
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                width: 1.0,
               ),
             ),
-          ),
-          const SizedBox(width: 5),
-
-          // 5. About Radian Squircle Button
-          BouncyPressable.standard(
-            onTap: () {
+            color: colorScheme.surfaceContainerHigh,
+            elevation: 4,
+            onSelected: (value) {
               HapticFeedback.lightImpact();
-              AboutRadianDialog.show(context);
+              if (value == 'health') {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  showDragHandle: false,
+                  constraints: const BoxConstraints(
+                    maxWidth: AppLayoutConstants.modalMaxWidth,
+                  ),
+                  shape: ExpressiveShapes.modalSheet,
+                  builder: (_) => const HealthInsightsSheet(),
+                );
+              } else if (value == 'mcp') {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  showDragHandle: false,
+                  constraints: const BoxConstraints(
+                    maxWidth: AppLayoutConstants.modalMaxWidth,
+                  ),
+                  shape: ExpressiveShapes.modalSheet,
+                  builder: (_) => const McpStatusSheet(),
+                );
+              } else if (value == 'about') {
+                AboutRadianDialog.show(context);
+              }
             },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'health',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.favorite_rounded,
+                      size: 18,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Health Insights',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.5,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'mcp',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.hub_rounded,
+                      size: 18,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'AI & MCP Hub',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.5,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'about',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 18,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'About Radian',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.5,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             child: Container(
               width: AppLayoutConstants.actionButtonSize,
               height: AppLayoutConstants.actionButtonSize,
@@ -310,8 +357,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
               ),
               child: Icon(
-                Icons.info_outline_rounded,
-                size: 17,
+                Icons.more_vert_rounded,
+                size: 18,
                 color: colorScheme.onSurfaceVariant,
               ),
             ),

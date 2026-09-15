@@ -234,59 +234,6 @@ class CenterSummary extends ConsumerWidget {
                       letterSpacing: 0.1,
                     ),
                   ),
-                  if (activeEvent != null) ...[
-                    const SizedBox(height: 4),
-                    Container(
-                      constraints: const BoxConstraints(maxWidth: 110),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 2.5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: colorScheme.secondary.withValues(alpha: 0.3),
-                          width: 1.0,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            activeEvent!.resolvedIcon,
-                            size: 10.5,
-                            color: colorScheme.onSecondaryContainer,
-                          ),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              activeEvent!.title
-                                  .replaceAll('+', ' + ')
-                                  .replaceAll('-', ' - '),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              softWrap: true,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: 'Kalam',
-                                fontFamilyFallback: const [
-                                  'Patrick Hand',
-                                  'Caveat',
-                                  'sans-serif',
-                                ],
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.onSecondaryContainer,
-                                fontSize: 10.5,
-                                height: 1.10,
-                                letterSpacing: 0.1,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

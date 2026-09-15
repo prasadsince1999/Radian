@@ -102,8 +102,8 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 } catch (_: Exception) {}
             }
 
-            // Tap anywhere on the circular dial widget -> Open App
-            val openAppIntent = Intent(context, MainActivity::class.java).apply {
+            // Tap anywhere on the circular dial widget -> Open App to Today's Dial
+            val openAppIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("radian://today"), context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
             val openAppPendingIntent = PendingIntent.getActivity(
