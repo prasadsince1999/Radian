@@ -341,8 +341,6 @@ class SectorContentRenderer {
         pebbleFontSize: pebbleFontSize,
         centerTitleWidth: finalContentWidth * scale,
         is24HourMode: is24HourMode,
-        startCapSpanDeg: startCapSpanDeg,
-        endCapSpanDeg: endCapSpanDeg,
       );
     }
 
@@ -367,8 +365,6 @@ class SectorContentRenderer {
     required double pebbleFontSize,
     required double centerTitleWidth,
     required bool is24HourMode,
-    required double startCapSpanDeg,
-    required double endCapSpanDeg,
   }) {
     // Take up to 4 subtasks to scatter like smooth river pebbles
     final pebbles = subtasks
@@ -415,8 +411,8 @@ class SectorContentRenderer {
         textAlign: TextAlign.center,
       )..layout();
 
-      final w = tp.width + (is24HourMode ? 5.0 : 8.0);
-      final h = tp.height + (is24HourMode ? 2.5 : 4.0);
+      final w = tp.width + (is24HourMode ? 5.0 : 7.0);
+      final h = tp.height + (is24HourMode ? 2.5 : 3.5);
       final halfDeg = (w / 2.0) / (midR * math.pi / 180.0);
 
       textPainters.add(tp);
@@ -426,17 +422,20 @@ class SectorContentRenderer {
     final halfSweep = effectiveSweepDeg / 2.0;
 
     // Safety margins to prevent touching block boundaries or center title
-    final boundaryBufferDeg = is24HourMode ? 2.2 : 3.8;
-    final titleBufferDeg = is24HourMode ? 3.0 : 5.5;
+    final boundaryBufferDeg = is24HourMode ? 1.5 : 2.5;
+    final titleBufferDeg = is24HourMode ? 2.0 : 3.0;
 
-    // 1. Upstream (Left) Water Bay: between start boundary cap and center title
-    final leftBayStartDeg = -halfSweep + startCapSpanDeg + boundaryBufferDeg;
+    // 1. Upstream (Left) Water Bay: between start boundary cap and center title.
+    // Note: effectiveSweepDeg already subtracts startCapSpanDeg and endCapSpanDeg,
+    // so -halfSweep is already at the inner edge of the start cap.
+    final leftBayStartDeg = -halfSweep + boundaryBufferDeg;
     final leftBayEndDeg = -titleHalfDeg - titleBufferDeg;
     final leftBayWidth = leftBayEndDeg - leftBayStartDeg;
 
-    // 2. Downstream (Right) Water Bay: between center title and end boundary cap
+    // 2. Downstream (Right) Water Bay: between center title and end boundary cap.
+    // Similarly, +halfSweep is already at the inner edge of the end cap.
     final rightBayStartDeg = titleHalfDeg + titleBufferDeg;
-    final rightBayEndDeg = halfSweep - endCapSpanDeg - boundaryBufferDeg;
+    final rightBayEndDeg = halfSweep - boundaryBufferDeg;
     final rightBayWidth = rightBayEndDeg - rightBayStartDeg;
 
     // Decide assignment of pebbles into Left Bay and Right Bay:
@@ -445,35 +444,63 @@ class SectorContentRenderer {
 
     final int count = pebbles.length;
     if (count == 1) {
-      if (rightBayWidth >= leftBayWidth && rightBayWidth > 7.0) {
+      if (rightBayWidth >= leftBayWidth && rightBayWidth >= 4.5) {
         rightPebbleIndices.add(0);
-      } else if (leftBayWidth > 7.0) {
+      } else if (leftBayWidth >= 4.5) {
         leftPebbleIndices.add(0);
       }
     } else if (count == 2) {
-      if (leftBayWidth > 7.0) leftPebbleIndices.add(0);
-      if (rightBayWidth > 7.0) rightPebbleIndices.add(1);
+      if (leftBayWidth >= 4.5 && rightBayWidth >= 4.5) {
+        leftPebbleIndices.add(0);
+        rightPebbleIndices.add(1);
+      } else if (rightBayWidth >= 6.5) {
+        rightPebbleIndices.add(0);
+        rightPebbleIndices.add(1);
+      } else if (leftBayWidth >= 6.5) {
+        leftPebbleIndices.add(0);
+        leftPebbleIndices.add(1);
+      }
     } else if (count == 3) {
-      if (leftBayWidth > 7.0) leftPebbleIndices.add(0);
-      if (rightBayWidth > 16.0) {
-        rightPebbleIndices.add(1);
-        rightPebbleIndices.add(2);
-      } else if (rightBayWidth > 7.0) {
-        rightPebbleIndices.add(1);
+      if (rightBayWidth >= leftBayWidth && rightBayWidth >= 6.5) {
+        if (leftBayWidth >= 4.5) {
+          leftPebbleIndices.add(0);
+          rightPebbleIndices.add(1);
+          rightPebbleIndices.add(2);
+        } else {
+          rightPebbleIndices.add(0);
+          rightPebbleIndices.add(1);
+        }
+      } else if (leftBayWidth >= 6.5) {
+        if (rightBayWidth >= 4.5) {
+          leftPebbleIndices.add(0);
+          leftPebbleIndices.add(1);
+          rightPebbleIndices.add(2);
+        } else {
+          leftPebbleIndices.add(0);
+          leftPebbleIndices.add(1);
+        }
+      } else {
+        if (leftBayWidth >= 4.5) leftPebbleIndices.add(0);
+        if (rightBayWidth >= 4.5) rightPebbleIndices.add(1);
       }
     } else {
       // 4 pebbles
-      if (leftBayWidth > 16.0) {
+      if (leftBayWidth >= 6.5 && rightBayWidth >= 6.5) {
         leftPebbleIndices.add(0);
-        leftPebbleIndices.add(2);
-      } else if (leftBayWidth > 7.0) {
-        leftPebbleIndices.add(0);
-      }
-      if (rightBayWidth > 16.0) {
-        rightPebbleIndices.add(1);
+        leftPebbleIndices.add(1);
+        rightPebbleIndices.add(2);
         rightPebbleIndices.add(3);
-      } else if (rightBayWidth > 7.0) {
+      } else if (rightBayWidth >= 6.5) {
+        if (leftBayWidth >= 4.5) leftPebbleIndices.add(0);
         rightPebbleIndices.add(1);
+        rightPebbleIndices.add(2);
+      } else if (leftBayWidth >= 6.5) {
+        leftPebbleIndices.add(0);
+        leftPebbleIndices.add(1);
+        if (rightBayWidth >= 4.5) rightPebbleIndices.add(2);
+      } else {
+        if (leftBayWidth >= 4.5) leftPebbleIndices.add(0);
+        if (rightBayWidth >= 4.5) rightPebbleIndices.add(1);
       }
     }
 
@@ -488,7 +515,7 @@ class SectorContentRenderer {
       if (indices.length == 1) {
         final idx = indices[0];
         final dim = pebbleDimensions[idx];
-        if (bayWidth < dim.halfDeg * 2.0) return;
+        if (bayWidth < 3.5) return;
 
         final targetAngle = (bayStart + bayEnd) / 2.0;
         final pDeg = midDeg + targetAngle;
@@ -511,10 +538,10 @@ class SectorContentRenderer {
         final idx2 = indices[1];
         final dim1 = pebbleDimensions[idx1];
         final dim2 = pebbleDimensions[idx2];
-        final totalNeeded = (dim1.halfDeg * 2.0) + (dim2.halfDeg * 2.0) + 2.0;
 
-        if (bayWidth < totalNeeded) {
-          // If 2 don't fit comfortably along the arc, render just the 1st one centered
+        // If bay is too cramped for 2 staggered pebbles, fall back to rendering
+        // only the first one centered in the bay.
+        if (bayWidth < 6.0) {
           final targetAngle = (bayStart + bayEnd) / 2.0;
           final pDeg = midDeg + targetAngle;
           final pRad = SectorMath.dialAngleToCanvasRadians(pDeg);
@@ -533,18 +560,18 @@ class SectorContentRenderer {
         }
 
         // Space the 2 pebbles comfortably along the bay
-        final p1Angle = bayStart + bayWidth * 0.30;
+        final p1Angle = bayStart + bayWidth * 0.28;
         final p2Angle = bayStart + bayWidth * 0.72;
 
         // Subtle radial stagger: one slightly inner, one slightly outer
-        final rStagger = trackThickness * 0.14;
+        final rStagger = (trackThickness * 0.15).clamp(5.0, 9.0);
         final p1R = (midR - rStagger).clamp(
-          rIn + dim1.h / 2.0 + 3.0,
-          rOut - dim1.h / 2.0 - 3.0,
+          rIn + dim1.h / 2.0 + 2.0,
+          rOut - dim1.h / 2.0 - 2.0,
         );
         final p2R = (midR + rStagger).clamp(
-          rIn + dim2.h / 2.0 + 3.0,
-          rOut - dim2.h / 2.0 - 3.0,
+          rIn + dim2.h / 2.0 + 2.0,
+          rOut - dim2.h / 2.0 - 2.0,
         );
 
         final p1Deg = midDeg + p1Angle;

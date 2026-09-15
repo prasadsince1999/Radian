@@ -116,5 +116,40 @@ void main() {
       final picture = recorder.endRecording();
       expect(picture, isNotNull);
     });
+
+    test('SectographPainter paints 12H Flexible Hours sector with 3 subtasks (LeetCode, Mock, PyTorch) cleanly', () {
+      final today = DateTime(2026, 9, 15, 18, 30);
+      final events = [
+        SectorEvent(
+          id: 'flex-1',
+          title: 'Flexible Hours',
+          start: DateTime(today.year, today.month, today.day, 17, 30),
+          end: DateTime(today.year, today.month, today.day, 20, 30),
+          startAngle: 75.0, // 5:30 on 12h dial (30 deg/h * 5.5 = 165 deg from 12 or standard dial)
+          sweepAngle: 90.0, // 3 hours = 90°
+          colorHex: '#0EA5E9',
+          subtasks: ['LeetCode', 'Mock Prep', 'PyTorch'],
+        ),
+      ];
+
+      final painter = SectographPainter(
+        events: events,
+        selectedEvent: null,
+        activeEvent: events[0],
+        currentTime: today,
+        scrubAngle: null,
+        settings: const DialSettings(is24HourMode: false),
+        colorScheme: const ColorScheme.dark(),
+        showCenterClock: true,
+      );
+
+      final recorder = PictureRecorder();
+      final canvas = Canvas(recorder);
+      const size = Size(380, 380);
+
+      expect(() => painter.paint(canvas, size), returnsNormally);
+      final picture = recorder.endRecording();
+      expect(picture, isNotNull);
+    });
   });
 }

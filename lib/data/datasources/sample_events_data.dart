@@ -123,7 +123,7 @@ abstract final class SampleEventsData {
           category: 'Code',
           iconName: 'code',
           notes: '08:15 pm - 12:00 am LeetCode & Open-source dev',
-          subtasks: const ['LeetCode', 'Mock Prep'],
+          subtasks: const ['LeetCode', 'Mock Prep', 'PyTorch'],
         ),
       ]);
     }
