@@ -366,8 +366,8 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(find.byType(SectographDial), findsOneWidget);
 
-        // Verify footer shows 12H button and does NOT show AM toggle badge
-        expect(find.text('12H'), findsOneWidget);
+        // Verify footer does NOT show 12H button (moved to settings) and does NOT show AM toggle badge
+        expect(find.text('12H'), findsNothing);
         expect(find.text('AM'), findsNothing);
         // PM is displayed in the center circle digital time display for 14:30
         expect(find.text('PM'), findsOneWidget);

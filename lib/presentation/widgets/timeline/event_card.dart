@@ -170,37 +170,6 @@ class EventCard extends StatelessWidget {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          if (event.category.isNotEmpty) ...[
-                            const SizedBox(width: 8),
-                            // Category / Tag Chip displayed directly after block hours
-                            Flexible(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: eventColor.withValues(alpha: 0.16),
-                                  border: Border.all(
-                                    color: eventColor.withValues(alpha: 0.42),
-                                    width: 1.0,
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  event.category,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: eventColor,
-                                    height: 1.1,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
                           if (event.reminderMinutes != null) ...[
                             const SizedBox(width: 6),
                             Icon(

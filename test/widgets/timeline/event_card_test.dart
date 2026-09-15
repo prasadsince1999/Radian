@@ -5,7 +5,9 @@ import 'package:sectograph_mcp/presentation/widgets/timeline/event_card.dart';
 
 void main() {
   group('EventCard Widget Tests', () {
-    testWidgets('renders title, time range, and category', (tester) async {
+    testWidgets('renders title and time range without category tag', (
+      tester,
+    ) async {
       final event = SectorEvent(
         id: 'ev-1',
         title: 'Team Standup',
@@ -30,7 +32,7 @@ void main() {
       );
 
       expect(find.text('Team Standup'), findsOneWidget);
-      expect(find.text('Work'), findsOneWidget);
+      expect(find.text('Work'), findsNothing);
     });
 
     testWidgets('renders subtasks chips when present', (tester) async {

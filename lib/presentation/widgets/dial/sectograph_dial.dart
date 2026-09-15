@@ -959,46 +959,13 @@ class _DialFooterControlBar extends ConsumerWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: Row(
-        children: [
-          // 1. Left: Single Unified 12H / 24H Mode Pill (Toggles between 12H and 24H)
-          BouncyPressable.standard(
-            onTap: () {
-              ref.read(dialSettingsProvider.notifier).toggle24HourMode();
-            },
-            child: Container(
-              height: 36,
-              padding: const EdgeInsets.symmetric(horizontal: 13),
-              decoration: BoxDecoration(
-                color: settings.is24HourMode
-                    ? colorScheme.primaryContainer
-                    : buttonBg,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: settings.is24HourMode
-                      ? colorScheme.primary.withValues(alpha: 0.35)
-                      : buttonBorder,
-                  width: 1.2,
-                ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                settings.is24HourMode ? '24H' : '12H',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
-                  color: settings.is24HourMode
-                      ? colorScheme.onPrimaryContainer
-                      : primaryTextColor,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ),
-          ),
-
-          // 2. Center: [ < ] Today, Mon, Sep 7 [ > ]
-          Expanded(
-            child: Center(
+      child: SizedBox(
+        height: 36,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Center: [ < ] Today, Mon, Sep 7 [ > ]
+            Center(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Row(
@@ -1077,48 +1044,55 @@ class _DialFooterControlBar extends ConsumerWidget {
                 ),
               ),
             ),
-          ),
 
-          // 3. Right: ( 🔄 Now )
-          BouncyPressable.standard(
-            onTap: () {
-              ref.read(dialScrubAngleProvider.notifier).state = null;
-              ref.read(customSelectedDayProvider.notifier).state = null;
-              ref.read(selectedEventProvider.notifier).state = null;
-            },
-            child: Container(
-              height: 36,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: isNotNow ? colorScheme.primaryContainer : buttonBg,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: isNotNow ? colorScheme.primary : buttonBorder,
-                  width: 1.2,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.restart_alt_rounded,
-                    size: 15,
-                    color: isNotNow ? colorScheme.primary : primaryTextColor,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    AppStrings.now,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 11.5,
-                      color: isNotNow ? colorScheme.primary : primaryTextColor,
+            // Right: ( 🔄 Now )
+            Positioned(
+              right: 0,
+              child: BouncyPressable.standard(
+                onTap: () {
+                  ref.read(dialScrubAngleProvider.notifier).state = null;
+                  ref.read(customSelectedDayProvider.notifier).state = null;
+                  ref.read(selectedEventProvider.notifier).state = null;
+                },
+                child: Container(
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: isNotNow ? colorScheme.primaryContainer : buttonBg,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: isNotNow ? colorScheme.primary : buttonBorder,
+                      width: 1.2,
                     ),
                   ),
-                ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.restart_alt_rounded,
+                        size: 15,
+                        color: isNotNow
+                            ? colorScheme.primary
+                            : primaryTextColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        AppStrings.now,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 11.5,
+                          color: isNotNow
+                              ? colorScheme.primary
+                              : primaryTextColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
