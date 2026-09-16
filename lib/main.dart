@@ -13,6 +13,16 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
 
+  final queryParams = Uri.base.queryParameters;
+  final modeParam = queryParams['mode']?.toLowerCase();
+  final presetParam = queryParams['preset']?.toLowerCase();
+
+  if (modeParam == '24h' || presetParam == 'international' || presetParam == 'intl') {
+    await prefs.setBool('setting_is24h', true);
+  } else if (modeParam == '12h' || presetParam == 'indian') {
+    await prefs.setBool('setting_is24h', false);
+  }
+
   runApp(
     ProviderScope(
       overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],

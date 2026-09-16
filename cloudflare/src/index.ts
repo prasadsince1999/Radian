@@ -1272,17 +1272,28 @@ export default {
     <!-- ─── HERO ─── -->
     <section class="hero">
       <div class="container">
+        <div style="font-family:'Noto Serif Devanagari',serif; font-size:clamp(18px,2vw,24px); color:var(--cyan); margin-bottom:12px; font-weight:700; text-shadow:0 0 20px rgba(56,189,248,0.4);">
+          रेडियन · अहोरात्र चक्र
+        </div>
+        <h1 style="font-family:'Eczar',Georgia,serif; font-size:clamp(3.5rem,7.5vw,6.5rem); font-weight:800; line-height:0.92; letter-spacing:-0.04em; color:#FFFFFF; margin-bottom:18px;">
+          Ra<em style="font-style:italic; font-weight:600; color:var(--cyan); text-shadow:0 0 28px rgba(56,189,248,0.5);">dian</em>
+        </h1>
         <div class="eyebrow">
           <span class="dot"></span>
-          KSM × TECH · AI-NATIVE TIME DIAL · MODEL CONTEXT PROTOCOL
+          STATUS: LIVE MCP · 360° CIRCULAR ROUTINE &amp; LIFE DIAL
         </div>
-                <h1 class="hero-title">
+        <h2 class="hero-title" style="font-size:clamp(1.6rem,2.8vw,2.5rem); margin-bottom:18px; line-height:1.15;">
           Your Day is a Circle.<br>
           <span class="gradient-text">Stop Living in a Checklist.</span>
-        </h1>
+        </h2>
         <p class="hero-lead">
-          Meet <strong>Radian</strong> — the 360° circular polar dial widget that visualizes your time, sub-tasks, and biological circadian rhythm at a single effortless glance. Plan days, routines, and gaps simply by chatting with AI via the Model Context Protocol (MCP). Zero nagging alarms. Zero task guilt.
+          A 360° circular polar dial widget that visualizes your entire day, sub-tasks, and biological circadian rhythm at a single effortless glance. Plan days, weeks, months, or years simply by chatting with AI via the Model Context Protocol (MCP). Zero nagging alarms. Zero task guilt.
         </p>
+        <div style="display:flex; justify-content:center; align-items:center; gap:14px; flex-wrap:wrap; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-muted); margin:0 auto 32px; max-width:820px;">
+          <span>Not another to-do list</span> ·
+          <span>Not shrill nagging alarms</span> ·
+          <span style="color:var(--cyan); font-weight:700;">A living 360° dial widget where you visualize your day and live guilt-free</span>
+        </div>
         <div class="hero-ctas">
           <button class="btn btn-primary" onclick="copyMcpUrl()">
             <span>⚡ Connect Remote MCP</span>
@@ -1419,10 +1430,19 @@ export default {
       </div>
     </section>
 
-    <!-- ─── ANTI-TODO MANIFESTO ─── -->
+    <!-- ─── /01 IN PLAIN WORDS ─── -->
+    <section class="container" id="in-plain-words">
+      <div class="section-title-wrap">
+        <span class="section-num">/01 — IN PLAIN WORDS</span>
+        <h2 class="section-h2">Not another to-do list. Not nagging alarms. <br><em>A living 360° circle of your whole day.</em></h2>
+        <p class="section-p">Vertical checklists produce chronic anxiety, red badges, and guilt debt. Radian restores calm situational awareness by mapping time, sub-tasks, and biological rhythms into an intuitive circular dial widget on your home screen.</p>
+      </div>
+    </section>
+
+    <!-- ─── /02 THE ANTI-TODO PHILOSOPHY ─── -->
     <section class="container" id="manifesto">
       <div class="section-title-wrap">
-        <span class="section-num">/01 — THE ANTI-TODO PHILOSOPHY</span>
+        <span class="section-num">/02 — THE ANTI-TODO PHILOSOPHY</span>
         <h2 class="section-h2">Time isn't a vertical list. <br><em>Time is a 360° circle.</em></h2>
         <p class="section-p">Vertical to-do lists induce shame and anxiety. Radian replaces overdue red counters with continuous biological situational awareness.</p>
       </div>
@@ -1459,6 +1479,7 @@ export default {
       <div class="mcp-box">
         <div class="mcp-box-header">
           <div>
+            <span class="section-num" style="display:block; margin-bottom:8px;">/03 — MODEL CONTEXT PROTOCOL · STREAMABLE HTTP</span>
             <div class="mcp-title">⚡ Connect Your AI Assistant via Model Context Protocol</div>
             <p style="color: var(--text-muted); font-size: 14px; margin-top: 4px;">
               Paste this remote endpoint into Claude Desktop, Cursor, Gemini Custom Connector, or any MCP client:
@@ -1512,7 +1533,7 @@ ${url.origin}/.well-known/mcp.json</pre>
     <!-- ─── TOOL DEFINITIONS CATALOG ─── -->
     <section class="container" id="tools">
       <div class="section-title-wrap">
-        <span class="section-num">/02 — EXPOSED MCP TOOLS</span>
+        <span class="section-num">/04 — EXPOSED MCP TOOLS</span>
         <h2 class="section-h2">Complete Agency Over Time.</h2>
         <p class="section-p">7 native tools callable by any LLM to create, inspect, query, and synchronize your schedule.</p>
       </div>

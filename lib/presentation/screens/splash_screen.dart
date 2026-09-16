@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -28,7 +29,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: Duration(milliseconds: kIsWeb ? 400 : 1400),
     );
 
     _scaleAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
@@ -50,7 +51,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _navigateToNext() async {
-    await Future.delayed(const Duration(milliseconds: 1600));
+    await Future.delayed(Duration(milliseconds: kIsWeb ? 500 : 1600));
     if (!mounted) return;
 
     final prefs =
@@ -58,7 +59,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         await SharedPreferences.getInstance();
     if (!mounted) return;
     final hasCompletedOnboarding =
-        prefs.getBool('has_completed_onboarding') ?? false;
+        kIsWeb || (prefs.getBool('has_completed_onboarding') ?? false);
 
     final targetScreen = hasCompletedOnboarding
         ? const HomeScreen()

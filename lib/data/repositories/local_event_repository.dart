@@ -10,6 +10,7 @@ import '../../core/services/reminder_notification_service.dart';
 import '../../domain/models/free_gap.dart';
 import '../../domain/models/sector_event.dart';
 import '../../domain/repositories/event_repository.dart';
+import '../datasources/sample_events_data.dart';
 
 class LocalEventRepository implements EventRepository {
   static const _storageKey = AppStrings.eventsStorageKey;
@@ -39,8 +40,13 @@ class LocalEventRepository implements EventRepository {
         }
       }
 
-      // Enrich persistent events with AI/ML Sprint subtasks if they were created without subtasks
       var hasEnriched = false;
+
+      // When launching with zero events (fresh install or clean web visit), load default schedule
+      if (_events.isEmpty) {
+        _events.addAll(SampleEventsData.generateDefaultSchedule(DateTime.now()));
+        hasEnriched = true;
+      }
 
       // Purge obsolete/leftover test events that cause collision or duplicate caps on device
       final initialCount = _events.length;
@@ -482,5 +488,18 @@ class LocalEventRepository implements EventRepository {
     }
 
     return gaps;
+  }
+
+  @override
+  Future<void> loadPreset(String preset) async {
+    final now = DateTime.now();
+    final newEvents = preset == 'international_24h'
+        ? SampleEventsData.generateInternational24hSchedule(now)
+        : SampleEventsData.generateIndian12hSchedule(now);
+    _events.clear();
+    _events.addAll(newEvents);
+    _deconflictEvents();
+    await _saveToDisk();
+    _notify();
   }
 }

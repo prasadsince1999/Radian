@@ -17,4 +17,5 @@ abstract class EventRepository {
     required bool is24HourMode,
     Duration minDuration = const Duration(minutes: 15),
   });
+  Future<void> loadPreset(String preset);
 }

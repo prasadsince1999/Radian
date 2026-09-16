@@ -144,6 +144,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final settings = ref.watch(dialSettingsProvider);
 
     // Keep Android Home Screen Widget in sync (throttled to minute boundaries & state changes)
     ref.listen(allEventsProvider, (_, _) => _syncAndroidWidget());
@@ -169,6 +170,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         titleSpacing: 16.0,
         title: const RadianLogo(),
         actions: [
+          // 0. Quick 12H Indian / 24H Global Mode Toggle Pill
+          BouncyPressable.standard(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              final isCurrently24 = settings.is24HourMode;
+              ref.read(dialSettingsProvider.notifier).toggle24HourMode();
+              ref.read(eventRepositoryProvider).loadPreset(
+                !isCurrently24 ? 'international_24h' : 'indian_12h',
+              );
+            },
+            child: Container(
+              height: AppLayoutConstants.actionButtonSize,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: settings.is24HourMode
+                    ? colorScheme.primaryContainer
+                    : colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(
+                  color: settings.is24HourMode
+                      ? colorScheme.primary.withValues(alpha: 0.45)
+                      : colorScheme.outlineVariant,
+                  width: 1.2,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    settings.is24HourMode ? '24H' : '12H',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: settings.is24HourMode
+                          ? colorScheme.primary
+                          : colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    settings.is24HourMode ? '🌐' : '🇮🇳',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+
           // 1. Calendar Squircle Button
           BouncyPressable.standard(
             onTap: () {
@@ -279,11 +330,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   shape: ExpressiveShapes.modalSheet,
                   builder: (_) => const McpStatusSheet(),
                 );
+              } else if (value == 'preset_indian') {
+                ref.read(dialSettingsProvider.notifier).updateSettings(settings.copyWith(is24HourMode: false));
+                ref.read(eventRepositoryProvider).loadPreset('indian_12h');
+              } else if (value == 'preset_intl') {
+                ref.read(dialSettingsProvider.notifier).updateSettings(settings.copyWith(is24HourMode: true));
+                ref.read(eventRepositoryProvider).loadPreset('international_24h');
               } else if (value == 'about') {
                 AboutRadianDialog.show(context);
               }
             },
             itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'preset_indian',
+                child: Row(
+                  children: [
+                    const Text('🇮🇳', style: TextStyle(fontSize: 16)),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Load Indian Routine (12H)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.5,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'preset_intl',
+                child: Row(
+                  children: [
+                    const Text('🌐', style: TextStyle(fontSize: 16)),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Load Global Circadian (24H)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.5,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
               PopupMenuItem(
                 value: 'health',
                 child: Row(

@@ -1,10 +1,13 @@
-# ⭕ Radian — 360° AI-Native Circular Routine & Life Dial
+# ⭕ Ra*dian* (रेडियन · अहोरात्र चक्र) — 360° AI-Native Circular Routine & Life Dial
 
 > **“Your day is a circle, not a checklist.”**  
-> Radian is **not another to-do list** or habit tracker. It is a single, beautiful 360° circular widget that visualizes your entire day, your sub-tasks, and your real-time biological rhythm at a single effortless glance.  
 > 
-> **No guilt. No shrill nagging notifications. No manual clicking.**  
-> Plan days, months, or years simply by chatting with AI via the **Model Context Protocol (MCP)**. Glance at your dial: if you feel it, do it. If not, skip it.
+> * **Not another to-do list.**  
+> * **Not shrill nagging alarms.**  
+> * **A living 360° circular dial widget where you visualize your day and live guilt-free.**  
+> 
+> Radian is a single, beautiful 360° circular widget that visualizes your entire day, your sub-tasks, and your real-time biological rhythm at a single effortless glance.  
+> Plan days, weeks, months, or years simply by chatting with AI via the **Model Context Protocol (MCP)**. Glance at your dial: if you feel it, do it. If not, skip it.
 
 ---
 
@@ -22,55 +25,58 @@ Modern productivity apps are broken. They turn your day into an endless vertical
 | **Blind to Your Body**: Treats humans like robotic task-execution machines. | **Health-Integrated**: Aligns your schedule with sleep debt, recovery, and energy. |
 | **Fragmented Widgets**: Cluttered text widgets that take up entire screens. | **Glanceable Dial Widget**: A clean, live-ticking circular clock on your home screen. |
 
----
-
-## 🌐 Website & App Marketing Identity Playbook
-
-Below is the copy, structure, and positioning designed for our official app website, landing page, and marketing campaigns:
-
-### 1. Hero Section
-* **Headline**: *Your Day is a Circle. Stop Living in a Checklist.*
-* **Subhead**: *Meet Radian — the 360° visual dial widget that maps your time, sub-tasks, and biological energy into a single glance. Powered by autonomous AI via MCP. Zero nagging alarms. Zero task guilt.*
-* **Primary CTA**: `[ Download Radian Widget ]`
-* **Secondary CTA**: `[ Connect Your AI (MCP) ]`
-* **Badge**: `⭐ 100% Free & Open Source · Privacy-First · Powered by Model Context Protocol`
-
-### 2. The Four Pillars of the Radian Experience
-
-#### 🎯 1. Glance, Don't Scroll
-See your past hours fade, your current moment pinned by the sleek needle, and your upcoming sectors unfolding naturally around a 12h or 24h dial. Concentric rings handle simultaneous tasks without visual clutter.
-
-#### 💬 2. Plan by Chatting, Not Dragging
-Forget manual calendar math. With native Model Context Protocol (MCP) built in, connect Claude, ChatGPT, Grok, Cursor, or Gemini:
-> *“Hey, I only got 5 hours of sleep last night. Clear my 8 AM deep focus, give me 45 minutes of light catch-up at 11 AM, schedule my team sync at 2 PM, and block off 8 PM for winding down.”*  
-Done in 2 seconds. The AI sets the exact polar angles and colors directly on your device.
-
-#### 🫀 3. Synchronized with Your Biology
-Your productivity depends on your physiology. Radian pulls sleep stages, resting heart rate, recovery deficit, and active calories directly into the dial view so you never schedule high-intensity focus when your body needs replenishment.
-
-#### 🕊️ 4. The "Do It or Skip It" Philosophy
-Life happens. When a scheduled time block arrives, Radian doesn't bombard you with three notifications and an angry red counter. Look at your phone: if you're in the zone, dive in. If your energy shifted, let the dial sweep forward. No overdue debt, no guilt, no pressure.
+[![Official Studio Page](https://img.shields.io/badge/Official_Page-ksmxtech.com%2Fradian-FF5722?style=for-the-badge&logo=google-chrome&logoColor=white)](https://ksmxtech.com/radian/)
+[![GitHub Repository](https://img.shields.io/badge/GitHub-prasadsince1999%2FRadian-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/prasadsince1999/Radian)
+[![Remote MCP Endpoint](https://img.shields.io/badge/Remote_MCP-Workers_D1-7C4DFF?style=for-the-badge&logo=anthropic&logoColor=white)](https://sectograph-mcp.kpr25121999.workers.dev/mcp)
+[![X / Twitter](https://img.shields.io/badge/X-%40otto__explorer-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/otto_explorer)
+[![WhatsApp Concierge](https://img.shields.io/badge/WhatsApp-Inquire-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://wa.me/918280055179?text=Hi%20PrasaD!%20I'm%20exploring%20Radian%20and%20would%20love%20to%20learn%20more.)
+[![Tests Passing](https://img.shields.io/badge/Tests-196_Passing-00E676?style=for-the-badge&logo=flutter&logoColor=white)](test/)
+[![License MIT](https://img.shields.io/badge/License-MIT-FFA000?style=for-the-badge)](LICENSE)
 
 ---
 
-## 🌟 Core Features & Highlights
+## 📱 The User-Side Experience: Life Through the 360° Dial
 
-### ⭕ 360° Polar Routine Dial
-* **12-Hour & 24-Hour Dial Modes**: $0.5^\circ/\text{min}$ (12h) or $0.25^\circ/\text{min}$ (24h) sector sweeping.
-* **Concentric Overlap Solver**: Automatically segments overlapping tasks into concentric tracks so every subtask is visible.
-* **Touch-Scrub Needle**: Scrub smoothly through your day with polar hit-testing to inspect active, upcoming, and past blocks.
-* **Glanceable Android Home Widget**: A live minute-ticking dial right on your launcher.
+Forget clunky lists and rigid calendar grids. Here is what your day actually looks and feels like with Radian on your home screen:
 
-### 🎨 Material 3 Expressive & Adaptive Theming
-* **Nothing OS & Pixel Monet Icons**: Native monochrome vector icons adapting to your wallpaper and OS palette.
-* **Vibrant Theme Seeds**: OLED Midnight, Electric Indigo, Cyber Cyan, Emerald Forest, Sunset Amber, and Ruby.
-* **Silky 120Hz Transitions**: Smooth sheet expansions, spring physics, and fluid dial collapses.
+### 1. ⭕ The Living 360° Home Screen Widget
+Imagine unlocking your phone and seeing your entire day as a continuous circle of time:
+* **Your Entire Day at a Single Glance**: Morning, afternoon, evening, and night flow in a seamless 360° sweep. You never have to scroll down a calendar feed or read through a cluttered list.
+* **Concentric Subtask Arcs**: Have three overlapping commitments or a deep work block with subtasks? Radian automatically organizes them into clean, nested concentric rings. Nothing overlaps or collides.
+* **The Living Sweep Needle**: A precision needle ticks to the exact current minute. Completed hours gracefully fade into a subtle shadow, your current focus softly glows, and upcoming sectors stretch out smoothly ahead.
 
-### 🤖 Remote & Local Model Context Protocol (MCP) Server
-Radian provides an official, AI-native MCP server deployed on Cloudflare Workers with D1 persistence as well as an embedded local server:
-* **Remote MCP Endpoint**: `https://sectograph-mcp.kpr25121999.workers.dev/mcp`
-* **App Logo & Asset Endpoints**: `/icon.png` (512x512), `/favicon.ico`, `/logo.svg`
-* **Local In-App Server**: Port `8080` with JSON-RPC 2.0 and Server-Sent Events (`/sse`).
+### 2. 🕊️ The Guilt-Free "Do It or Skip It" Philosophy
+You will never be harassed by your productivity tool again:
+* **No Shrill Nagging Notifications**: Zero intrusive reminders buzzing in your pocket every 15 minutes shouting at you to do laundry or start a meeting.
+* **No Manual Checkbox Tapping**: No tedious checkbox clicking, no tapping "complete", no managing the manager.
+* **Zero Task Debt or Guilt**: Look at your widget. If you are inspired and ready, dive into the sector. If your energy shifted or life called, let the dial sweep past it. There are no red overdue badges and no shame. Time moves on peacefully.
+
+### 3. 💬 Plan Days, Months, or Years by Just Chatting with AI
+You never have to calculate time blocks or drag event edges manually:
+* **AI-Native via Model Context Protocol (MCP)**: Connect your favorite AI assistant (Claude, ChatGPT, Gemini, Grok, or Cursor). Simply speak or type your intent in natural human language:
+  > *“I have final exams in 3 weeks. Build me a balanced revision schedule balancing morning theory, afternoon problem solving, gym sessions, and completely open evenings.”*
+  > 
+  > *“I only got 5 hours of sleep last night. Clear my 8 AM deep focus, give me a 45-minute power nap at 1:30 PM, and line up my creative work for 4 PM.”*
+* **Instant Geometric Translation**: In seconds, your AI arranges the exact polar sectors, durations, colors, and subtask tracks directly on your live dial.
+
+### 4. 🫀 Live Biological Health & Rhythm Overlay
+Your body is not an assembly line machine. Radian merges your schedule with your physiology:
+* **Circadian Energy Mapping**: Visualize your natural biological peak alertness zones vs. afternoon dips, allowing you to align demanding cognitive work when your brain is naturally primed.
+* **Sleep & Recovery Deficit**: Your resting heart rate, sleep quality, and recovery scores are mapped around the perimeter of the dial, keeping you grounded in realistic human capacity.
+
+### 5. 👆 Touch, Scrub & Instant Time Travel
+* **Haptic Thumb-Scrubbing**: Touch the dial and drag your thumb across the ring. Feel responsive haptic ticks as the needle scrubs across hours, previewing your upcoming schedule.
+* **Fluid 120Hz Expansion Sheets**: Tap any sector to reveal detailed subtask checklists, location tags, and notes in silky, spring-animated Material 3 sheets.
+* **12-Hour & 24-Hour Dial Freedom**: Flip with one tap between a classic 12-hour clock dial (0.5°/min) and an expansive 24-hour day dial (0.25°/min).
+
+### 6. 🎨 Aesthetic Dial Faces & Community Co-Creation
+Your feedback drives the look and feel of Radian:
+* **OLED Midnight**: Pitch-black backgrounds engineered for battery conservation and night calm.
+* **Nothing-Style Monochrome**: Minimalist dotted radial geometry and crisp dot-matrix typography.
+* **Cyber Cyan & Electric Indigo**: High-contrast, neon-infused focus zones.
+* **Sunset Amber & Emerald Forest**: Warm, natural organic palettes for relaxing routines.
+* **Dynamic Material You / Monet**: Automatically adapts to your Android wallpaper colors.
+* **Community Voting**: We build what you ask for. Our community votes on upcoming watch faces, Wear OS tiles, and watch complications.
 
 ---
 
@@ -124,9 +130,10 @@ http://<PHONE_IP>:8080/sse
 
 We don't build Radian behind closed doors. Every dial style, tick face, haptic pattern, and biometric integration is shaped by real community feedback.
 
-* **Share Your Thoughts**: Have an idea for a dial face, a smartwatch integration, or a new MCP tool? Open an [Issue](https://github.com/KSM-Tech/sectograph_mcp/issues) or start a [Discussion](https://github.com/KSM-Tech/sectograph_mcp/discussions).
-* **Vote on Features**: Community polls decide our upcoming roadmap (Apple Watch complication, Wear OS tile, Google Calendar two-way sync).
-* **Community Driven**: We listen, iterate, and release continuous updates based on how you experience time.
+* **Explore the Showcase**: Visit the official studio page at [ksmxtech.com/radian](https://ksmxtech.com/radian/).
+* **Share Your Thoughts & Ideas**: Have an idea for a dial face, a smartwatch complication, or a new MCP tool? Open an [Issue](https://github.com/prasadsince1999/Radian/issues) or start a [Discussion](https://github.com/prasadsince1999/Radian/discussions).
+* **Vote on Features**: Community polls decide our upcoming roadmap (Wear OS tile, Apple Watch complication, Google Calendar two-way sync).
+* **Direct Concierge**: Reach out directly via [WhatsApp (+91 82800 55179)](https://wa.me/918280055179?text=Hi%20PrasaD!%20I'm%20exploring%20Radian%20and%20would%20love%20to%20share%20feedback.) or follow [@otto_explorer](https://x.com/otto_explorer) on X.
 
 ---
 
@@ -177,5 +184,6 @@ sectograph_mcp/
 
 ## 📄 License & Attribution
 
-Built with passion and intention by **KSM × Tech Studio** (Founder: **PrasaD**).  
+Built with passion and intention by [**KSM × Tech Studio**](https://ksmxtech.com/) (Founder: [**PrasaD**](https://x.com/otto_explorer)).  
+*“Built on family values. Guided by truth.”* — **सत्यं · मांगल्यम् · रूपान्तरम्**  
 Licensed under the [MIT License](LICENSE).

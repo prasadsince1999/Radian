@@ -231,4 +231,9 @@ class FakeEventRepository implements EventRepository {
 
     return gaps;
   }
+
+  @override
+  Future<void> loadPreset(String preset) async {
+    _notify();
+  }
 }
