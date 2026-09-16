@@ -54,18 +54,25 @@ class LocalEventRepository implements EventRepository {
         } catch (_) {}
       }
 
-      if (urlPreset == 'international' ||
+      final is24 =
+          urlPreset == 'international' ||
           urlPreset == 'intl' ||
-          urlMode == '24h') {
+          urlMode == '24h' ||
+          (prefs?.getBool('setting_is24h') ?? false);
+
+      if (kIsWeb) {
+        // On web showcase, always provide the rich verified demo blocks for today
         _events.clear();
-        _events.addAll(SampleEventsData.generateInternational24hSchedule(now));
-        hasEnriched = true;
-      } else if (urlPreset == 'indian' || urlMode == '12h') {
-        _events.clear();
-        _events.addAll(SampleEventsData.generateIndian12hSchedule(now));
+        if (is24) {
+          _events.addAll(
+            SampleEventsData.generateInternational24hSchedule(now),
+          );
+        } else {
+          _events.addAll(SampleEventsData.generateIndian12hSchedule(now));
+        }
         hasEnriched = true;
       } else {
-        // When launching with zero events or no events for today, load default schedule
+        // On mobile device / standalone app, load saved events or seed default
         final hasTodayEvents = _events.any(
           (e) =>
               e.start.year == now.year &&

@@ -123,14 +123,14 @@ abstract final class SampleEventsData {
         ),
         SectorEvent(
           id: '$prefix-in-dinner',
-          title: 'Cooking Lunch',
+          title: 'Dinner & Meal Prep',
           start: day.add(const Duration(hours: 19, minutes: 0)),
           end: day.add(const Duration(hours: 20, minutes: 15)),
           colorHex: '#8EC5FC', // Sky Blue
           category: 'Food',
           iconName: 'restaurant',
           notes: '07:00 pm - 08:15 pm Meal prep & healthy dinner',
-          subtasks: const ['Meal Prep', 'Quick Lunch'],
+          subtasks: const ['Meal Prep', 'Dinner'],
         ),
         SectorEvent(
           id: '$prefix-in-code',
@@ -152,7 +152,9 @@ abstract final class SampleEventsData {
   /// Generates full 24-hour continuous circadian routine for international users
   /// mapping 00:00 to 24:00 across 360° with circadian recovery, high-cognitive morning sprints,
   /// cross-timezone synchronization, strength training, and nocturnal stillness.
-  static List<SectorEvent> generateInternational24hSchedule(DateTime referenceDate) {
+  static List<SectorEvent> generateInternational24hSchedule(
+    DateTime referenceDate,
+  ) {
     final today = DateTime(
       referenceDate.year,
       referenceDate.month,
@@ -207,7 +209,11 @@ abstract final class SampleEventsData {
           category: 'Focus',
           iconName: 'laptop',
           notes: 'Peak morning cognitive bandwidth: Distributed Systems & Architecture',
-          subtasks: const ['Distributed Systems', 'Core Engine', 'Perf Benchmark'],
+          subtasks: const [
+            'Distributed Systems',
+            'Core Engine',
+            'Perf Benchmark',
+          ],
         ),
         // 12:30 - 13:30 Midday Nutrition
         SectorEvent(
