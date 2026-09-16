@@ -1276,8 +1276,7 @@ export default {
           <span class="dot"></span>
           KSM × TECH · AI-NATIVE TIME DIAL · MODEL CONTEXT PROTOCOL
         </div>
-        <div class="deva-tag">वृत्तकाल // ARKA-CHAKRA</div>
-        <h1 class="hero-title">
+                <h1 class="hero-title">
           Your Day is a Circle.<br>
           <span class="gradient-text">Stop Living in a Checklist.</span>
         </h1>
@@ -1296,69 +1295,46 @@ export default {
           </a>
         </div>
 
-        <!-- ─── 360° AUTHENTIC PHONE SHOWCASE ─── -->
-        <div class="rd-showcase-shell" id="dial-preview">
-          <div class="rd-showcase-grid">
-            <!-- Left: Authentic Radian Phone Widget -->
-            <div class="rd-phone-chassis" id="phone-widget">
-              <!-- Status Bar -->
-              <div class="rd-status-bar">
-                <span id="phone-clock">12:38</span>
-                <div class="rd-status-icons">
-                  <span>20.9 KB/s</span>
-                  <span>📶</span>
-                  <span>🔋 86%</span>
-                </div>
-              </div>
-
-              <!-- App Header -->
-              <div class="rd-app-header">
-                <div class="rd-app-logo">
-                  <div class="rd-logo-icon"></div>
-                  <span class="rd-app-title">Radian</span>
-                </div>
-                <div class="rd-app-actions">
-                  <button class="rd-icon-btn" title="Calendar">📅</button>
-                  <button class="rd-icon-btn" id="open-settings-btn" onclick="toggleSettingsSheet(true)" title="Dial Customization">🎛️</button>
-                  <button class="rd-icon-btn" title="More">⋮</button>
-                </div>
-              </div>
-
-              <!-- 360° Circular Dial -->
-              <div class="rd-dial-stage">
-                <svg class="rd-dial-svg-frame" viewBox="0 0 300 300" id="radian-app-dial">
+        <!-- ─── 360° LIVE INTERACTIVE DIAL SHOWCASE ─── -->
+        <div class="rd-dial-stage-box" id="dial-preview" style="border-radius:28px; border:1px solid rgba(255,255,255,0.08); background:linear-gradient(180deg, rgba(14,19,32,0.85) 0%, rgba(8,11,18,0.95) 100%); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); padding:48px 40px; box-shadow:0 24px 64px rgba(0,0,0,0.6); margin-bottom:72px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:center;">
+            
+            <!-- Left: The Pure 360° Circular Dial -->
+            <div style="display:flex; flex-direction:column; align-items:center;">
+              <div style="position:relative; width:340px; height:340px; user-select:none;">
+                <svg viewBox="0 0 300 300" style="width:100%; height:100%; filter:drop-shadow(0 0 36px rgba(99,102,241,0.22));" id="radian-app-dial">
                   <!-- Background Dial Face -->
-                  <circle cx="150" cy="150" r="140" fill="#0E1017" stroke="#25293A" stroke-width="1.5"/>
-                  <circle cx="150" cy="150" r="60" fill="none" stroke="#25293A" stroke-width="1" stroke-dasharray="3 3"/>
+                  <circle cx="150" cy="150" r="142" fill="#0C0E14" stroke="#1F2433" stroke-width="1.5"/>
+                  <circle cx="150" cy="150" r="62" fill="none" stroke="#25293A" stroke-width="1" stroke-dasharray="3 3"/>
                   
                   <!-- Dial Numerals (1 to 12) in crisp white -->
-                  <g font-family="'Outfit', sans-serif" font-size="11" font-weight="700" fill="#CBD5E1" text-anchor="middle" opacity="0.85">
-                    <text x="150" y="28">12</text>
-                    <text x="211" y="45">1</text>
-                    <text x="256" y="90">2</text>
-                    <text x="272" y="154">3</text>
-                    <text x="256" y="215">4</text>
-                    <text x="211" y="260">5</text>
-                    <text x="150" y="276">6</text>
-                    <text x="89" y="260">7</text>
-                    <text x="44" y="215">8</text>
-                    <text x="28" y="154">9</text>
-                    <text x="44" y="90">10</text>
-                    <text x="89" y="45">11</text>
+                  <g font-family="'Outfit', sans-serif" font-size="11" font-weight="700" fill="#CBD5E1" text-anchor="middle" opacity="0.88">
+                    <text x="150" y="26">12</text>
+                    <text x="212" y="44">1</text>
+                    <text x="257" y="88">2</text>
+                    <text x="274" y="154">3</text>
+                    <text x="257" y="218">4</text>
+                    <text x="212" y="262">5</text>
+                    <text x="150" y="280">6</text>
+                    <text x="88" y="262">7</text>
+                    <text x="43" y="218">8</text>
+                    <text x="26" y="154">9</text>
+                    <text x="43" y="88">10</text>
+                    <text x="88" y="44">11</text>
                   </g>
 
-                  <!-- Concentric Routine Sectors (Exact match to app screenshots) -->
+                  <!-- Concentric Routine Sectors -->
                   <!-- 1. Nap Time (1:30 PM to 3:00 PM · 1h 30m) -->
-                  <path id="sec-nap" d="M 150 150 L 192.42 107.57 A 136 136 0 0 1 286 150 Z" fill="#2563EB" fill-opacity="0.88"/>
+                  <path id="sec-nap" d="M 150 150 L 192.42 107.57 A 136 136 0 0 1 286 150 Z" fill="#2563EB" fill-opacity="0.9" style="cursor:pointer;" onclick="inspectAppSector('nap')"/>
                   
                   <!-- 2. Deep Focus (3:15 PM to 4:15 PM · 1h) -->
-                  <path id="sec-deep" d="M 150 150 L 284.84 167.74 A 136 136 0 0 1 257.90 232.79 Z" fill="#6366F1" fill-opacity="0.9"/>
+                  <path id="sec-deep" d="M 150 150 L 284.84 167.74 A 136 136 0 0 1 257.90 232.79 Z" fill="#6366F1" fill-opacity="0.92" style="cursor:pointer;" onclick="inspectAppSector('deep')"/>
                   
                   <!-- 3. Bed Time (4:15 PM to 5:30 PM · 1h 15m) -->
-                  <path id="sec-bed" d="M 150 150 L 257.90 232.79 A 136 136 0 0 1 185.20 281.36 Z" fill="#475569" fill-opacity="0.85"/>
+                  <path id="sec-bed" d="M 150 150 L 257.90 232.79 A 136 136 0 0 1 185.20 281.36 Z" fill="#475569" fill-opacity="0.88" style="cursor:pointer;" onclick="inspectAppSector('bed')"/>
 
-                  <!-- Sector text and icons on the dial face -->
-                  <g font-family="'Outfit', sans-serif" font-size="9" font-weight="700" fill="#FFFFFF" opacity="0.95">
+                  <!-- Sector labels on dial face -->
+                  <g font-family="'Outfit', sans-serif" font-size="9" font-weight="700" fill="#FFFFFF" opacity="0.95" pointer-events="none">
                     <text x="236" y="116" transform="rotate(22 236 116)" text-anchor="middle">🌙 Nap Time</text>
                     <text x="242" y="128" transform="rotate(22 242 128)" font-size="7.5" fill="#93C5FD" text-anchor="middle">1h 30m</text>
                     <text x="235" y="195" transform="rotate(22 235 195)" text-anchor="middle">💻 Deep</text>
@@ -1366,7 +1342,7 @@ export default {
                   </g>
 
                   <!-- Center Donut Mask (Ratio 0.42) -->
-                  <circle cx="150" cy="150" r="58" fill="#0C0E14" stroke="#1F2433" stroke-width="1.5"/>
+                  <circle cx="150" cy="150" r="58" fill="#07090E" stroke="#1F2433" stroke-width="1.5"/>
 
                   <!-- Center Clock Display -->
                   <text x="150" y="132" text-anchor="middle" font-family="'Outfit', sans-serif" font-size="9" font-weight="800" letter-spacing="1" fill="#94A3B8">PM</text>
@@ -1385,124 +1361,17 @@ export default {
                 </svg>
               </div>
 
-              <!-- Date Navigation -->
-              <div class="rd-nav-bar">
-                <button class="rd-nav-pill" onclick="resetDialTimeToNow()">⟲ Now</button>
-                <div class="rd-nav-pill rd-nav-pill-center">
-                  <span class="rd-nav-arrow">‹</span>
-                  <span id="app-date-label">Today, Wed, Sep 16</span>
-                  <span class="rd-nav-arrow">›</span>
-                </div>
-                <button class="rd-nav-pill" onclick="toggleSettingsSheet(true)">🎛️ Edit</button>
-              </div>
-
-              <!-- Event Cards List -->
-              <div class="rd-events-list">
-                <!-- Event 1: Nap Time -->
-                <div class="rd-event-card" id="card-nap" onclick="inspectAppSector('nap')">
-                  <div class="rd-card-bar" style="background:#3B82F6;"></div>
-                  <div class="rd-card-icon" style="background:rgba(59, 130, 246, 0.15); color:#60A5FA;">🌙</div>
-                  <div class="rd-card-body">
-                    <div class="rd-card-title">Nap Time</div>
-                    <div class="rd-card-time">1:30 PM – 3:00 PM · 1h 30m</div>
-                  </div>
-                </div>
-
-                <!-- Event 2: Deep Focus -->
-                <div class="rd-event-card" id="card-deep" onclick="inspectAppSector('deep')">
-                  <div class="rd-card-bar" style="background:#6366F1;"></div>
-                  <div class="rd-card-icon" style="background:rgba(99, 102, 241, 0.15); color:#A5B4FC;">💻</div>
-                  <div class="rd-card-body">
-                    <div class="rd-card-title">Deep Focus</div>
-                    <div class="rd-card-time">3:15 PM – 4:15 PM · 1h</div>
-                    <span class="rd-card-badge">↳ Draft</span>
-                  </div>
-                </div>
-
-                <!-- Event 3: Bed Time -->
-                <div class="rd-event-card" id="card-bed" onclick="inspectAppSector('bed')">
-                  <div class="rd-card-bar" style="background:#64748B;"></div>
-                  <div class="rd-card-icon" style="background:rgba(100, 116, 139, 0.15); color:#94A3B8;">🌙</div>
-                  <div class="rd-card-body">
-                    <div class="rd-card-title">Bed Time</div>
-                    <div class="rd-card-time">4:15 PM – 5:30 PM · 1h 15m</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Floating Pill -->
-              <div class="rd-floating-pill">
-                <span>⌃ All Blocks</span>
-              </div>
-
-              <!-- Interactive Dial Customization Bottom Sheet -->
-              <div class="rd-bottom-sheet" id="app-settings-sheet">
-                <div class="rd-sheet-handle"></div>
-                <div class="rd-sheet-header">
-                  <div class="rd-sheet-title-group">
-                    <div class="rd-sheet-title-icon">🎛️</div>
-                    <div class="rd-sheet-title">Dial Customization</div>
-                  </div>
-                  <button class="rd-sheet-close" onclick="toggleSettingsSheet(false)">✕</button>
-                </div>
-
-                <!-- 24-Hour Dial Mode -->
-                <div class="rd-option-box">
-                  <div class="rd-option-row">
-                    <div>
-                      <div class="rd-option-label">24-Hour Dial Mode</div>
-                      <div class="rd-option-desc" id="sheet-mode-desc">Classic 12-hour circular dial (0.5°/min)</div>
-                    </div>
-                    <div class="rd-switch" id="sheet-toggle-24h" onclick="toggleApp24HMode()">
-                      <div class="rd-switch-knob"></div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Theme Mode -->
-                <div class="rd-option-box">
-                  <div class="rd-option-label">Theme Mode</div>
-                  <div class="rd-theme-segments">
-                    <div class="rd-theme-seg active">✓ Auto</div>
-                    <div class="rd-theme-seg">Light</div>
-                    <div class="rd-theme-seg">Dark</div>
-                  </div>
-                </div>
-
-                <!-- Expressive Seed Palette -->
-                <div class="rd-option-box">
-                  <div class="rd-option-label">Expressive Seed Palette</div>
-                  <div class="rd-palette-dots">
-                    <div class="rd-color-dot active" style="background:#6366F1;" onclick="applySeedTheme('#6366F1', this)">✓</div>
-                    <div class="rd-color-dot" style="background:#10B981;" onclick="applySeedTheme('#10B981', this)"></div>
-                    <div class="rd-color-dot" style="background:#8B5CF6;" onclick="applySeedTheme('#8B5CF6', this)"></div>
-                    <div class="rd-color-dot" style="background:#F59E0B;" onclick="applySeedTheme('#F59E0B', this)"></div>
-                    <div class="rd-color-dot" style="background:#EF4444;" onclick="applySeedTheme('#EF4444', this)"></div>
-                    <div class="rd-color-dot" style="background:#06B6D4;" onclick="applySeedTheme('#06B6D4', this)"></div>
-                    <div class="rd-color-dot" style="background:#EC4899;" onclick="applySeedTheme('#EC4899', this)"></div>
-                  </div>
-                </div>
-
-                <!-- Home Screen Widget -->
-                <div class="rd-option-box">
-                  <div class="rd-option-label">Home Screen Widget</div>
-                  <div class="rd-option-desc" style="margin-bottom:10px;">
-                    Display your signature routine dial directly on your home screen.
-                  </div>
-                  <button class="btn btn-primary" style="width:100%; justify-content:center; padding:10px; font-size:12px; margin-bottom:6px; border-radius:12px;">
-                    ⊞ Pin Widget to Home Screen
-                  </button>
-                  <button class="btn btn-outline" style="width:100%; justify-content:center; padding:9px; font-size:12px; border-radius:12px;">
-                    🔄 Sync Widget Now
-                  </button>
-                </div>
+              <!-- Polar Mode Switch -->
+              <div style="display:flex; gap:8px; background:rgba(255,255,255,0.05); padding:4px; border-radius:100px; border:1px solid rgba(255,255,255,0.08); margin-top:24px;">
+                <button id="btn-12h" onclick="setAppDialMode(false)" style="background:#38BDF8; color:#07090E; border:none; border-radius:100px; padding:6px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Grotesk', sans-serif;">12H Mode (0.5°/min)</button>
+                <button id="btn-24h" onclick="setAppDialMode(true)" style="background:transparent; color:#94A3B8; border:none; border-radius:100px; padding:6px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Grotesk', sans-serif;">24H Mode (0.25°/min)</button>
               </div>
             </div>
 
             <!-- Right: Active Telemetry HUD & Polar Architecture -->
             <div class="dial-hud">
               <div class="dial-hud-eyebrow">POLAR TIME HUD · REAL-TIME TELEMETRY</div>
-              <h2 class="dial-hud-title">Glanceable Geometry. <br><span class="gradient-text">Zero List Debt.</span></h2>
+              <h2 class="dial-hud-title">Glanceable Geometry. <br><span class="gradient-text">Zero Checklist Guilt.</span></h2>
               <p class="dial-hud-desc">
                 Past sectors fade into quiet memory. The crimson continuous beacon needle tracks the present moment with 0.5°/min polar accuracy. Concentric tracks handle nested sub-tasks and routines without turning into an anxiety list.
               </p>
@@ -1514,26 +1383,25 @@ export default {
                 <div class="active-sector-sub" id="hud-sub">Category: High-Cognitive Deep Work · Draft Mode</div>
               </div>
 
-              <!-- Key Architecture Specs -->
-              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-bottom:24px;">
-                <div style="background:#111420; border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:16px;">
-                  <div style="font-size:11px; font-weight:800; color:#38BDF8; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:4px;">Polar Angle Math</div>
-                  <div style="font-size:14px; font-weight:700; color:#FFFFFF;">0.5°/min (12H) · 0.25°/min (24H)</div>
-                  <div style="font-size:12px; color:#64748B; margin-top:4px;">Direct clock-face mapping</div>
-                </div>
-                <div style="background:#111420; border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:16px;">
-                  <div style="font-size:11px; font-weight:800; color:#10B981; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:4px;">Material 3 Seed</div>
-                  <div style="font-size:14px; font-weight:700; color:#FFFFFF;">7 Harmonic Tonal Palettes</div>
-                  <div style="font-size:12px; color:#64748B; margin-top:4px;">Dynamic M3 surface derivation</div>
-                </div>
+              <!-- Routine Sector Quick Selectors -->
+              <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:24px;">
+                <button onclick="inspectAppSector('nap')" style="background:#131826; border:1px solid rgba(37,99,235,0.4); color:#93C5FD; padding:7px 14px; border-radius:100px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                  <span style="width:8px; height:8px; border-radius:50%; background:#2563EB;"></span> 🌙 1:30 PM Nap Time
+                </button>
+                <button onclick="inspectAppSector('deep')" style="background:#181A2D; border:1px solid rgba(99,102,241,0.4); color:#C7D2FE; padding:7px 14px; border-radius:100px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                  <span style="width:8px; height:8px; border-radius:50%; background:#6366F1;"></span> 💻 3:15 PM Deep Focus
+                </button>
+                <button onclick="inspectAppSector('bed')" style="background:#161924; border:1px solid rgba(71,85,105,0.4); color:#CBD5E1; padding:7px 14px; border-radius:100px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                  <span style="width:8px; height:8px; border-radius:50%; background:#64748B;"></span> 🌙 4:15 PM Bed Time
+                </button>
               </div>
 
               <!-- Remote MCP Connect Box -->
-              <div style="background:#131622; border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:20px; margin-bottom:24px;">
+              <div style="background:#131622; border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:18px 20px; margin-bottom:24px;">
                 <div style="font-size:11px; font-weight:800; letter-spacing:0.12em; color:#38BDF8; text-transform:uppercase; margin-bottom:6px;">
                   ⚡ REMOTE MCP AGENT ENDPOINT (MODEL CONTEXT PROTOCOL)
                 </div>
-                <div style="font-family:var(--mono, 'JetBrains Mono'); font-size:13px; color:#CBD5E1; word-break:break-all; user-select:all; background:#0B0D14; padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+                <div style="font-family:'JetBrains Mono', monospace; font-size:13px; color:#CBD5E1; word-break:break-all; user-select:all; background:#0B0D14; padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
                   https://sectograph-mcp.kpr25121999.workers.dev/mcp
                 </div>
               </div>
@@ -1545,6 +1413,7 @@ export default {
                 <a href="https://github.com/prasadsince1999/Radian" target="_blank" rel="noopener" class="btn btn-outline">GitHub Repository ↗</a>
               </div>
             </div>
+
           </div>
         </div>
       </div>
@@ -1729,7 +1598,7 @@ ${url.origin}/.well-known/mcp.json</pre>
       'deep': {
         time: '03:15 PM — 04:15 PM (1H)',
         name: 'Deep Focus: Architecture & MCP Sprint',
-        sub: 'Category: High-Cognitive Deep Work · Draft Mode',
+        sub: 'Category: High-Cognitive Deep Work · Draft Block',
         color: '#6366F1'
       },
       'bed': {
@@ -1754,16 +1623,27 @@ ${url.origin}/.well-known/mcp.json</pre>
 
     let is24H = false;
 
-    function updatePhoneClock() {
+    function setAppDialMode(is24) {
+      is24H = is24;
+      const btn12 = document.getElementById('btn-12h');
+      const btn24 = document.getElementById('btn-24h');
+      if (btn12 && btn24) {
+        btn12.style.background = is24 ? 'transparent' : '#38BDF8';
+        btn12.style.color = is24 ? '#94A3B8' : '#07090E';
+        btn24.style.background = is24 ? '#38BDF8' : 'transparent';
+        btn24.style.color = is24 ? '#07090E' : '#94A3B8';
+      }
+      updateDialTime();
+    }
+
+    function updateDialTime() {
       const now = new Date();
       let h = now.getHours();
       const m = now.getMinutes();
       const s = now.getSeconds();
 
       const timeStr = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-      const phoneClock = document.getElementById('phone-clock');
       const centerClock = document.getElementById('dial-center-time');
-      if (phoneClock) phoneClock.textContent = timeStr;
       if (centerClock) centerClock.textContent = timeStr;
 
       // Needle angle
@@ -1782,49 +1662,8 @@ ${url.origin}/.well-known/mcp.json</pre>
       }
     }
 
-    setInterval(updatePhoneClock, 1000);
-    updatePhoneClock();
-
-    window.toggleSettingsSheet = function(open) {
-      const sheet = document.getElementById('app-settings-sheet');
-      if (sheet) {
-        sheet.classList.toggle('open', open);
-      }
-    };
-
-    window.toggleApp24HMode = function() {
-      is24H = !is24H;
-      const sw = document.getElementById('sheet-toggle-24h');
-      const desc = document.getElementById('sheet-mode-desc');
-      if (sw) sw.classList.toggle('on', is24H);
-      if (desc) desc.textContent = is24H ? 'Full 24-hour circular dial (0.25°/min)' : 'Classic 12-hour circular dial (0.5°/min)';
-      updatePhoneClock();
-    };
-
-    window.applySeedTheme = function(color, el) {
-      document.querySelectorAll('.rd-palette-dots .rd-color-dot').forEach(d => {
-        d.classList.remove('active');
-        d.textContent = '';
-      });
-      if (el) {
-        el.classList.add('active');
-        el.textContent = '✓';
-      }
-      const phone = document.getElementById('phone-widget');
-      if (phone) {
-        phone.style.borderColor = color;
-        phone.style.boxShadow = '0 25px 60px -15px ' + color + '33, 0 0 0 1px ' + color + '66';
-      }
-    };
-
-    window.resetDialTimeToNow = function() {
-      updatePhoneClock();
-      const btn = document.querySelector('.rd-nav-bar button');
-      if (btn) {
-        btn.style.background = '#252A38';
-        setTimeout(() => btn.style.background = '', 400);
-      }
-    };
+    setInterval(updateDialTime, 1000);
+    updateDialTime();
 
     function copyMcpUrl() {
       const url = "${url.origin}/mcp";
@@ -1839,7 +1678,7 @@ ${url.origin}/.well-known/mcp.json</pre>
     }
   </script>
 </body>
-</html>`;
+</html>`;;
         return new Response(html, {
           headers: { ...corsHeaders, 'Content-Type': 'text/html; charset=utf-8' },
         });
