@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/app_strings.dart';
@@ -42,10 +43,40 @@ class LocalEventRepository implements EventRepository {
 
       var hasEnriched = false;
 
-      // When launching with zero events (fresh install or clean web visit), load default schedule
-      if (_events.isEmpty) {
-        _events.addAll(SampleEventsData.generateDefaultSchedule(DateTime.now()));
+      final now = DateTime.now();
+      String? urlPreset;
+      String? urlMode;
+      if (kIsWeb) {
+        try {
+          final queryParams = Uri.base.queryParameters;
+          urlPreset = queryParams['preset']?.toLowerCase();
+          urlMode = queryParams['mode']?.toLowerCase();
+        } catch (_) {}
+      }
+
+      if (urlPreset == 'international' ||
+          urlPreset == 'intl' ||
+          urlMode == '24h') {
+        _events.clear();
+        _events.addAll(SampleEventsData.generateInternational24hSchedule(now));
         hasEnriched = true;
+      } else if (urlPreset == 'indian' || urlMode == '12h') {
+        _events.clear();
+        _events.addAll(SampleEventsData.generateIndian12hSchedule(now));
+        hasEnriched = true;
+      } else {
+        // When launching with zero events or no events for today, load default schedule
+        final hasTodayEvents = _events.any(
+          (e) =>
+              e.start.year == now.year &&
+              e.start.month == now.month &&
+              e.start.day == now.day,
+        );
+        if (_events.isEmpty || !hasTodayEvents) {
+          _events.clear();
+          _events.addAll(SampleEventsData.generateDefaultSchedule(now));
+          hasEnriched = true;
+        }
       }
 
       // Purge obsolete/leftover test events that cause collision or duplicate caps on device

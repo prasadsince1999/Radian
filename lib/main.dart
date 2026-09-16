@@ -7,6 +7,7 @@ import 'core/theme/expressive_theme.dart';
 import 'presentation/controllers/clock_controller.dart';
 import 'presentation/controllers/cloud_sync_controller.dart';
 import 'presentation/controllers/mcp_server_controller.dart';
+import 'presentation/screens/dial_embed_screen.dart';
 import 'presentation/screens/splash_screen.dart';
 
 void main() async {
@@ -16,8 +17,14 @@ void main() async {
   final queryParams = Uri.base.queryParameters;
   final modeParam = queryParams['mode']?.toLowerCase();
   final presetParam = queryParams['preset']?.toLowerCase();
+  final viewParam = queryParams['view']?.toLowerCase();
 
-  if (modeParam == '24h' || presetParam == 'international' || presetParam == 'intl') {
+  final isDialEmbed =
+      viewParam == 'dial' || viewParam == 'embed' || viewParam == 'widget';
+
+  if (modeParam == '24h' ||
+      presetParam == 'international' ||
+      presetParam == 'intl') {
     await prefs.setBool('setting_is24h', true);
   } else if (modeParam == '12h' || presetParam == 'indian') {
     await prefs.setBool('setting_is24h', false);
@@ -26,7 +33,7 @@ void main() async {
   runApp(
     ProviderScope(
       overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      child: const SectographApp(),
+      child: SectographApp(home: isDialEmbed ? const DialEmbedScreen() : null),
     ),
   );
 }
