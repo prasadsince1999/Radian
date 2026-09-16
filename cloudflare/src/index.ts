@@ -1262,7 +1262,7 @@ export default {
         <a href="#dial-preview">The Dial</a>
         <a href="#manifesto">Anti-Todo</a>
         <a href="#mcp-connect">MCP Setup</a>
-        <a href="https://github.com/prasadsince1999/sectograph_mcp" target="_blank" rel="noopener">GitHub ↗</a>
+        <a href="https://github.com/prasadsince1999/Radian" target="_blank" rel="noopener">GitHub ↗</a>
         <a href="https://ksmxtech.com/radian/" class="nav-cta" target="_blank" rel="noopener">Studio Showcase ↗</a>
       </nav>
     </div>
@@ -1291,7 +1291,7 @@ export default {
           <a href="#dial-preview" class="btn btn-outline">
             <span>Explore 360° Live Dial ↓</span>
           </a>
-          <a href="https://github.com/prasadsince1999/sectograph_mcp" target="_blank" rel="noopener" class="btn btn-outline">
+          <a href="https://github.com/prasadsince1999/Radian" target="_blank" rel="noopener" class="btn btn-outline">
             <span>GitHub Repository ↗</span>
           </a>
         </div>
@@ -1531,7 +1531,7 @@ export default {
               <!-- Remote MCP Connect Box -->
               <div style="background:#131622; border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:20px; margin-bottom:24px;">
                 <div style="font-size:11px; font-weight:800; letter-spacing:0.12em; color:#38BDF8; text-transform:uppercase; margin-bottom:6px;">
-                  ⚡ REMOTE MCP AGENT ENDPOINT (CLOUDFLARE WORKERS &amp; D1)
+                  ⚡ REMOTE MCP AGENT ENDPOINT (MODEL CONTEXT PROTOCOL)
                 </div>
                 <div style="font-family:var(--mono, 'JetBrains Mono'); font-size:13px; color:#CBD5E1; word-break:break-all; user-select:all; background:#0B0D14; padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
                   https://sectograph-mcp.kpr25121999.workers.dev/mcp
@@ -1542,7 +1542,7 @@ export default {
               <div style="display:flex; gap:12px; flex-wrap:wrap;">
                 <button class="btn btn-primary" onclick="copyMcpUrl()">⚡ Copy MCP Endpoint</button>
                 <a href="https://ksmxtech.com/radian/" target="_blank" rel="noopener" class="btn btn-outline">Studio Radian Page ↗</a>
-                <a href="https://github.com/prasadsince1999/sectograph_mcp" target="_blank" rel="noopener" class="btn btn-outline">GitHub Repository ↗</a>
+                <a href="https://github.com/prasadsince1999/Radian" target="_blank" rel="noopener" class="btn btn-outline">GitHub Repository ↗</a>
               </div>
             </div>
           </div>
