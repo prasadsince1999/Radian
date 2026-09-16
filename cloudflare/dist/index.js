@@ -1,3 +1,6 @@
+var __defProp = Object.defineProperty;
+var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
+
 // src/d1_repository.ts
 var D1Repository = class {
   constructor(db) {
@@ -177,7 +180,7 @@ var D1Repository = class {
       face_style: "classicTicks",
       sector_style: "softGradient",
       hand_style: "sleekNeedle",
-      past_hours_style: "shadowDim",
+      past_hours_style: "birdsEye",
       center_clock_display: "digitalTimeOnly",
       updated_at: (/* @__PURE__ */ new Date()).toISOString()
     };
@@ -252,6 +255,7 @@ var D1Repository = class {
     ).run();
   }
 };
+__name(D1Repository, "D1Repository");
 
 // src/mcp_handler.ts
 var McpHandler = class {
@@ -434,11 +438,16 @@ var McpHandler = class {
       }
     ];
   }
-  async handleJsonRpc(req) {
+  async handleJsonRpc(req, origin) {
     const id = req.id ?? null;
     try {
       switch (req.method) {
-        case "initialize":
+        case "initialize": {
+          const defaultOrigin = "https://sectograph-mcp.kpr25121999.workers.dev";
+          const base = origin || defaultOrigin;
+          const iconUrl = `${base}/icon.png`;
+          const logoSvgUrl = `${base}/logo.svg`;
+          const faviconUrl = `${base}/favicon.ico`;
           return {
             jsonrpc: "2.0",
             id,
@@ -450,10 +459,25 @@ var McpHandler = class {
               },
               serverInfo: {
                 name: "Radian",
-                version: "1.0.0"
+                version: "1.0.0",
+                description: "360\xB0 AI-Native Circular Time Blocking & Schedule Planner",
+                icon: iconUrl,
+                iconUrl,
+                logo: iconUrl,
+                logoUrl: iconUrl,
+                icons: [
+                  { src: iconUrl, sizes: "512x512", type: "image/png" },
+                  { src: faviconUrl, sizes: "16x16 24x24 32x32", type: "image/x-icon" },
+                  { src: logoSvgUrl, sizes: "any", type: "image/svg+xml" }
+                ],
+                _meta: {
+                  icon: iconUrl,
+                  logo: iconUrl
+                }
               }
             }
           };
+        }
         case "notifications/initialized":
           return { jsonrpc: "2.0", id, result: {} };
         case "ping":
@@ -745,6 +769,51 @@ var McpHandler = class {
     }
   }
 };
+__name(McpHandler, "McpHandler");
+
+// src/assets.ts
+var LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="512" height="512">
+  <circle cx="54" cy="54" r="52" fill="#0B0F19" stroke="#1E293B" stroke-width="1.2" />
+  <circle cx="54" cy="54" r="30" fill="none" stroke="#1E293B" stroke-width="3" />
+  <path d="M 54 54 L 54 24 A 30 30 0 0 1 79.9808 69 Z" fill="#6366F1" />
+  <path d="M 54 54 L 79.9808 69 A 30 30 0 0 1 46.2354 82.9778 Z" fill="#38BDF8" />
+  <line x1="54" y1="24" x2="54" y2="28" stroke="#475569" stroke-width="2" stroke-linecap="round" />
+  <line x1="84" y1="54" x2="80" y2="54" stroke="#475569" stroke-width="2" stroke-linecap="round" />
+  <line x1="54" y1="84" x2="54" y2="80" stroke="#475569" stroke-width="2" stroke-linecap="round" />
+  <line x1="24" y1="54" x2="28" y2="54" stroke="#475569" stroke-width="2" stroke-linecap="round" />
+  <circle cx="54" cy="54" r="16" fill="#0B0F19" stroke="#334155" stroke-width="1.2" />
+  <line x1="54" y1="54" x2="80.8469" y2="69.5" stroke="#F43F5E" stroke-width="2.5" stroke-linecap="round" />
+  <circle cx="54" cy="54" r="5.5" fill="#0B0F19" stroke="#FFFFFF" stroke-width="2" />
+  <circle cx="54" cy="54" r="2.5" fill="#F43F5E" />
+</svg>`;
+var ICON_512_BASE64 = "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";
+var ICON_DATA_URL = "data:image/png;base64," + ICON_512_BASE64;
+var FAVICON_ICO_BASE64 = "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";
+function base64ToUint8Array(base64) {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+__name(base64ToUint8Array, "base64ToUint8Array");
+var cachedIcon512 = null;
+var cachedFaviconIco = null;
+function getIcon512Bytes() {
+  if (!cachedIcon512) {
+    cachedIcon512 = base64ToUint8Array(ICON_512_BASE64);
+  }
+  return cachedIcon512;
+}
+__name(getIcon512Bytes, "getIcon512Bytes");
+function getFaviconIcoBytes() {
+  if (!cachedFaviconIco) {
+    cachedFaviconIco = base64ToUint8Array(FAVICON_ICO_BASE64);
+  }
+  return cachedFaviconIco;
+}
+__name(getFaviconIcoBytes, "getFaviconIcoBytes");
 
 // src/index.ts
 var corsHeaders = {
@@ -758,15 +827,59 @@ var src_default = {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
+    if (url.pathname === "/favicon.ico") {
+      const bytes = getFaviconIcoBytes();
+      return new Response(bytes, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "image/x-icon",
+          "Cache-Control": "public, max-age=86400"
+        }
+      });
+    }
+    if (url.pathname === "/icon.png" || url.pathname === "/icon_512.png" || url.pathname === "/icon_192.png" || url.pathname === "/logo.png" || url.pathname === "/app_logo.png" || url.pathname === "/apple-touch-icon.png" || url.pathname === "/apple-touch-icon-precomposed.png" || url.pathname === "/favicon.png") {
+      const bytes = getIcon512Bytes();
+      return new Response(bytes, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "image/png",
+          "Cache-Control": "public, max-age=86400"
+        }
+      });
+    }
+    if (url.pathname === "/icon.svg" || url.pathname === "/logo.svg" || url.pathname === "/favicon.svg") {
+      return new Response(LOGO_SVG, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "image/svg+xml; charset=utf-8",
+          "Cache-Control": "public, max-age=86400"
+        }
+      });
+    }
     const repo = new D1Repository(env.DB);
     const mcp = new McpHandler(repo);
-    if (request.method === "GET" && (url.pathname === "/mcp" || url.pathname === "/rpc")) {
+    if (request.method === "GET" && (url.pathname === "/mcp" || url.pathname === "/rpc" || url.pathname === "/.well-known/mcp.json" || url.pathname === "/manifest.json")) {
       const manifest = {
         name: "Radian",
+        title: "Radian MCP Server",
+        description: "360\xB0 AI-Native Circular Time Blocking & Schedule Planner",
         protocol: "Model Context Protocol (MCP)",
         protocolVersion: "2024-11-05",
         status: "online",
         transport: "StreamableHTTP",
+        icon: `${url.origin}/icon.png`,
+        iconUrl: `${url.origin}/icon.png`,
+        logo: `${url.origin}/icon.png`,
+        logoUrl: `${url.origin}/icon.png`,
+        icons: [
+          { src: `${url.origin}/icon.png`, sizes: "512x512", type: "image/png" },
+          { src: `${url.origin}/favicon.ico`, sizes: "16x16 24x24 32x32", type: "image/x-icon" },
+          { src: `${url.origin}/logo.svg`, sizes: "any", type: "image/svg+xml" }
+        ],
+        _meta: {
+          icon: `${url.origin}/icon.png`,
+          logo: `${url.origin}/icon.png`
+        },
         endpoints: {
           mcp: `${url.origin}/mcp`,
           rpc: `${url.origin}/rpc`,
@@ -797,7 +910,20 @@ var src_default = {
               result: {
                 protocolVersion: "2024-11-05",
                 capabilities: { tools: { listChanged: false } },
-                serverInfo: { name: "Radian", version: "1.0.0" },
+                serverInfo: {
+                  name: "Radian",
+                  version: "1.0.0",
+                  description: "360\xB0 AI-Native Circular Time Blocking & Schedule Planner",
+                  icon: `${url.origin}/icon.png`,
+                  iconUrl: `${url.origin}/icon.png`,
+                  logo: `${url.origin}/icon.png`,
+                  logoUrl: `${url.origin}/icon.png`,
+                  icons: [
+                    { src: `${url.origin}/icon.png`, sizes: "512x512", type: "image/png" },
+                    { src: `${url.origin}/favicon.ico`, sizes: "16x16 24x24 32x32", type: "image/x-icon" },
+                    { src: `${url.origin}/logo.svg`, sizes: "any", type: "image/svg+xml" }
+                  ]
+                },
                 tools: McpHandler.getToolDefinitions()
               }
             }),
@@ -805,7 +931,7 @@ var src_default = {
           );
         }
         const body = JSON.parse(text);
-        const response = await mcp.handleJsonRpc(body);
+        const response = await mcp.handleJsonRpc(body, url.origin);
         return new Response(JSON.stringify(response), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
@@ -905,10 +1031,285 @@ data: ${sessionUrl}
       });
     }
     if (url.pathname === "/") {
+      const accept = request.headers.get("accept") || "";
+      const wantsJson = accept.includes("application/json") && !accept.includes("text/html") && !url.searchParams.has("html");
+      if (!wantsJson) {
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Radian \u2014 360\xB0 AI-Native Circular Routine & Life Dial</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icon.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta property="og:title" content="Radian \u2014 Your Day is a Circle, Not a Checklist">
+  <meta property="og:description" content="Not another to-do list. A single 360\xB0 circular dial widget that visualizes your entire day and health data. Plan months by chatting with AI. No guilt, no nagging notifications. Do it or skip it.">
+  <meta property="og:image" content="${url.origin}/icon.png">
+  <meta property="og:logo" content="${url.origin}/icon.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="${url.origin}/icon.png">
+  <style>
+    :root {
+      --bg: #07090E;
+      --card-bg: rgba(19, 27, 46, 0.7);
+      --border: rgba(255, 255, 255, 0.08);
+      --accent-cyan: #38BDF8;
+      --accent-indigo: #6366F1;
+      --text: #F8FAFC;
+      --text-muted: #94A3B8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 40px 20px;
+      background: var(--bg);
+      background-image: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 60%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 680px;
+      width: 100%;
+      text-align: center;
+    }
+    .logo-glow {
+      position: relative;
+      display: inline-block;
+      margin-bottom: 24px;
+    }
+    img.logo {
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      box-shadow: 0 0 45px rgba(99, 102, 241, 0.5), 0 0 20px rgba(56, 189, 248, 0.3);
+      border: 2px solid rgba(255, 255, 255, 0.15);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      color: var(--accent-cyan);
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      letter-spacing: 0.3px;
+    }
+    .badge .dot {
+      width: 8px;
+      height: 8px;
+      background: #10B981;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #10B981;
+    }
+    h1 {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin: 0 0 12px 0;
+      background: linear-gradient(135deg, #FFFFFF 40%, #94A3B8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p.hero-tagline {
+      font-size: 18px;
+      color: var(--accent-cyan);
+      font-weight: 600;
+      margin: 0 0 16px 0;
+    }
+    p.manifesto {
+      color: var(--text-muted);
+      font-size: 15px;
+      margin-bottom: 36px;
+      line-height: 1.7;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      text-align: left;
+      margin-bottom: 36px;
+    }
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      padding: 24px;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(99, 102, 241, 0.4);
+    }
+    .card h3 {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card p {
+      margin: 0;
+      font-size: 13.5px;
+      color: var(--text-muted);
+    }
+    .mcp-box {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(99, 102, 241, 0.25);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 32px;
+      text-align: left;
+    }
+    .mcp-box h4 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      color: #C7D2FE;
+    }
+    .code-block {
+      background: #020617;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-family: ui-monospace, monospace;
+      font-size: 13px;
+      color: #38BDF8;
+      overflow-x: auto;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .feedback-banner {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(56, 189, 248, 0.1));
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      padding: 20px;
+      border-radius: 16px;
+      margin-bottom: 36px;
+    }
+    .feedback-banner h4 {
+      margin: 0 0 6px 0;
+      color: #FFFFFF;
+      font-size: 16px;
+    }
+    .feedback-banner p {
+      margin: 0 0 12px 0;
+      font-size: 13.5px;
+      color: #CBD5E1;
+    }
+    .btn {
+      display: inline-block;
+      padding: 10px 20px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 14px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #6366F1, #38BDF8);
+      color: #FFFFFF;
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35);
+    }
+    .btn-primary:hover {
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+    }
+    .links {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .links a {
+      color: #818CF8;
+      text-decoration: none;
+      margin: 0 6px;
+    }
+    .links a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo-glow">
+      <img src="/icon.png" alt="Radian Life Dial" class="logo" />
+    </div>
+    <br/>
+    <div class="badge">
+      <div class="dot"></div>
+      The Anti-To-Do Movement \xB7 AI Dial Live
+    </div>
+
+    <h1>Your Day is a Circle.</h1>
+    <p class="hero-tagline">Stop Living in a Checklist.</p>
+
+    <p class="manifesto">
+      Radian is <strong>not another to-do list or habit tracker</strong>. It\u2019s a single 360\xB0 circular widget that visualizes your whole day, sub-tasks, and biological rhythms at a single glance. No shrill nagging notifications. No manual checkbox clicking. If you\u2019re interested, do it. If not, skip it.
+    </p>
+
+    <div class="grid">
+      <div class="card">
+        <h3>\u2B55 360\xB0 Polar Glance</h3>
+        <p>Past hours fade gracefully into memory. The precision sweep hand tracks the present. Concentric rings handle subtasks without visual clutter.</p>
+      </div>
+      <div class="card">
+        <h3>\u{1F4AC} Chat to Plan (MCP)</h3>
+        <p>Connect Claude, ChatGPT, Grok, or Cursor. Plan entire days, months, or year routines simply by chatting naturally with your AI.</p>
+      </div>
+      <div class="card">
+        <h3>\u{1F54A}\uFE0F Zero Guilt, Zero Nagging</h3>
+        <p>No shrill alarm orders you around. No angry red overdue counters. Time flows forward. Do it if you want, or glide right past it.</p>
+      </div>
+      <div class="card">
+        <h3>\u{1FAC0} Biological Rhythm Harmony</h3>
+        <p>Maps real-time sleep debt, recovery, and circadian peaks directly onto your dial so your day respects your physical biology.</p>
+      </div>
+    </div>
+
+    <div class="mcp-box">
+      <h4>\u26A1 Connect Your AI Assistant in 10 Seconds (Remote MCP)</h4>
+      <p style="font-size:12.5px; color:#94A3B8; margin:0 0 8px 0;">Paste this endpoint into Claude Desktop, Cursor, or your personal AI agents:</p>
+      <div class="code-block">https://sectograph-mcp.kpr25121999.workers.dev/mcp</div>
+    </div>
+
+    <div class="feedback-banner">
+      <h4>\u{1F4A1} Built in Public: Your Feedback Shapes Every Dial Face</h4>
+      <p>We believe the best tools are co-created. What dial style, smartwatch tile, or AI tool do you want next?</p>
+      <a href="https://github.com/KSM-Tech/sectograph_mcp/discussions" target="_blank" class="btn btn-primary">Join Community Discussion \u2192</a>
+    </div>
+
+    <div class="links">
+      <a href="/mcp">MCP Manifest</a> \u2022
+      <a href="/api/openapi.json">OpenAPI 3.0</a> \u2022
+      <a href="/icon.png">App Icon</a> \u2022
+      <a href="/favicon.ico">Favicon</a> \u2022
+      <a href="https://github.com/KSM-Tech/sectograph_mcp" target="_blank">GitHub Repo</a>
+    </div>
+  </div>
+</body>
+</html>`;
+        return new Response(html, {
+          headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" }
+        });
+      }
       return new Response(
         JSON.stringify({
-          service: "Sectograph Remote MCP Server",
+          service: "Radian Remote MCP Server",
           status: "online",
+          icon: `${url.origin}/icon.png`,
+          logo: `${url.origin}/icon.png`,
+          icons: [
+            { src: `${url.origin}/icon.png`, sizes: "512x512", type: "image/png" },
+            { src: `${url.origin}/favicon.ico`, sizes: "16x16 24x24 32x32", type: "image/x-icon" },
+            { src: `${url.origin}/logo.svg`, sizes: "any", type: "image/svg+xml" }
+          ],
           database: "Cloudflare D1",
           mcpEndpoint: `${url.origin}/mcp`,
           sseEndpoint: `${url.origin}/sse`,
@@ -923,3 +1324,4 @@ data: ${sessionUrl}
 export {
   src_default as default
 };
+//# sourceMappingURL=index.js.map

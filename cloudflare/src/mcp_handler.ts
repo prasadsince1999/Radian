@@ -181,12 +181,17 @@ export class McpHandler {
     ];
   }
 
-  async handleJsonRpc(req: JsonRpcRequest): Promise<JsonRpcResponse> {
+  async handleJsonRpc(req: JsonRpcRequest, origin?: string): Promise<JsonRpcResponse> {
     const id = req.id ?? null;
 
     try {
       switch (req.method) {
-        case 'initialize':
+        case 'initialize': {
+          const defaultOrigin = 'https://sectograph-mcp.kpr25121999.workers.dev';
+          const base = origin || defaultOrigin;
+          const iconUrl = `${base}/icon.png`;
+          const logoSvgUrl = `${base}/logo.svg`;
+          const faviconUrl = `${base}/favicon.ico`;
           return {
             jsonrpc: '2.0',
             id,
@@ -199,9 +204,24 @@ export class McpHandler {
               serverInfo: {
                 name: 'Radian',
                 version: '1.0.0',
+                description: '360° AI-Native Circular Time Blocking & Schedule Planner',
+                icon: iconUrl,
+                iconUrl: iconUrl,
+                logo: iconUrl,
+                logoUrl: iconUrl,
+                icons: [
+                  { src: iconUrl, sizes: '512x512', type: 'image/png' },
+                  { src: faviconUrl, sizes: '16x16 24x24 32x32', type: 'image/x-icon' },
+                  { src: logoSvgUrl, sizes: 'any', type: 'image/svg+xml' },
+                ],
+                _meta: {
+                  icon: iconUrl,
+                  logo: iconUrl,
+                },
               },
             },
           };
+        }
 
         case 'notifications/initialized':
           return { jsonrpc: '2.0', id, result: {} };
