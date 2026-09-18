@@ -49,9 +49,9 @@ void main() {
       await tester.tap(find.text('Cloud Sync'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Cloudflare D1 Synchronization'), findsOneWidget);
-      expect(find.text('Cloudflare D1 (Global)'), findsOneWidget);
-      expect(find.text('Sync Now with Cloud'), findsOneWidget);
+      expect(find.text('Sync & Web Pairing Vault'), findsOneWidget);
+      expect(find.text('PRIVATE VAULT KEY'), findsOneWidget);
+      expect(find.text('Sync Now'), findsOneWidget);
     });
   });
 }

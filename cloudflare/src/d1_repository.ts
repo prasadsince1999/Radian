@@ -3,7 +3,7 @@ import { Env, SectorEventRecord, DialSettingsRecord, HealthSummaryRecord } from 
 export class D1Repository {
   constructor(private db: D1Database) {}
 
-  async getEventsForDay(targetDateStr: string): Promise<SectorEventRecord[]> {
+  async getEventsForDay(targetDateStr: string, syncKey: string = 'default'): Promise<SectorEventRecord[]> {
     const startOfDay = `${targetDateStr}T00:00:00.000Z`;
     const endOfDay = `${targetDateStr}T23:59:59.999Z`;
 
@@ -11,11 +11,12 @@ export class D1Repository {
     const query = `
       SELECT * FROM events 
       WHERE deleted_at IS NULL 
-        AND ((start <= ?1 AND end >= ?2) OR repeat_days IS NOT NULL)
+        AND sync_key = ?1
+        AND ((start <= ?2 AND end >= ?3) OR repeat_days IS NOT NULL)
       ORDER BY start ASC
     `;
 
-    const { results } = await this.db.prepare(query).bind(endOfDay, startOfDay).all<SectorEventRecord>();
+    const { results } = await this.db.prepare(query).bind(syncKey, endOfDay, startOfDay).all<SectorEventRecord>();
     const targetDate = new Date(targetDateStr);
     const dayOfWeek = targetDate.getUTCDay() === 0 ? 7 : targetDate.getUTCDay(); // 1=Mon .. 7=Sun
 
@@ -37,28 +38,32 @@ export class D1Repository {
     });
   }
 
-  async getDeltaEvents(since?: string): Promise<SectorEventRecord[]> {
+  async getDeltaEvents(since?: string, syncKey: string = 'default'): Promise<SectorEventRecord[]> {
     if (!since) {
       const { results } = await this.db
-        .prepare('SELECT * FROM events ORDER BY updated_at ASC LIMIT 1000')
+        .prepare('SELECT * FROM events WHERE sync_key = ? ORDER BY updated_at ASC LIMIT 1000')
+        .bind(syncKey)
         .all<SectorEventRecord>();
       return results || [];
     }
 
     const { results } = await this.db
-      .prepare('SELECT * FROM events WHERE updated_at > ? ORDER BY updated_at ASC LIMIT 1000')
-      .bind(since)
+      .prepare('SELECT * FROM events WHERE sync_key = ?1 AND updated_at > ?2 ORDER BY updated_at ASC LIMIT 1000')
+      .bind(syncKey, since)
       .all<SectorEventRecord>();
     return results || [];
   }
 
-  async upsertEvent(event: Partial<SectorEventRecord> & { id: string; title: string; start: string; end: string }): Promise<void> {
+  async upsertEvent(
+    event: Partial<SectorEventRecord> & { id: string; title: string; start: string; end: string },
+    syncKey: string = 'default'
+  ): Promise<void> {
     const query = `
       INSERT INTO events (
         id, title, start, end, category, color_hex, notes, 
         is_all_day, icon_name, reminder_minutes, repeat_days, 
-        recurrence_end_date, subtasks, updated_at, deleted_at
-      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, NULL)
+        recurrence_end_date, subtasks, sync_key, updated_at, deleted_at
+      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, NULL)
       ON CONFLICT(id) DO UPDATE SET
         title = excluded.title,
         start = excluded.start,
@@ -72,6 +77,7 @@ export class D1Repository {
         repeat_days = excluded.repeat_days,
         recurrence_end_date = excluded.recurrence_end_date,
         subtasks = excluded.subtasks,
+        sync_key = excluded.sync_key,
         updated_at = excluded.updated_at,
         deleted_at = NULL
     `;
@@ -91,43 +97,50 @@ export class D1Repository {
       event.repeat_days || null,
       event.recurrence_end_date || null,
       event.subtasks || null,
+      event.sync_key || syncKey,
       now
     ).run();
   }
 
-  async softDeleteEvent(id: string): Promise<void> {
+  async softDeleteEvent(id: string, syncKey: string = 'default'): Promise<void> {
     const now = new Date().toISOString();
     await this.db
-      .prepare('UPDATE events SET deleted_at = ?1, updated_at = ?1 WHERE id = ?2')
-      .bind(now, id)
+      .prepare('UPDATE events SET deleted_at = ?1, updated_at = ?1 WHERE id = ?2 AND sync_key = ?3')
+      .bind(now, id, syncKey)
       .run();
   }
 
-  async bulkUpsertEvents(events: Array<Partial<SectorEventRecord> & { id: string; title: string; start: string; end: string }>): Promise<void> {
+  async bulkUpsertEvents(
+    events: Array<Partial<SectorEventRecord> & { id: string; title: string; start: string; end: string }>,
+    syncKey: string = 'default'
+  ): Promise<void> {
+    const query = `
+      INSERT INTO events (
+        id, title, start, end, category, color_hex, notes, 
+        is_all_day, icon_name, reminder_minutes, repeat_days, 
+        recurrence_end_date, subtasks, sync_key, updated_at, deleted_at
+      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, NULL)
+      ON CONFLICT(id) DO UPDATE SET
+        title = excluded.title,
+        start = excluded.start,
+        end = excluded.end,
+        category = excluded.category,
+        color_hex = excluded.color_hex,
+        notes = excluded.notes,
+        is_all_day = excluded.is_all_day,
+        icon_name = excluded.icon_name,
+        reminder_minutes = excluded.reminder_minutes,
+        repeat_days = excluded.repeat_days,
+        recurrence_end_date = excluded.recurrence_end_date,
+        subtasks = excluded.subtasks,
+        sync_key = excluded.sync_key,
+        updated_at = excluded.updated_at,
+        deleted_at = NULL
+    `;
+
     const statements = events.map(event => {
       const now = new Date().toISOString();
-      return this.db.prepare(`
-        INSERT INTO events (
-          id, title, start, end, category, color_hex, notes, 
-          is_all_day, icon_name, reminder_minutes, repeat_days, 
-          recurrence_end_date, subtasks, updated_at, deleted_at
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, NULL)
-        ON CONFLICT(id) DO UPDATE SET
-          title = excluded.title,
-          start = excluded.start,
-          end = excluded.end,
-          category = excluded.category,
-          color_hex = excluded.color_hex,
-          notes = excluded.notes,
-          is_all_day = excluded.is_all_day,
-          icon_name = excluded.icon_name,
-          reminder_minutes = excluded.reminder_minutes,
-          repeat_days = excluded.repeat_days,
-          recurrence_end_date = excluded.recurrence_end_date,
-          subtasks = excluded.subtasks,
-          updated_at = excluded.updated_at,
-          deleted_at = NULL
-      `).bind(
+      return this.db.prepare(query).bind(
         event.id,
         event.title,
         event.start,
@@ -141,6 +154,7 @@ export class D1Repository {
         event.repeat_days || null,
         event.recurrence_end_date || null,
         event.subtasks || null,
+        event.sync_key || syncKey,
         now
       );
     });
@@ -150,7 +164,11 @@ export class D1Repository {
     }
   }
 
-  async replaceDaySchedule(dateStr: string, newEvents: Array<Partial<SectorEventRecord> & { id: string; title: string; start: string; end: string }>): Promise<void> {
+  async replaceDaySchedule(
+    dateStr: string,
+    newEvents: Array<Partial<SectorEventRecord> & { id: string; title: string; start: string; end: string }>,
+    syncKey: string = 'default'
+  ): Promise<void> {
     const startOfDay = `${dateStr}T00:00:00.000Z`;
     const endOfDay = `${dateStr}T23:59:59.999Z`;
     const now = new Date().toISOString();
@@ -158,17 +176,19 @@ export class D1Repository {
     const deleteStmt = this.db.prepare(`
       UPDATE events 
       SET deleted_at = ?1, updated_at = ?1 
-      WHERE deleted_at IS NULL AND start >= ?2 AND start <= ?3
-    `).bind(now, startOfDay, endOfDay);
+      WHERE deleted_at IS NULL AND sync_key = ?2 AND start >= ?3 AND start <= ?4
+    `).bind(now, syncKey, startOfDay, endOfDay);
+
+    const upsertQuery = `
+      INSERT INTO events (
+        id, title, start, end, category, color_hex, notes, 
+        is_all_day, icon_name, reminder_minutes, repeat_days, 
+        recurrence_end_date, subtasks, sync_key, updated_at, deleted_at
+      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, NULL)
+    `;
 
     const upsertStmts = newEvents.map(event => {
-      return this.db.prepare(`
-        INSERT INTO events (
-          id, title, start, end, category, color_hex, notes, 
-          is_all_day, icon_name, reminder_minutes, repeat_days, 
-          recurrence_end_date, subtasks, updated_at, deleted_at
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, NULL)
-      `).bind(
+      return this.db.prepare(upsertQuery).bind(
         event.id,
         event.title,
         event.start,
@@ -182,6 +202,7 @@ export class D1Repository {
         event.repeat_days || null,
         event.recurrence_end_date || null,
         event.subtasks || null,
+        event.sync_key || syncKey,
         now
       );
     });

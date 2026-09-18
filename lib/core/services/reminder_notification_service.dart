@@ -156,10 +156,10 @@ class ReminderNotificationService {
     }
   }
 
-  /// Re-synchronizes all future alarms for a list of events.
   static Future<void> syncAllReminders(List<SectorEvent> events) async {
     if (!isAndroid) return;
-    for (final event in events) {
+    final copy = List<SectorEvent>.from(events);
+    for (final event in copy) {
       if (event.reminderMinutes != null) {
         await scheduleReminder(event);
       } else {

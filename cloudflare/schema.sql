@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS events (
     repeat_days TEXT, -- JSON array string e.g. '[1,2,3,4,5]'
     recurrence_end_date TEXT,
     subtasks TEXT, -- JSON array string e.g. '["subtask 1","subtask 2"]'
+    sync_key TEXT NOT NULL DEFAULT 'default',
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     deleted_at TEXT
 );
@@ -20,6 +21,7 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS idx_events_start ON events(start);
 CREATE INDEX IF NOT EXISTS idx_events_updated_at ON events(updated_at);
 CREATE INDEX IF NOT EXISTS idx_events_category ON events(category);
+CREATE INDEX IF NOT EXISTS idx_events_sync_key ON events(sync_key, updated_at);
 
 -- Dial settings table for remote customization
 CREATE TABLE IF NOT EXISTS dial_settings (

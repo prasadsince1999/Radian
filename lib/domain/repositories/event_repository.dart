@@ -1,7 +1,18 @@
 import '../models/free_gap.dart';
 import '../models/sector_event.dart';
 
+class EventMutation {
+  final String action; // 'upsert' or 'delete'
+  final SectorEvent? event;
+  final String? id;
+
+  EventMutation.upsert(this.event) : action = 'upsert', id = event?.id;
+
+  const EventMutation.delete(this.id) : action = 'delete', event = null;
+}
+
 abstract class EventRepository {
+  Stream<EventMutation> get mutations;
   Stream<List<SectorEvent>> watchEventsForDay(DateTime day);
   Future<List<SectorEvent>> getEventsForDay(DateTime day);
   Stream<List<SectorEvent>> watchAllEvents();

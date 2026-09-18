@@ -10,6 +10,11 @@ class FakeEventRepository implements EventRepository {
   final List<SectorEvent> _events;
   final StreamController<List<SectorEvent>> _controller =
       StreamController<List<SectorEvent>>.broadcast();
+  final StreamController<EventMutation> _mutationController =
+      StreamController<EventMutation>.broadcast();
+
+  @override
+  Stream<EventMutation> get mutations => _mutationController.stream;
 
   FakeEventRepository([List<SectorEvent>? initialEvents])
     : _events = List<SectorEvent>.from(initialEvents ?? []);
@@ -117,6 +122,7 @@ class FakeEventRepository implements EventRepository {
   @override
   Future<void> addEvent(SectorEvent event) async {
     _events.add(event);
+    _mutationController.add(EventMutation.upsert(event));
     _notify();
   }
 
@@ -125,6 +131,7 @@ class FakeEventRepository implements EventRepository {
     final idx = _events.indexWhere((e) => e.id == event.id);
     if (idx != -1) {
       _events[idx] = event;
+      _mutationController.add(EventMutation.upsert(event));
       _notify();
     }
   }
@@ -132,11 +139,15 @@ class FakeEventRepository implements EventRepository {
   @override
   Future<void> deleteEvent(String id) async {
     _events.removeWhere((e) => e.id == id);
+    _mutationController.add(EventMutation.delete(id));
     _notify();
   }
 
   @override
   Future<void> bulkAddEvents(List<SectorEvent> events) async {
+    for (final e in events) {
+      _mutationController.add(EventMutation.upsert(e));
+    }
     _events.addAll(events);
     _notify();
   }
@@ -145,9 +156,19 @@ class FakeEventRepository implements EventRepository {
   Future<void> replaceDayEvents(DateTime day, List<SectorEvent> events) async {
     final startOfDay = DateTime(day.year, day.month, day.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
+    final toRemove = _events
+        .where((e) => e.start.isBefore(endOfDay) && e.end.isAfter(startOfDay))
+        .map((e) => e.id)
+        .toList();
+    for (final id in toRemove) {
+      _mutationController.add(EventMutation.delete(id));
+    }
     _events.removeWhere(
       (e) => e.start.isBefore(endOfDay) && e.end.isAfter(startOfDay),
     );
+    for (final e in events) {
+      _mutationController.add(EventMutation.upsert(e));
+    }
     _events.addAll(events);
     _notify();
   }

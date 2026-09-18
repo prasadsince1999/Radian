@@ -1,36 +1,35 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_layout_constants.dart';
-import '../../../core/services/android_widget_service.dart';
 import '../common/bouncy_pressable.dart';
-import '../sync/cloud_sync_vault_card.dart';
-import 'components/dial_system_integrations_section.dart';
-import 'components/dial_theme_section.dart';
-import 'components/dial_time_format_section.dart';
+import 'cloud_sync_vault_card.dart';
 
-/// Modal bottom sheet for customizing the Sectograph Dial, themes, and integrations.
-class DialSettingsModal extends ConsumerWidget {
-  const DialSettingsModal({super.key});
+/// Modal bottom sheet dedicated to Cloud Vault & Web Sync pairing.
+class CloudSyncModal extends StatelessWidget {
+  const CloudSyncModal({super.key});
+
+  static Future<void> show(BuildContext context) {
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: false,
+      constraints: const BoxConstraints(
+        maxWidth: AppLayoutConstants.modalMaxWidth,
+      ),
+      builder: (_) => const CloudSyncModal(),
+    );
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    final primaryText = colorScheme.onSurface;
-    final secondaryText = colorScheme.onSurfaceVariant;
-    final accentBg = colorScheme.primaryContainer;
-    final accentBorder = colorScheme.primary.withValues(alpha: 0.35);
-    final accentColor = colorScheme.primary;
 
     return SafeArea(
       top: false,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight:
-              MediaQuery.sizeOf(context).height *
-              AppLayoutConstants.dialSettingsModalHeightFactor,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -60,24 +59,27 @@ class DialSettingsModal extends ConsumerWidget {
                       width: 38,
                       height: 38,
                       decoration: BoxDecoration(
-                        color: accentBg,
+                        color: colorScheme.primaryContainer,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: accentBorder, width: 1.2),
+                        border: Border.all(
+                          color: colorScheme.primary.withValues(alpha: 0.35),
+                          width: 1.2,
+                        ),
                       ),
                       child: Icon(
-                        Icons.tune_rounded,
-                        color: accentColor,
+                        Icons.cloud_sync_rounded,
+                        color: colorScheme.primary,
                         size: 20,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Dial Customization',
+                        'Cloud Sync & Web Pairing',
                         style: TextStyle(
                           fontWeight: FontWeight.w900,
                           fontSize: 17,
-                          color: primaryText,
+                          color: colorScheme.onSurface,
                           letterSpacing: -0.2,
                         ),
                       ),
@@ -99,7 +101,7 @@ class DialSettingsModal extends ConsumerWidget {
                         child: Icon(
                           Icons.close_rounded,
                           size: 18,
-                          color: secondaryText,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -107,21 +109,8 @@ class DialSettingsModal extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
 
-                // Time Format & Display Styles
-                const DialTimeFormatSection(),
-                const SizedBox(height: 12),
-
-                // Theme Mode & Seed Palette
-                const DialThemeSection(),
-                const SizedBox(height: 12),
-
-                // Cloud Vault & Web Sync (Private Key, Eye Toggle, Warning, QR Code)
+                // Vault Card with obscured key, eye toggle, warning, and QR code
                 const CloudSyncVaultCard(),
-                const SizedBox(height: 12),
-
-                // System & Device Integrations (Android Widget, Battery, Health Connect, MCP)
-                if (AndroidWidgetService.isSupported)
-                  const DialSystemIntegrationsSection(),
                 const SizedBox(height: 16),
               ],
             ),

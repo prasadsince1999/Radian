@@ -23,6 +23,7 @@ abstract final class AppStrings {
   static const String cloudflareMcpEndpoint = '$cloudflareMcpBaseUrl/mcp';
   static const String cloudflareOpenApiEndpoint =
       '$cloudflareMcpBaseUrl/api/openapi.json';
+  static const String productionWebBaseUrl = 'https://ksmxtech.com/radian/app';
 
   // --- Common UI Copy ---
   static const String emptyTimelineTitle = 'No events scheduled for this day';

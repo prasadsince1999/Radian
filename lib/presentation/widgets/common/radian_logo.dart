@@ -33,61 +33,67 @@ class RadianLogo extends ConsumerWidget {
         ref.read(selectedEventProvider.notifier).state = null;
         ref.read(customSelectedDayProvider.notifier).state = null;
       },
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // 1. Creative Radian Arc Emblem
-          SizedBox(
-            width: emblemSize,
-            height: emblemSize,
-            child: CustomPaint(
-              painter: _RadianEmblemPainter(
-                primaryColor: colorScheme.primary,
-                secondaryColor: colorScheme.tertiary,
-                trackColor: colorScheme.outlineVariant.withValues(alpha: 0.35),
-                hubColor: colorScheme.onSurface.withValues(alpha: 0.25),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // 1. Creative Radian Arc Emblem
+            SizedBox(
+              width: emblemSize,
+              height: emblemSize,
+              child: CustomPaint(
+                painter: _RadianEmblemPainter(
+                  primaryColor: colorScheme.primary,
+                  secondaryColor: colorScheme.tertiary,
+                  trackColor: colorScheme.outlineVariant.withValues(
+                    alpha: 0.35,
+                  ),
+                  hubColor: colorScheme.onSurface.withValues(alpha: 0.25),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8.5),
+            const SizedBox(width: 8.5),
 
-          // 2. Stylized Wordmark with accent indicator
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                'Radian',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: fontSize,
-                  color: colorScheme.onSurface,
-                  letterSpacing: -0.5,
-                  height: 1.1,
+            // 2. Stylized Wordmark with accent indicator
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  'Radian',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: fontSize,
+                    color: colorScheme.onSurface,
+                    letterSpacing: -0.5,
+                    height: 1.1,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 3.5),
-              Container(
-                width: 4.5,
-                height: 4.5,
-                margin: const EdgeInsets.only(bottom: 2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: colorScheme.primary,
-                  boxShadow: [
-                    BoxShadow(
-                      color: colorScheme.primary.withValues(alpha: 0.65),
-                      blurRadius: 4,
-                      spreadRadius: 1,
-                    ),
-                  ],
+                const SizedBox(width: 3.5),
+                Container(
+                  width: 4.5,
+                  height: 4.5,
+                  margin: const EdgeInsets.only(bottom: 2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: colorScheme.primary,
+                    boxShadow: [
+                      BoxShadow(
+                        color: colorScheme.primary.withValues(alpha: 0.65),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

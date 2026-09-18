@@ -6,8 +6,26 @@ import { getIcon512Bytes, getFaviconIcoBytes, LOGO_SVG, ICON_DATA_URL } from './
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Radian-Sync-Key, X-Sync-Key',
 };
+
+function extractSyncKey(request: Request, url: URL, body?: any): string {
+  const fromHeader = request.headers.get('x-radian-sync-key') || request.headers.get('x-sync-key');
+  if (fromHeader && fromHeader.trim()) return fromHeader.trim();
+
+  const fromQuery = url.searchParams.get('sync') || url.searchParams.get('sync_key');
+  if (fromQuery && fromQuery.trim()) return fromQuery.trim();
+
+  if (body && typeof body === 'object') {
+    if (typeof body.syncKey === 'string' && body.syncKey.trim()) return body.syncKey.trim();
+    if (typeof body.sync_key === 'string' && body.sync_key.trim()) return body.sync_key.trim();
+    if (body.params && typeof body.params === 'object') {
+      if (typeof body.params.syncKey === 'string' && body.params.syncKey.trim()) return body.params.syncKey.trim();
+      if (typeof body.params.sync_key === 'string' && body.params.sync_key.trim()) return body.params.sync_key.trim();
+    }
+  }
+  return 'default';
+}
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -149,7 +167,8 @@ export default {
           );
         }
         const body: JsonRpcRequest = JSON.parse(text);
-        const response = await mcp.handleJsonRpc(body, url.origin);
+        const syncKey = extractSyncKey(request, url, body);
+        const response = await mcp.handleJsonRpc(body, url.origin, syncKey);
         return new Response(JSON.stringify(response), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -187,9 +206,10 @@ export default {
 
     // 3. REST Endpoint: Delta Events Sync for Flutter App
     if (request.method === 'GET' && url.pathname === '/api/events') {
+      const syncKey = extractSyncKey(request, url);
       const since = url.searchParams.get('since') || undefined;
-      const events = await repo.getDeltaEvents(since);
-      return new Response(JSON.stringify({ count: events.length, events }), {
+      const events = await repo.getDeltaEvents(since, syncKey);
+      return new Response(JSON.stringify({ count: events.length, syncKey, events }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -197,29 +217,35 @@ export default {
     // 4. REST Endpoint: Batch Sync Push/Pull from Flutter App
     if (request.method === 'POST' && url.pathname === '/api/sync') {
       try {
+        const text = await request.text();
         const payload: {
           since?: string;
+          syncKey?: string;
+          sync_key?: string;
           mutations?: Array<{ action: 'upsert' | 'delete'; event?: any; id?: string }>;
-        } = await request.json();
+        } = text ? JSON.parse(text) : {};
+
+        const syncKey = extractSyncKey(request, url, payload);
 
         // Apply client mutations
         if (payload.mutations && payload.mutations.length > 0) {
           for (const mut of payload.mutations) {
             if (mut.action === 'upsert' && mut.event) {
-              await repo.upsertEvent(mut.event);
+              await repo.upsertEvent({ ...mut.event, sync_key: syncKey }, syncKey);
             } else if (mut.action === 'delete' && mut.id) {
-              await repo.softDeleteEvent(mut.id);
+              await repo.softDeleteEvent(mut.id, syncKey);
             }
           }
         }
 
         // Return latest delta
-        const delta = await repo.getDeltaEvents(payload.since);
+        const delta = await repo.getDeltaEvents(payload.since, syncKey);
         const serverTime = new Date().toISOString();
 
         return new Response(
           JSON.stringify({
             success: true,
+            syncKey,
             serverTime,
             deltaCount: delta.length,
             delta,

@@ -18,6 +18,10 @@ class LocalEventRepository implements EventRepository {
   final SharedPreferences? prefs;
   final List<SectorEvent> _events = [];
   final _controller = StreamController<List<SectorEvent>>.broadcast();
+  final _mutationController = StreamController<EventMutation>.broadcast();
+
+  @override
+  Stream<EventMutation> get mutations => _mutationController.stream;
 
   LocalEventRepository({this.prefs}) {
     _init();
@@ -60,30 +64,21 @@ class LocalEventRepository implements EventRepository {
           urlMode == '24h' ||
           (prefs?.getBool('setting_is24h') ?? false);
 
-      if (kIsWeb) {
-        // On web showcase, always provide the rich verified demo blocks for today
-        _events.clear();
-        if (is24) {
-          _events.addAll(
-            SampleEventsData.generateInternational24hSchedule(now),
-          );
+      // Only seed default/demo schedule if repository is completely empty (first clean install).
+      // NEVER wipe or reset existing user events on day rollover or web refresh.
+      if (_events.isEmpty) {
+        if (kIsWeb) {
+          if (is24) {
+            _events.addAll(
+              SampleEventsData.generateInternational24hSchedule(now),
+            );
+          } else {
+            _events.addAll(SampleEventsData.generateIndian12hSchedule(now));
+          }
         } else {
-          _events.addAll(SampleEventsData.generateIndian12hSchedule(now));
+          _events.addAll(SampleEventsData.generateDefaultSchedule(now));
         }
         hasEnriched = true;
-      } else {
-        // On mobile device / standalone app, load saved events or seed default
-        final hasTodayEvents = _events.any(
-          (e) =>
-              e.start.year == now.year &&
-              e.start.month == now.month &&
-              e.start.day == now.day,
-        );
-        if (_events.isEmpty || !hasTodayEvents) {
-          _events.clear();
-          _events.addAll(SampleEventsData.generateDefaultSchedule(now));
-          hasEnriched = true;
-        }
       }
 
       // Purge obsolete/leftover test events that cause collision or duplicate caps on device
@@ -154,11 +149,11 @@ class LocalEventRepository implements EventRepository {
           return false;
         });
 
-        // Deduplicate any remaining blocks with identical title and start time
+        // Deduplicate any remaining blocks with identical title, date, and start time
         final seenSlots = <String>{};
         _events.removeWhere((e) {
           final slotKey =
-              '${e.title.trim().toLowerCase()}_${e.start.hour}:${e.start.minute}';
+              '${e.title.trim().toLowerCase()}_${e.start.year}-${e.start.month}-${e.start.day}_${e.start.hour}:${e.start.minute}';
           if (seenSlots.contains(slotKey)) {
             return true;
           }
@@ -169,98 +164,29 @@ class LocalEventRepository implements EventRepository {
         hasEnriched = true;
         unawaited(prefs!.setBool('sectograph_cleaned_corrupted_v3', true));
       }
-      if (_deconflictEvents()) {
-        hasEnriched = true;
-      }
       if (hasEnriched) {
         unawaited(_saveToDisk());
       }
     }
 
-    _deconflictEvents();
     _notify();
     if (_events.isNotEmpty) {
-      unawaited(ReminderNotificationService.syncAllReminders(_events));
+      unawaited(
+        ReminderNotificationService.syncAllReminders(
+          List<SectorEvent>.from(_events),
+        ),
+      );
     }
   }
 
-  /// Enforces a strict sequential non-overlapping schedule invariant for non-all-day events.
-  ///
-  /// If any two events on the same calendar day collide, adjusts boundaries so adjacent blocks
-  /// touch cleanly at borders (e.g. event A ends exactly when event B starts) or shifts subsequent
-  /// blocks forward to eliminate overlap.
+  /// In the concentric polar dial, overlapping events are placed on separate concentric rings
+  /// by ConcentricSolver. We preserve exact user start/end times without destructive clipping.
   bool _deconflictEvents() {
-    var changed = false;
-    final dayMap = <String, List<SectorEvent>>{};
-    for (final e in _events) {
-      if (e.isAllDay) continue;
-      final key = '${e.start.year}-${e.start.month}-${e.start.day}';
-      dayMap.putIfAbsent(key, () => []).add(e);
-    }
-
-    for (final entry in dayMap.entries) {
-      final list = entry.value;
-      if (list.length <= 1) continue;
-
-      list.sort((a, b) => a.start.compareTo(b.start));
-
-      for (int i = 0; i < list.length - 1; i++) {
-        final curr = list[i];
-        final next = list[i + 1];
-
-        if (curr.end.isAfter(next.start)) {
-          final gapMins = next.start.difference(curr.start).inMinutes;
-          if (gapMins >= 15) {
-            final updatedCurr = curr.copyWith(end: next.start);
-            final idx = _events.indexWhere((e) => e.id == curr.id);
-            if (idx != -1) {
-              _events[idx] = updatedCurr;
-              list[i] = updatedCurr;
-              changed = true;
-            }
-          } else {
-            final dur = next.end.difference(next.start);
-            final newNextStart = curr.end;
-            final updatedNext = next.copyWith(
-              start: newNextStart,
-              end: newNextStart.add(dur),
-            );
-            final idx = _events.indexWhere((e) => e.id == next.id);
-            if (idx != -1) {
-              _events[idx] = updatedNext;
-              list[i + 1] = updatedNext;
-              changed = true;
-            }
-          }
-        }
-      }
-    }
-    return changed;
+    return false;
   }
 
   List<SectorEvent> _deconflictDayEvents(List<SectorEvent> events) {
-    final regular = events.where((e) => !e.isAllDay).toList()
-      ..sort((a, b) => a.start.compareTo(b.start));
-    final allDay = events.where((e) => e.isAllDay).toList();
-
-    for (int i = 0; i < regular.length - 1; i++) {
-      final curr = regular[i];
-      final next = regular[i + 1];
-      if (curr.end.isAfter(next.start)) {
-        final gapMins = next.start.difference(curr.start).inMinutes;
-        if (gapMins >= 15) {
-          regular[i] = curr.copyWith(end: next.start);
-        } else {
-          final dur = next.end.difference(next.start);
-          final newNextStart = curr.end;
-          regular[i + 1] = next.copyWith(
-            start: newNextStart,
-            end: newNextStart.add(dur),
-          );
-        }
-      }
-    }
-    return [...regular, ...allDay];
+    return events;
   }
 
   Future<void> _saveToDisk() async {
@@ -385,9 +311,9 @@ class LocalEventRepository implements EventRepository {
   @override
   Future<void> addEvent(SectorEvent event) async {
     _events.add(event);
-    _deconflictEvents();
     await _saveToDisk();
     _notify();
+    _mutationController.add(EventMutation.upsert(event));
     if (event.reminderMinutes != null) {
       unawaited(ReminderNotificationService.scheduleReminder(event));
     }
@@ -401,9 +327,9 @@ class LocalEventRepository implements EventRepository {
     } else {
       _events.add(event);
     }
-    _deconflictEvents();
     await _saveToDisk();
     _notify();
+    _mutationController.add(EventMutation.upsert(event));
     if (event.reminderMinutes != null) {
       unawaited(ReminderNotificationService.scheduleReminder(event));
     } else {
@@ -416,6 +342,7 @@ class LocalEventRepository implements EventRepository {
     _events.removeWhere((e) => e.id == id);
     await _saveToDisk();
     _notify();
+    _mutationController.add(EventMutation.delete(id));
     unawaited(ReminderNotificationService.cancelReminder(id));
   }
 
@@ -432,8 +359,8 @@ class LocalEventRepository implements EventRepository {
       } else {
         _events.add(event);
       }
+      _mutationController.add(EventMutation.upsert(event));
     }
-    _deconflictEvents();
     await _saveToDisk();
     _notify();
     unawaited(ReminderNotificationService.syncAllReminders(_events));
@@ -441,9 +368,18 @@ class LocalEventRepository implements EventRepository {
 
   @override
   Future<void> replaceDayEvents(DateTime day, List<SectorEvent> events) async {
+    final toDelete = _events
+        .where((e) => _isSameDay(e.start, day))
+        .map((e) => e.id)
+        .toList();
     _events.removeWhere((e) => _isSameDay(e.start, day));
+    for (final id in toDelete) {
+      _mutationController.add(EventMutation.delete(id));
+    }
     _events.addAll(events);
-    _deconflictEvents();
+    for (final event in events) {
+      _mutationController.add(EventMutation.upsert(event));
+    }
     await _saveToDisk();
     _notify();
     unawaited(ReminderNotificationService.syncAllReminders(_events));
@@ -453,11 +389,12 @@ class LocalEventRepository implements EventRepository {
   Future<void> clearEventsForDay(DateTime day) async {
     final removed = _events.where((e) => _isSameDay(e.start, day)).toList();
     _events.removeWhere((e) => _isSameDay(e.start, day));
-    await _saveToDisk();
-    _notify();
     for (final e in removed) {
+      _mutationController.add(EventMutation.delete(e.id));
       unawaited(ReminderNotificationService.cancelReminder(e.id));
     }
+    await _saveToDisk();
+    _notify();
   }
 
   @override

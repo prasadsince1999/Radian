@@ -73,7 +73,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkInitialWidgetAction();
       _syncAndroidWidget();
-      ref.read(cloudSyncControllerProvider.notifier).syncNow();
+      final syncNotifier = ref.read(cloudSyncControllerProvider.notifier);
+      syncNotifier.syncNow();
+      syncNotifier.startPolling();
     });
   }
 
@@ -81,7 +83,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _syncAndroidWidget();
-      ref.read(cloudSyncControllerProvider.notifier).syncNow();
+      final syncNotifier = ref.read(cloudSyncControllerProvider.notifier);
+      syncNotifier.syncNow();
+      syncNotifier.startPolling();
+    } else if (state == AppLifecycleState.paused) {
+      ref.read(cloudSyncControllerProvider.notifier).stopPolling();
     }
   }
 
@@ -176,9 +182,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               HapticFeedback.lightImpact();
               final isCurrently24 = settings.is24HourMode;
               ref.read(dialSettingsProvider.notifier).toggle24HourMode();
-              ref.read(eventRepositoryProvider).loadPreset(
-                !isCurrently24 ? 'international_24h' : 'indian_12h',
-              );
+              ref
+                  .read(eventRepositoryProvider)
+                  .loadPreset(
+                    !isCurrently24 ? 'international_24h' : 'indian_12h',
+                  );
             },
             child: Container(
               height: AppLayoutConstants.actionButtonSize,
@@ -331,11 +339,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   builder: (_) => const McpStatusSheet(),
                 );
               } else if (value == 'preset_indian') {
-                ref.read(dialSettingsProvider.notifier).updateSettings(settings.copyWith(is24HourMode: false));
+                ref
+                    .read(dialSettingsProvider.notifier)
+                    .updateSettings(settings.copyWith(is24HourMode: false));
                 ref.read(eventRepositoryProvider).loadPreset('indian_12h');
               } else if (value == 'preset_intl') {
-                ref.read(dialSettingsProvider.notifier).updateSettings(settings.copyWith(is24HourMode: true));
-                ref.read(eventRepositoryProvider).loadPreset('international_24h');
+                ref
+                    .read(dialSettingsProvider.notifier)
+                    .updateSettings(settings.copyWith(is24HourMode: true));
+                ref
+                    .read(eventRepositoryProvider)
+                    .loadPreset('international_24h');
               } else if (value == 'about') {
                 AboutRadianDialog.show(context);
               }

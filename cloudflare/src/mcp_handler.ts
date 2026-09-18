@@ -181,7 +181,7 @@ export class McpHandler {
     ];
   }
 
-  async handleJsonRpc(req: JsonRpcRequest, origin?: string): Promise<JsonRpcResponse> {
+  async handleJsonRpc(req: JsonRpcRequest, origin?: string, syncKey: string = 'default'): Promise<JsonRpcResponse> {
     const id = req.id ?? null;
 
     try {
@@ -241,7 +241,7 @@ export class McpHandler {
         case 'tools/call': {
           const toolName = req.params?.name;
           const args = req.params?.arguments || {};
-          const result = await this.executeTool(toolName, args);
+          const result = await this.executeTool(toolName, args, syncKey);
           return {
             jsonrpc: '2.0',
             id,
@@ -278,13 +278,14 @@ export class McpHandler {
     }
   }
 
-  private async executeTool(name: string, args: any): Promise<any> {
+  private async executeTool(name: string, args: any, syncKey: string = 'default'): Promise<any> {
     const todayStr = new Date().toISOString().split('T')[0];
+    const effectiveSyncKey = (args.syncKey || args.sync_key || syncKey || 'default').trim();
 
     switch (name) {
       case 'get_clock_state': {
         const date = args.date || todayStr;
-        const events = await this.repo.getEventsForDay(date);
+        const events = await this.repo.getEventsForDay(date, effectiveSyncKey);
         const settings = await this.repo.getDialSettings();
         const now = new Date();
 
@@ -310,7 +311,7 @@ export class McpHandler {
 
       case 'list_sectors': {
         const date = args.date || todayStr;
-        const events = await this.repo.getEventsForDay(date);
+        const events = await this.repo.getEventsForDay(date, effectiveSyncKey);
         return {
           date,
           count: events.length,
@@ -320,7 +321,7 @@ export class McpHandler {
 
       case 'find_free_gaps': {
         const date = args.date || todayStr;
-        const events = await this.repo.getEventsForDay(date);
+        const events = await this.repo.getEventsForDay(date, effectiveSyncKey);
         const minDuration = args.minDurationMinutes || 15;
 
         // Calculate free gaps between 08:00 and 22:00
@@ -379,8 +380,9 @@ export class McpHandler {
           subtasks: args.subtasks
             ? (typeof args.subtasks === 'string' ? args.subtasks : JSON.stringify(args.subtasks))
             : null,
+          sync_key: effectiveSyncKey,
         };
-        await this.repo.upsertEvent(event);
+        await this.repo.upsertEvent(event, effectiveSyncKey);
         return { success: true, eventId: id, message: `Scheduled '${args.title}'` };
       }
 
@@ -396,8 +398,9 @@ export class McpHandler {
           subtasks: e.subtasks
             ? (typeof e.subtasks === 'string' ? e.subtasks : JSON.stringify(e.subtasks))
             : null,
+          sync_key: effectiveSyncKey,
         }));
-        await this.repo.bulkUpsertEvents(events);
+        await this.repo.bulkUpsertEvents(events, effectiveSyncKey);
         return { success: true, scheduledCount: events.length };
       }
 
@@ -414,13 +417,14 @@ export class McpHandler {
           subtasks: e.subtasks
             ? (typeof e.subtasks === 'string' ? e.subtasks : JSON.stringify(e.subtasks))
             : null,
+          sync_key: effectiveSyncKey,
         }));
-        await this.repo.replaceDaySchedule(date, events);
+        await this.repo.replaceDaySchedule(date, events, effectiveSyncKey);
         return { success: true, date, scheduledCount: events.length };
       }
 
       case 'delete_sector': {
-        await this.repo.softDeleteEvent(args.id);
+        await this.repo.softDeleteEvent(args.id, effectiveSyncKey);
         return { success: true, deletedId: args.id };
       }
 
