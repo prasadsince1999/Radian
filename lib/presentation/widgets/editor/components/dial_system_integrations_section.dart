@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_layout_constants.dart';
+import '../../../../core/constants/app_strings.dart';
 import '../../../../core/services/android_widget_service.dart';
 import '../../../../core/services/device_settings_service.dart';
 import '../../../../core/services/health_service.dart';
@@ -11,6 +12,7 @@ import '../../../controllers/clock_controller.dart';
 import '../../../controllers/mcp_server_controller.dart';
 import '../../common/bouncy_pressable.dart';
 import '../../mcp/mcp_status_sheet.dart';
+import '../../update/app_update_modal.dart';
 import 'dial_editor_styles.dart';
 
 /// Section managing Android system integrations: Home Screen Widget, Battery Optimization, Health Connect, and MCP.
@@ -573,6 +575,118 @@ class DialSystemIntegrationsSection extends ConsumerWidget {
                             fontWeight: FontWeight.w800,
                             fontSize: 13,
                             color: AppColors.mcpViolet,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // App Updates & Over-The-Air (OTA) Delivery Card
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: cardBorder, width: 1.2),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: accentBg.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.rocket_launch_rounded,
+                      size: 16,
+                      color: accentColor,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'App Updates & Releases (OTA)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: primaryText,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: colorScheme.outlineVariant,
+                        width: 1.0,
+                      ),
+                    ),
+                    child: Text(
+                      'v${AppStrings.appVersion}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: secondaryText,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Receive instant update alerts, review release notes, and install updates with a single tap via Cloudflare edge.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: secondaryText,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: BouncyPressable(
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    AppUpdateModal.show(context, checkImmediately: true);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: accentBg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: accentBorder, width: 1.2),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.system_update_rounded,
+                          size: 18,
+                          color: accentColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Check for Updates',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            color: accentColor,
                           ),
                         ),
                       ],

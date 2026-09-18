@@ -1,6 +1,6 @@
 {
   "name": "sectograph-mcp-server",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Cloudflare D1-backed remote MCP server for Sectograph, compatible with ChatGPT and Claude",
   "main": "src/index.ts",
   "scripts": {

@@ -57,6 +57,7 @@ app.*.map.json
 # Environment & Secrets
 .env
 .env.*
+release-assets/
 
 # Widget Preview related
 .widget_preview/

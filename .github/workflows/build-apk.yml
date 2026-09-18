@@ -6,6 +6,11 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
+      version:
+        description: 'Release version (e.g. 1.0.2)'
+        required: false
+        type: string
+        default: '1.0.2'
       create_release:
         description: 'Create or update GitHub Release'
         required: false
@@ -42,23 +47,31 @@ jobs:
       - name: Build Release APK
         run: flutter build apk --release
 
-      - name: Prepare Release Asset
+      - name: Prepare Release Assets
         run: |
           mkdir -p release-assets
-          cp build/app/outputs/flutter-apk/app-release.apk release-assets/Radian-v1.0.0.apk
+          TAG="${{ github.ref_name }}"
+          if [ -z "$TAG" ] || [ "$TAG" = "main" ]; then
+            TAG="v${{ inputs.version || '1.0.2' }}"
+          fi
+          # Produce both version-tagged and canonical APKs
+          cp build/app/outputs/flutter-apk/app-release.apk "release-assets/Radian-${TAG}.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk release-assets/Radian.apk
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Radian-Android-APK
-          path: release-assets/Radian-v1.0.0.apk
+          path: release-assets/*.apk
 
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.create_release == true)
         uses: softprops/action-gh-release@v2
         with:
-          files: release-assets/Radian-v1.0.0.apk
-          name: Radian Android Release ${{ github.ref_name }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v{0}', inputs.version || '1.0.2') }}
+          name: Radian Android Release ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v{0}', inputs.version || '1.0.2') }}
+          files: release-assets/*.apk
           draft: false
           prerelease: false
           generate_release_notes: true
+

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../controllers/clock_controller.dart';
 import '../widgets/common/bouncy_pressable.dart';
 import '../widgets/dial/sectograph_dial.dart';
@@ -16,7 +17,7 @@ class DialEmbedScreen extends ConsumerWidget {
     final settings = ref.watch(dialSettingsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF07090E),
+      backgroundColor: AppColors.espressoChassisBg,
       body: Stack(
         children: [
           // Authentic Circular Polar Dial
@@ -48,12 +49,12 @@ class DialEmbedScreen extends ConsumerWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF131722).withValues(alpha: 0.85),
+                  color: AppColors.cardBg.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(100),
                   border: Border.all(
                     color: settings.is24HourMode
-                        ? const Color(0xFF38BDF8).withValues(alpha: 0.5)
-                        : const Color(0xFFF7C752).withValues(alpha: 0.5),
+                        ? AppColors.mcpAccent.withValues(alpha: 0.5)
+                        : AppColors.sunAccent.withValues(alpha: 0.5),
                     width: 1.2,
                   ),
                   boxShadow: [
@@ -68,7 +69,7 @@ class DialEmbedScreen extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      settings.is24HourMode ? '24H 🌐' : '12H 🇮🇳',
+                      settings.is24HourMode ? '24H' : '12H',
                       style: const TextStyle(
                         fontFamily: 'Space Grotesk',
                         fontSize: 11,

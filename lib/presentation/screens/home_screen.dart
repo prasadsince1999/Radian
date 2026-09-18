@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +10,7 @@ import '../../core/services/android_widget_service.dart';
 import '../../core/theme/expressive_shapes.dart';
 import '../controllers/clock_controller.dart';
 import '../controllers/cloud_sync_controller.dart';
+import '../controllers/app_update_controller.dart';
 import '../widgets/calendar/calendar_sheet.dart';
 import '../widgets/common/bouncy_pressable.dart';
 import '../widgets/common/radian_logo.dart';
@@ -19,6 +22,7 @@ import '../widgets/health/health_insights_sheet.dart';
 import '../widgets/health/m3_activity_heatmap.dart';
 import '../widgets/mcp/mcp_status_sheet.dart';
 import '../widgets/timeline/expressive_timeline.dart';
+import '../widgets/update/app_update_modal.dart';
 
 const _kSheetAnimationStyle = AnimationStyle(
   duration: Duration(milliseconds: 280),
@@ -38,6 +42,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   late final AnimationController _expansionController;
   late final Animation<double> _expansionAnimation;
+  Timer? _updateCheckTimer;
 
   @override
   void initState() {
@@ -69,6 +74,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ref.read(selectedEventProvider.notifier).state = ev;
         } catch (_) {}
       },
+      onOpenUpdate: (version) {
+        if (mounted) {
+          AppUpdateModal.show(context, checkImmediately: true);
+        }
+      },
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkInitialWidgetAction();
@@ -76,6 +86,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       final syncNotifier = ref.read(cloudSyncControllerProvider.notifier);
       syncNotifier.syncNow();
       syncNotifier.startPolling();
+
+      // Silent background check for updates 3s after launch (skipped in widget tests to avoid pending timers)
+      final isRunningInTest = WidgetsBinding.instance.runtimeType
+          .toString()
+          .contains('Test');
+      if (!isRunningInTest) {
+        _updateCheckTimer = Timer(const Duration(seconds: 3), () async {
+          if (!mounted) return;
+          final hasUpdate = await ref
+              .read(appUpdateControllerProvider.notifier)
+              .checkForUpdates(isSilent: true);
+          if (hasUpdate && mounted) {
+            final updateState = ref.read(appUpdateControllerProvider);
+            final version = updateState.updateInfo?.version ?? '';
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.primary
+                        .withValues(alpha: 0.35),
+                    width: 1.2,
+                  ),
+                ),
+                content: Row(
+                  children: [
+                    Icon(
+                      Icons.rocket_launch_rounded,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Radian v$version is available!',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                action: SnackBarAction(
+                  label: 'UPDATE',
+                  textColor: Theme.of(context).colorScheme.primary,
+                  onPressed: () {
+                    AppUpdateModal.show(context);
+                  },
+                ),
+                duration: const Duration(seconds: 7),
+              ),
+            );
+          }
+        });
+      }
     });
   }
 
@@ -93,6 +164,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   void dispose() {
+    _updateCheckTimer?.cancel();
     _expansionController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -102,6 +174,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final action = await AndroidWidgetService.getInitialAction();
     if (action == 'add_block' && mounted) {
       _openAddBlock();
+    } else if (action == 'open_update' && mounted) {
+      AppUpdateModal.show(context, checkImmediately: true);
     }
   }
 
@@ -204,25 +278,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
               ),
               alignment: Alignment.center,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    settings.is24HourMode ? '24H' : '12H',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w800,
-                      color: settings.is24HourMode
-                          ? colorScheme.primary
-                          : colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    settings.is24HourMode ? '🌐' : '🇮🇳',
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                ],
+              child: Text(
+                settings.is24HourMode ? '24H' : '12H',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: settings.is24HourMode
+                      ? colorScheme.primary
+                      : colorScheme.onSurface,
+                ),
               ),
             ),
           ),
@@ -352,41 +416,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     .loadPreset('international_24h');
               } else if (value == 'about') {
                 AboutRadianDialog.show(context);
+              } else if (value == 'check_updates') {
+                AppUpdateModal.show(context, checkImmediately: true);
               }
             },
             itemBuilder: (context) => [
               PopupMenuItem(
                 value: 'preset_indian',
-                child: Row(
-                  children: [
-                    const Text('🇮🇳', style: TextStyle(fontSize: 16)),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Load Indian Routine (12H)',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13.5,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  'Load Indian Routine (12H)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13.5,
+                    color: colorScheme.onSurface,
+                  ),
                 ),
               ),
               PopupMenuItem(
                 value: 'preset_intl',
-                child: Row(
-                  children: [
-                    const Text('🌐', style: TextStyle(fontSize: 16)),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Load Global Circadian (24H)',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13.5,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  'Load Global Circadian (24H)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13.5,
+                    color: colorScheme.onSurface,
+                  ),
                 ),
               ),
               const PopupMenuDivider(),
@@ -433,6 +487,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
               ),
               const PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'check_updates',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.system_update_rounded,
+                      size: 18,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Over-The-Air (OTA) Updates',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.5,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               PopupMenuItem(
                 value: 'about',
                 child: Row(

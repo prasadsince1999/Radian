@@ -11,18 +11,23 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import androidx.core.app.NotificationCompat
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 import org.json.JSONObject
 
 /**
  * Main Android activity coordinating Flutter engine MethodChannels,
- * widget syncing, Health Connect, hardware step tracking, and exact notification alarms.
+ * widget syncing, Health Connect, hardware step tracking, exact notification alarms,
+ * and seamless In-App OTA Updates.
  */
 class MainActivity : FlutterActivity() {
     private val WIDGET_CHANNEL = "com.ksmxtech.sectograph_mcp/widget"
     private val NOTIFICATIONS_CHANNEL = "com.ksmxtech.sectograph_mcp/notifications"
+    private val UPDATER_CHANNEL = "com.ksmxtech.sectograph_mcp/updater"
 
     private var methodChannel: MethodChannel? = null
     private var pendingAction: String? = null
@@ -73,6 +78,10 @@ class MainActivity : FlutterActivity() {
             if (!eventId.isNullOrEmpty()) {
                 methodChannel?.invokeMethod("onOpenEvent", eventId)
             }
+        }
+        if (action == "open_update" || intent.action == "open_update") {
+            pendingAction = "open_update"
+            methodChannel?.invokeMethod("onOpenUpdate", intent.getStringExtra("version") ?: "")
         }
 
         // Handle URI schemes: radian://new_block, radian://today, radian://dial, radian://event?id=...
@@ -154,6 +163,96 @@ class MainActivity : FlutterActivity() {
                 "scheduleReminder" -> scheduleReminder(call, result)
                 "cancelReminder" -> cancelReminder(call, result)
                 "cancelAllReminders" -> cancelAllReminders(result)
+                else -> result.notImplemented()
+            }
+        }
+
+        // 3. In-App OTA Updater MethodChannel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UPDATER_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getCacheApkPath" -> {
+                    val updateDir = File(cacheDir, "updates").apply { if (!exists()) mkdirs() }
+                    val apkFile = File(updateDir, "Radian-update.apk")
+                    result.success(apkFile.absolutePath)
+                }
+                "canInstallPackages" -> {
+                    val canInstall = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        packageManager.canRequestPackageInstalls()
+                    } else {
+                        true
+                    }
+                    result.success(canInstall)
+                }
+                "openInstallPermissionSettings" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                            data = Uri.parse("package:$packageName")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(intent)
+                        result.success(true)
+                    } else {
+                        result.success(true)
+                    }
+                }
+                "installApk" -> {
+                    val filePath = call.argument<String>("filePath") ?: run {
+                        result.error("ARG_ERR", "Missing filePath", null)
+                        return@setMethodCallHandler
+                    }
+                    val apkFile = File(filePath)
+                    if (!apkFile.exists()) {
+                        result.error("NOT_FOUND", "File does not exist: $filePath", null)
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        val contentUri = FileProvider.getUriForFile(
+                            applicationContext,
+                            "$packageName.fileprovider",
+                            apkFile
+                        )
+                        val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(contentUri, "application/vnd.android.package-archive")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        startActivity(installIntent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("INSTALL_ERR", e.message, null)
+                    }
+                }
+                "showUpdateNotification" -> {
+                    val title = call.argument<String>("title") ?: "Radian Update Available"
+                    val body = call.argument<String>("body") ?: "A new update is ready to install."
+                    val version = call.argument<String>("version") ?: ""
+
+                    val notifyIntent = Intent(this, MainActivity::class.java).apply {
+                        action = "open_update"
+                        putExtra("version", version)
+                        addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    }
+                    val pendingIntent = PendingIntent.getActivity(
+                        this,
+                        9999,
+                        notifyIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+
+                    val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    val notification = NotificationCompat.Builder(this, NotificationAlarmReceiver.CHANNEL_ID)
+                        .setSmallIcon(R.mipmap.ic_launcher)
+                        .setContentTitle(title)
+                        .setContentText(body)
+                        .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setAutoCancel(true)
+                        .setContentIntent(pendingIntent)
+                        .build()
+
+                    notificationManager.notify(9999, notification)
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }

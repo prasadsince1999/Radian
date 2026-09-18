@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_layout_constants.dart';
+import '../../../core/constants/app_strings.dart';
 import '../../../core/services/android_widget_service.dart';
 import '../common/bouncy_pressable.dart';
+import '../common/radian_app_logo.dart';
+import '../dialogs/about_radian_dialog.dart';
 import '../sync/cloud_sync_vault_card.dart';
+import 'components/dial_ota_updates_section.dart';
 import 'components/dial_system_integrations_section.dart';
 import 'components/dial_theme_section.dart';
 import 'components/dial_time_format_section.dart';
@@ -119,9 +124,71 @@ class DialSettingsModal extends ConsumerWidget {
                 const CloudSyncVaultCard(),
                 const SizedBox(height: 12),
 
+                // Over-The-Air (OTA) Delivery & Releases
+                const DialOtaUpdatesSection(),
+                const SizedBox(height: 12),
+
                 // System & Device Integrations (Android Widget, Battery, Health Connect, MCP)
-                if (AndroidWidgetService.isSupported)
+                if (AndroidWidgetService.isSupported) ...[
                   const DialSystemIntegrationsSection(),
+                  const SizedBox(height: 12),
+                ],
+
+                // About Radian & KSM × Tech
+                BouncyPressable(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    AboutRadianDialog.show(context);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: colorScheme.outlineVariant.withValues(
+                          alpha: 0.6,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const RadianAppLogo(size: 30),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'About Radian',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13.5,
+                                  color: primaryText,
+                                ),
+                              ),
+                              Text(
+                                'v${AppStrings.appVersion} (Build ${AppStrings.appBuildNumber}) · KSM × Tech',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: secondaryText,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 13,
+                          color: secondaryText,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 16),
               ],
             ),

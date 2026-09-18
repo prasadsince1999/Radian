@@ -27,14 +27,17 @@ class AndroidWidgetService {
 
   static void Function(String action)? onActionReceived;
   static void Function(String eventId)? onOpenEventReceived;
+  static void Function(String version)? onOpenUpdateReceived;
 
   static void initialize({
     void Function(String action)? onAction,
     void Function(String eventId)? onOpenEvent,
+    void Function(String version)? onOpenUpdate,
   }) {
     if (!isSupported) return;
     onActionReceived = onAction;
     onOpenEventReceived = onOpenEvent;
+    onOpenUpdateReceived = onOpenUpdate;
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'onWidgetAction') {
         final action = call.arguments as String?;
@@ -46,6 +49,9 @@ class AndroidWidgetService {
         if (eventId != null) {
           onOpenEventReceived?.call(eventId);
         }
+      } else if (call.method == 'onOpenUpdate') {
+        final version = call.arguments as String? ?? '';
+        onOpenUpdateReceived?.call(version);
       }
     });
   }

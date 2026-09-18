@@ -148,7 +148,7 @@ export default {
                 capabilities: { tools: { listChanged: false } },
                 serverInfo: {
                   name: 'Radian',
-                  version: '1.0.0',
+                  version: '1.0.2',
                   description: '360° AI-Native Circular Time Blocking & Schedule Planner',
                   icon: `${url.origin}/icon.png`,
                   iconUrl: `${url.origin}/icon.png`,
@@ -260,14 +260,102 @@ export default {
       }
     }
 
-    // 5. OpenAPI 3.0 Specification for ChatGPT Custom Actions
+    // 5. REST Endpoint: OTA App Updates (fetches latest GitHub Release with edge cache)
+    if (request.method === 'GET' && (url.pathname === '/api/updates/latest' || url.pathname === '/api/version')) {
+      try {
+        const ghRes = await fetch('https://api.github.com/repos/prasadsince1999/Radian/releases/latest', {
+          headers: {
+            'User-Agent': 'Radian-Updater/1.0.1',
+            Accept: 'application/vnd.github.v3+json',
+          },
+          cf: {
+            cacheTtl: 300,
+            cacheEverything: true,
+          },
+        });
+
+        if (ghRes.ok) {
+          const release: any = await ghRes.json();
+          const tag = release.tag_name || 'v1.0.1';
+          const version = tag.replace(/^v/, '');
+          const apkAsset =
+            release.assets?.find(
+              (a: any) =>
+                typeof a.name === 'string' &&
+                a.name.includes(tag) &&
+                a.name.endsWith('.apk')
+            ) ||
+            release.assets?.find(
+              (a: any) =>
+                typeof a.name === 'string' && a.name.endsWith('.apk')
+            );
+          const downloadUrl = apkAsset?.browser_download_url ||
+            `https://github.com/prasadsince1999/Radian/releases/download/${tag}/Radian-${tag}.apk`;
+
+          return new Response(
+            JSON.stringify(
+              {
+                success: true,
+                tag,
+                version,
+                downloadUrl,
+                apkName: apkAsset?.name || `Radian-${tag}.apk`,
+                sizeBytes: apkAsset?.size || 58123885,
+                releaseNotes: release.body || '',
+                publishedAt: release.published_at || new Date().toISOString(),
+                htmlUrl: release.html_url || `https://github.com/prasadsince1999/Radian/releases/tag/${tag}`,
+              },
+              null,
+              2
+            ),
+            {
+              headers: {
+                ...corsHeaders,
+                'Content-Type': 'application/json',
+                'Cache-Control': 'public, max-age=300',
+              },
+            }
+          );
+        }
+      } catch (_) {}
+
+      // Robust fallback if GitHub API rate-limited or error
+      return new Response(
+        JSON.stringify(
+          {
+            success: true,
+            tag: 'v1.0.2',
+            version: '1.0.2',
+            downloadUrl:
+              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.2/Radian-v1.0.2.apk',
+            apkName: 'Radian-v1.0.2.apk',
+            sizeBytes: 74868000,
+            releaseNotes:
+              '### Radian v1.0.2 - Live Over-The-Air (OTA) Updates & Expressive About Experience\n\n- In-App Over-The-Air (OTA) Updates: Directly inspect, download, and install releases from Cloudflare Edge + GitHub without gatekeepers.\n- Expressive KSM × Tech About Screen: Numbered system architecture (01-04), developer heritage, and verified links.\n- Physical Laptop-to-Phone Flow: Seamless camera scanning of desktop QR code to pair vaults instantly.\n- Clean Typography: Pure 12H / 24H typography with icons removed.',
+            publishedAt: new Date().toISOString(),
+            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.2',
+          },
+          null,
+          2
+        ),
+        {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=60',
+          },
+        }
+      );
+    }
+
+    // 6. OpenAPI 3.0 Specification for ChatGPT Custom Actions
     if (request.method === 'GET' && url.pathname === '/api/openapi.json') {
       const openApi = {
         openapi: '3.0.1',
         info: {
           title: 'Sectograph Cloudflare API',
           description: 'Cloudflare D1-backed time planning and circular dial automation API',
-          version: '1.0.0',
+          version: '1.0.2',
         },
         servers: [{ url: url.origin }],
         paths: {

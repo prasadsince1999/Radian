@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,7 @@ import '../../controllers/clock_controller.dart';
 import '../../controllers/cloud_sync_controller.dart';
 import '../common/bouncy_pressable.dart';
 import '../editor/components/dial_editor_styles.dart';
+import 'qr_camera_scanner_modal.dart';
 
 /// Card displayed inside Custom Dial settings showcasing the private sync key,
 /// eye visibility toggle, warning backup alert, and web-pairing QR code.
@@ -23,6 +25,7 @@ class CloudSyncVaultCard extends ConsumerStatefulWidget {
 class _CloudSyncVaultCardState extends ConsumerState<CloudSyncVaultCard> {
   bool _isKeyRevealed = false;
   bool _isPairingOpen = false;
+  bool _showPhoneQrCode = false;
   late final TextEditingController _pairKeyController;
 
   @override
@@ -276,109 +279,360 @@ class _CloudSyncVaultCardState extends ConsumerState<CloudSyncVaultCard> {
           ),
           const SizedBox(height: 16),
 
-          // Web Pairing QR Code Section
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.35,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.6),
-              ),
-            ),
-            child: Column(
-              children: [
-                Text(
-                  'Instant Web Pairing QR Code',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                    color: primaryText,
-                  ),
+          // Platform-Aware Pairing Section:
+          // On Web/Laptop: Shows scannable QR Code on laptop screen.
+          // On Mobile Phone: Offers camera scanner to scan laptop screen, with collapsed QR fallback.
+          if (kIsWeb)
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.35,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Scan with your phone or camera to open and sync your web version:',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11.5, color: secondaryText),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.6),
                 ),
-                const SizedBox(height: 12),
-                // QR Code Image (White background ensures high contrast in all themes)
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('💻 ➔ 📱', style: TextStyle(fontSize: 14)),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Pair Phone with this Laptop',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          color: primaryText,
+                        ),
                       ),
                     ],
                   ),
-                  child: QrImageView(
-                    data: pairingUrl,
-                    version: QrVersions.auto,
-                    size: 160,
-                    backgroundColor: Colors.white,
-                    eyeStyle: const QrEyeStyle(
-                      eyeShape: QrEyeShape.square,
-                      color: Color(0xFF1E293B),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Point your phone camera at this laptop screen to link your routines on mobile:',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11.5, color: secondaryText),
+                  ),
+                  const SizedBox(height: 12),
+                  // QR Code Image (White background ensures high contrast in all themes)
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    dataModuleStyle: const QrDataModuleStyle(
-                      dataModuleShape: QrDataModuleShape.square,
-                      color: Color(0xFF0F172A),
+                    child: QrImageView(
+                      data: pairingUrl,
+                      version: QrVersions.auto,
+                      size: 160,
+                      backgroundColor: Colors.white,
+                      eyeStyle: const QrEyeStyle(
+                        eyeShape: QrEyeShape.square,
+                        color: Color(0xFF1E293B),
+                      ),
+                      dataModuleStyle: const QrDataModuleStyle(
+                        dataModuleShape: QrDataModuleShape.square,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                // Copy Web Pairing Link Button
-                BouncyPressable(
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: pairingUrl));
-                    HapticFeedback.lightImpact();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Web sync link copied to clipboard! Open in any browser.',
+                  const SizedBox(height: 10),
+                  // Copy Web Pairing Link Button
+                  BouncyPressable(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: pairingUrl));
+                      HapticFeedback.lightImpact();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Web sync link copied to clipboard! Open in any browser.',
+                          ),
+                          duration: Duration(seconds: 2),
                         ),
-                        duration: Duration(seconds: 2),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
                       ),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: accentBg,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: accentBorder),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.link_rounded, size: 16, color: accentColor),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Copy Web Sync Link',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                      decoration: BoxDecoration(
+                        color: accentBg,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: accentBorder),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.link_rounded,
+                            size: 16,
                             color: accentColor,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Copy Web Sync Link',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: accentColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            // Mobile Phone Screen: Camera Scanner to scan Laptop Screen
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.35,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: accentBg,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: accentBorder, width: 1.2),
+                        ),
+                        child: Icon(
+                          Icons.qr_code_scanner_rounded,
+                          color: accentColor,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Pair with Laptop Screen',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                                color: primaryText,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Point this phone camera at your laptop',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: secondaryText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.5,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: colorScheme.outlineVariant.withValues(
+                          alpha: 0.4,
+                        ),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '1. Open ksmxtech.com/radian/app on your laptop',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: primaryText.withValues(alpha: 0.85),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '2. Tap "Scan Laptop QR Code" below and aim at the screen',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: primaryText.withValues(alpha: 0.85),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  // Primary Action: Open Camera Scanner to scan laptop screen
+                  BouncyPressable(
+                    onTap: () async {
+                      HapticFeedback.lightImpact();
+                      final scannedKey = await QrCameraScannerModal.show(
+                        context,
+                      );
+                      if (scannedKey != null && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Successfully linked to laptop vault ($scannedKey)! Synchronizing...',
+                            ),
+                            duration: const Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: accentColor.withValues(alpha: 0.35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.camera_alt_rounded,
+                            size: 18,
+                            color: colorScheme.onPrimary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Scan Laptop QR Code',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: colorScheme.onPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  // Collapsed option to show QR code on this phone screen
+                  BouncyPressable(
+                    onTap: () =>
+                        setState(() => _showPhoneQrCode = !_showPhoneQrCode),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _showPhoneQrCode
+                                ? Icons.visibility_off_outlined
+                                : Icons.qr_code_2_rounded,
+                            size: 15,
+                            color: secondaryText,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _showPhoneQrCode ? 'Hide Phone QR Code' : 'Show QR on this phone (to scan from another phone)',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: secondaryText,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_showPhoneQrCode) ...[
+                    const SizedBox(height: 10),
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: QrImageView(
+                          data: pairingUrl,
+                          version: QrVersions.auto,
+                          size: 150,
+                          backgroundColor: Colors.white,
+                          eyeStyle: const QrEyeStyle(
+                            eyeShape: QrEyeShape.square,
+                            color: Color(0xFF1E293B),
+                          ),
+                          dataModuleStyle: const QrDataModuleStyle(
+                            dataModuleShape: QrDataModuleShape.square,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: BouncyPressable(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: pairingUrl));
+                          HapticFeedback.lightImpact();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Web sync link copied!'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          'Copy Link ↗',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: accentColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ),
           const SizedBox(height: 12),
 
           // Pair Another Device or Change Vault Key

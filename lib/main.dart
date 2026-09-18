@@ -18,9 +18,14 @@ void main() async {
   final modeParam = queryParams['mode']?.toLowerCase();
   final presetParam = queryParams['preset']?.toLowerCase();
   final viewParam = queryParams['view']?.toLowerCase();
+  final themeParam = queryParams['theme']?.toLowerCase();
 
   final isDialEmbed =
       viewParam == 'dial' || viewParam == 'embed' || viewParam == 'widget';
+
+  if (isDialEmbed || themeParam == 'dark') {
+    await prefs.setString('setting_theme', 'dark');
+  }
 
   if (modeParam == '24h' ||
       presetParam == 'international' ||
@@ -30,17 +35,27 @@ void main() async {
     await prefs.setBool('setting_is24h', false);
   }
 
+  final syncParam = queryParams['sync']?.trim();
+  if (syncParam != null && syncParam.isNotEmpty) {
+    await prefs.setString('cloud_sync_key', syncParam);
+    await prefs.setBool('cloud_sync_enabled', true);
+  }
+
   runApp(
     ProviderScope(
       overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      child: SectographApp(home: isDialEmbed ? const DialEmbedScreen() : null),
+      child: SectographApp(
+        home: isDialEmbed ? const DialEmbedScreen() : null,
+        isDialEmbed: isDialEmbed,
+      ),
     ),
   );
 }
 
 class SectographApp extends ConsumerWidget {
   final Widget? home;
-  const SectographApp({super.key, this.home});
+  final bool isDialEmbed;
+  const SectographApp({super.key, this.home, this.isDialEmbed = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -53,7 +68,7 @@ class SectographApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: ExpressiveTheme.light(settings.seedColor),
       darkTheme: ExpressiveTheme.dark(settings.seedColor),
-      themeMode: settings.themeMode,
+      themeMode: isDialEmbed ? ThemeMode.dark : settings.themeMode,
       home: home ?? const SplashScreen(),
     );
   }

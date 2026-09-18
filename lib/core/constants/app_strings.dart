@@ -3,9 +3,15 @@ abstract final class AppStrings {
   // --- Branding & Identity ---
   static const String appName = 'Radian';
   static const String appTagline = '360° AI-NATIVE TIME BLOCKING';
-  static const String appVersion = '1.0.0';
-  static const String appBuildNumber = '1';
+  static const String appVersion = '1.0.2';
+  static const String appBuildNumber = '3';
   static const String githubUrl = 'https://github.com/prasadsince1999/Radian';
+  static const String websiteUrl = 'https://ksmxtech.com/radian';
+  static const String ksmHomeUrl = 'https://ksmxtech.com';
+  static const String supportEmail = 'support@ksmxtech.com';
+  static const String xTwitterUrl = 'https://x.com/otto_explorer';
+  static const String updateEndpoint =
+      '$cloudflareMcpBaseUrl/api/updates/latest';
 
   // --- Storage Keys ---
   static const String eventsStorageKey = 'radian_events_v1';
@@ -15,7 +21,7 @@ abstract final class AppStrings {
   static const int mcpDefaultPort = 8080;
   static const String mcpFallbackHost = '127.0.0.1';
   static const String mcpServerName = 'radian-mcp';
-  static const String mcpServerVersion = '1.0.0';
+  static const String mcpServerVersion = '1.0.2';
 
   // --- Cloudflare Hosted Server Defaults ---
   static const String cloudflareMcpBaseUrl =
