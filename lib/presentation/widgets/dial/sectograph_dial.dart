@@ -937,139 +937,52 @@ class _DialFooterControlBar extends ConsumerWidget {
         : DateFormat('EEE, MMM d').format(viewingDay);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 12.0),
       child: SizedBox(
         height: 36,
-        child: Stack(
-          alignment: Alignment.center,
+        child: Row(
           children: [
             // 1. Left: [ 🔄 Now ] (Sync to current time & today)
-            Positioned(
-              left: 0,
-              child: BouncyPressable.standard(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  ref.read(dialScrubAngleProvider.notifier).state = null;
-                  ref.read(customSelectedDayProvider.notifier).state = null;
-                  ref.read(selectedEventProvider.notifier).state = null;
-                  ref
-                      .read(dial12HourSegmentProvider.notifier)
-                      .state = DateTime.now().hour < 12
-                      ? Dial12HourSegment.am
-                      : Dial12HourSegment.pm;
-                },
-                child: Container(
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 11),
-                  decoration: BoxDecoration(
-                    color: isNotNow ? colorScheme.primaryContainer : buttonBg,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: isNotNow ? colorScheme.primary : buttonBorder,
-                      width: 1.2,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.restart_alt_rounded,
-                        size: 15,
-                        color: isNotNow
-                            ? colorScheme.primary
-                            : primaryTextColor,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        AppStrings.now,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12,
-                          color: isNotNow
-                              ? colorScheme.primary
-                              : primaryTextColor,
-                        ),
-                      ),
-                    ],
+            BouncyPressable.standard(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                ref.read(dialScrubAngleProvider.notifier).state = null;
+                ref.read(customSelectedDayProvider.notifier).state = null;
+                ref.read(selectedEventProvider.notifier).state = null;
+                ref
+                    .read(dial12HourSegmentProvider.notifier)
+                    .state = DateTime.now().hour < 12
+                    ? Dial12HourSegment.am
+                    : Dial12HourSegment.pm;
+              },
+              child: Container(
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: isNotNow ? colorScheme.primaryContainer : buttonBg,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isNotNow ? colorScheme.primary : buttonBorder,
+                    width: 1.2,
                   ),
                 ),
-              ),
-            ),
-
-            // 2. Center: [ < ] Today, Mon, Sep 7 [ > ]
-            Center(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Squircle Chevron Left
-                    BouncyPressable.standard(
-                      onTap: () {
-                        ref
-                            .read(customSelectedDayProvider.notifier)
-                            .state = DateTime(
-                          viewingDay.year,
-                          viewingDay.month,
-                          viewingDay.day - 1,
-                          viewingDay.hour,
-                          viewingDay.minute,
-                        );
-                        ref.read(selectedEventProvider.notifier).state = null;
-                      },
-                      child: Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: buttonBg,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: buttonBorder, width: 1.2),
-                        ),
-                        child: Icon(
-                          Icons.chevron_left_rounded,
-                          size: 20,
-                          color: primaryTextColor,
-                        ),
-                      ),
+                    Icon(
+                      Icons.restart_alt_rounded,
+                      size: 15,
+                      color: isNotNow ? colorScheme.primary : primaryTextColor,
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 4),
                     Text(
-                      dateHeading,
+                      AppStrings.now,
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 12.5,
-                        color: primaryTextColor,
-                        letterSpacing: 0.1,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    // Squircle Chevron Right
-                    BouncyPressable.standard(
-                      onTap: () {
-                        ref
-                            .read(customSelectedDayProvider.notifier)
-                            .state = DateTime(
-                          viewingDay.year,
-                          viewingDay.month,
-                          viewingDay.day + 1,
-                          viewingDay.hour,
-                          viewingDay.minute,
-                        );
-                        ref.read(selectedEventProvider.notifier).state = null;
-                      },
-                      child: Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: buttonBg,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: buttonBorder, width: 1.2),
-                        ),
-                        child: Icon(
-                          Icons.chevron_right_rounded,
-                          size: 20,
-                          color: primaryTextColor,
-                        ),
+                        fontSize: 12,
+                        color: isNotNow
+                            ? colorScheme.primary
+                            : primaryTextColor,
                       ),
                     ),
                   ],
@@ -1077,102 +990,176 @@ class _DialFooterControlBar extends ConsumerWidget {
               ),
             ),
 
-            // 3. Right: [ 🎛️ Edit ] / [ ✓ Done ] / [ 💾 Save Position ]
-            Positioned(
-              right: 0,
-              child: BouncyPressable.standard(
-                onTap: () {
-                  if (isDialEditing) {
-                    if (hasModified) {
-                      ref
-                              .read(hasModifiedDialPositionsProvider.notifier)
-                              .state =
-                          false;
-                      ref.read(isDialEditingProvider.notifier).state = false;
-                      HapticFeedback.mediumImpact();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Row(
-                            children: [
-                              Icon(
-                                Icons.check_circle_rounded,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'Block positions saved',
-                                style: TextStyle(fontWeight: FontWeight.w700),
-                              ),
-                            ],
-                          ),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
-                    } else {
-                      ref.read(isDialEditingProvider.notifier).state = false;
-                      HapticFeedback.lightImpact();
-                    }
-                  } else {
-                    ref.read(isDialEditingProvider.notifier).state = true;
-                    ref.read(hasModifiedDialPositionsProvider.notifier).state =
-                        false;
-                    HapticFeedback.mediumImpact();
-                  }
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeInOutCubic,
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: isDialEditing
-                        ? (hasModified
-                              ? const Color(0xFF10B981)
-                              : colorScheme.primary)
-                        : buttonBg,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: isDialEditing
-                          ? (hasModified
-                                ? const Color(0xFF10B981)
-                                : colorScheme.primary)
-                          : buttonBorder,
-                      width: 1.2,
-                    ),
-                  ),
+            const SizedBox(width: 6),
+
+            // 2. Center: [ < ] Today, Sat, Sep 19 [ > ]
+            Expanded(
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        isDialEditing
-                            ? (hasModified
-                                  ? Icons.save_rounded
-                                  : Icons.check_rounded)
-                            : Icons.tune_rounded,
-                        size: 15,
-                        color: isDialEditing ? Colors.white : primaryTextColor,
+                      // Squircle Chevron Left
+                      BouncyPressable.standard(
+                        onTap: () {
+                          ref
+                              .read(customSelectedDayProvider.notifier)
+                              .state = DateTime(
+                            viewingDay.year,
+                            viewingDay.month,
+                            viewingDay.day - 1,
+                            viewingDay.hour,
+                            viewingDay.minute,
+                          );
+                          ref.read(selectedEventProvider.notifier).state = null;
+                        },
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: buttonBg,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: buttonBorder, width: 1.2),
+                          ),
+                          child: Icon(
+                            Icons.chevron_left_rounded,
+                            size: 18,
+                            color: primaryTextColor,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 5),
                       Text(
-                        isDialEditing
-                            ? (hasModified ? 'Save Position' : 'Done')
-                            : 'Edit',
+                        dateHeading,
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
-                          fontSize: 12,
-                          letterSpacing: 0.2,
-                          color: isDialEditing
-                              ? Colors.white
-                              : primaryTextColor,
+                          fontSize: 12.5,
+                          color: primaryTextColor,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      // Squircle Chevron Right
+                      BouncyPressable.standard(
+                        onTap: () {
+                          ref
+                              .read(customSelectedDayProvider.notifier)
+                              .state = DateTime(
+                            viewingDay.year,
+                            viewingDay.month,
+                            viewingDay.day + 1,
+                            viewingDay.hour,
+                            viewingDay.minute,
+                          );
+                          ref.read(selectedEventProvider.notifier).state = null;
+                        },
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: buttonBg,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: buttonBorder, width: 1.2),
+                          ),
+                          child: Icon(
+                            Icons.chevron_right_rounded,
+                            size: 18,
+                            color: primaryTextColor,
+                          ),
                         ),
                       ),
                     ],
                   ),
+                ),
+              ),
+            ),
+
+            const SizedBox(width: 6),
+
+            // 3. Right: [ 🎛️ Edit ] / [ 💾 Save ]
+            BouncyPressable.standard(
+              onTap: () {
+                if (isDialEditing) {
+                  final wasModified = ref.read(
+                    hasModifiedDialPositionsProvider,
+                  );
+                  ref.read(hasModifiedDialPositionsProvider.notifier).state =
+                      false;
+                  ref.read(isDialEditingProvider.notifier).state = false;
+                  HapticFeedback.mediumImpact();
+                  if (wasModified) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Block positions saved',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                } else {
+                  ref.read(isDialEditingProvider.notifier).state = true;
+                  ref.read(hasModifiedDialPositionsProvider.notifier).state =
+                      false;
+                  HapticFeedback.mediumImpact();
+                }
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOutCubic,
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: isDialEditing
+                      ? (hasModified
+                            ? const Color(0xFF10B981)
+                            : colorScheme.primary)
+                      : buttonBg,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isDialEditing
+                        ? (hasModified
+                              ? const Color(0xFF10B981)
+                              : colorScheme.primary)
+                        : buttonBorder,
+                    width: 1.2,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isDialEditing ? Icons.save_rounded : Icons.tune_rounded,
+                      size: 15,
+                      color: isDialEditing ? Colors.white : primaryTextColor,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      isDialEditing ? 'Save' : 'Edit',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                        letterSpacing: 0.2,
+                        color: isDialEditing ? Colors.white : primaryTextColor,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

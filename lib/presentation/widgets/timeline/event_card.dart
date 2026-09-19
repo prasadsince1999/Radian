@@ -142,43 +142,49 @@ class EventCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 5),
-                      Row(
-                        children: [
-                          // Time range: bold start and end times
-                          Text(
-                            TimeFormatters.formatTimeRange(
-                              event.start,
-                              event.end,
-                              is24Hour: is24HourMode,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          children: [
+                            // Time range: bold start and end times
+                            Text(
+                              TimeFormatters.formatTimeRange(
+                                event.start,
+                                event.end,
+                                is24Hour: is24HourMode,
+                              ),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '•',
-                            style: TextStyle(color: colorScheme.outlineVariant),
-                          ),
-                          const SizedBox(width: 6),
-                          // Duration
-                          Text(
-                            TimeFormatters.formatDuration(event.duration),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          if (event.reminderMinutes != null) ...[
                             const SizedBox(width: 6),
-                            Icon(
-                              Icons.notifications_active_outlined,
-                              size: 13,
-                              color: colorScheme.outlineVariant,
+                            Text(
+                              '•',
+                              style: TextStyle(
+                                color: colorScheme.outlineVariant,
+                              ),
                             ),
+                            const SizedBox(width: 6),
+                            // Duration
+                            Text(
+                              TimeFormatters.formatDuration(event.duration),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            if (event.reminderMinutes != null) ...[
+                              const SizedBox(width: 6),
+                              Icon(
+                                Icons.notifications_active_outlined,
+                                size: 13,
+                                color: colorScheme.outlineVariant,
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                       if (event.subtasks.isNotEmpty) ...[
                         const SizedBox(height: 7),
