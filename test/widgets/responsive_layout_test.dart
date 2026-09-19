@@ -149,6 +149,8 @@ void main() {
         );
         expect(handleFinder, findsOneWidget);
         expect(find.text('All Blocks'), findsOneWidget);
+        expect(find.byKey(const ValueKey('subtasks_list_pill')), findsOneWidget);
+        expect(find.text('Subtasks'), findsOneWidget);
         expect(find.byType(SectographDial), findsOneWidget);
 
         // Tap handle to expand to Whole Screen

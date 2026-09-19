@@ -75,8 +75,9 @@ class SectographDial extends ConsumerWidget {
         final fallbackDimension = hasFiniteWidth
             ? constraints.maxWidth
             : (hasFiniteHeight ? constraints.maxHeight : 320.0);
+        final showSegmentPill = !settings.is24HourMode && isDialEditing;
         final footerHeight =
-            (settings.is24HourMode ? 0.0 : 34.0) +
+            (showSegmentPill ? 34.0 : 0.0) +
             (relativeLabel != null ? 22.0 : 0.0) +
             44.0;
         final availableDialHeight = hasFiniteHeight
@@ -883,7 +884,7 @@ class SectographDial extends ConsumerWidget {
                 ),
               ),
             ],
-            if (!settings.is24HourMode) ...[
+            if (showSegmentPill) ...[
               const SizedBox(height: 3),
               _Dial12HourSegmentPill(viewingDay: viewingDay),
             ],

@@ -11,6 +11,7 @@ import '../../core/services/android_widget_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/expressive_shapes.dart';
 import '../../core/services/cloud_sync_service.dart';
+import '../../domain/models/sector_event.dart';
 import '../controllers/clock_controller.dart';
 import '../controllers/cloud_sync_controller.dart';
 import '../controllers/app_update_controller.dart';
@@ -28,6 +29,7 @@ import '../widgets/health/health_insights_sheet.dart';
 import '../widgets/sync/cloud_sync_modal.dart';
 import '../widgets/health/m3_activity_heatmap.dart';
 import '../widgets/mcp/mcp_status_sheet.dart';
+import '../widgets/timeline/daily_subtasks_sheet.dart';
 import '../widgets/timeline/expressive_timeline.dart';
 import '../widgets/update/app_update_modal.dart';
 
@@ -926,46 +928,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ],
                     ),
 
-                    // Floating Ergonomic Handle Bar (Floating at bottom above the blocks)
+                    // Floating Dual-Pill Bar (All Blocks toggle pill + Subtasks list pill)
                     Positioned(
                       left: 0,
                       right: 0,
-                      bottom: 16.0,
+                      bottom: 16.0 + MediaQuery.paddingOf(context).bottom,
                       child: Center(
-                        child: _TimelineExpansionHandle(
-                          key: const ValueKey('timeline_expansion_handle'),
-                          isExpanded: isWholeScreen,
-                          onToggle: () {
-                            HapticFeedback.mediumImpact();
-                            if (isWholeScreen) {
-                              _expansionController.reverse();
-                            } else {
-                              _expansionController.forward();
-                            }
-                          },
-                          onVerticalDragUpdate: (details) {
-                            final delta = details.primaryDelta ?? 0.0;
-                            _expansionController.value -=
-                                delta / (baseDialHeight * 0.8);
-                          },
-                          onVerticalDragEnd: (details) {
-                            final velocity = details.primaryVelocity ?? 0.0;
-                            if (velocity < -250) {
-                              // Fast swipe up -> expand to whole screen
-                              HapticFeedback.lightImpact();
-                              _expansionController.forward();
-                            } else if (velocity > 250) {
-                              // Fast swipe down -> collapse to half screen
-                              HapticFeedback.lightImpact();
-                              _expansionController.reverse();
-                            } else {
-                              if (_expansionController.value >= 0.4) {
-                                _expansionController.forward();
-                              } else {
-                                _expansionController.reverse();
-                              }
-                            }
-                          },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _TimelineExpansionHandle(
+                              key: const ValueKey('timeline_expansion_handle'),
+                              isExpanded: isWholeScreen,
+                              onToggle: () {
+                                HapticFeedback.mediumImpact();
+                                if (isWholeScreen) {
+                                  _expansionController.reverse();
+                                } else {
+                                  _expansionController.forward();
+                                }
+                              },
+                              onVerticalDragUpdate: (details) {
+                                final delta = details.primaryDelta ?? 0.0;
+                                _expansionController.value -=
+                                    delta / (baseDialHeight * 0.8);
+                              },
+                              onVerticalDragEnd: (details) {
+                                final velocity = details.primaryVelocity ?? 0.0;
+                                if (velocity < -250) {
+                                  // Fast swipe up -> expand to whole screen
+                                  HapticFeedback.lightImpact();
+                                  _expansionController.forward();
+                                } else if (velocity > 250) {
+                                  // Fast swipe down -> collapse to half screen
+                                  HapticFeedback.lightImpact();
+                                  _expansionController.reverse();
+                                } else {
+                                  if (_expansionController.value >= 0.4) {
+                                    _expansionController.forward();
+                                  } else {
+                                    _expansionController.reverse();
+                                  }
+                                }
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            _SubtasksListPill(
+                              key: const ValueKey('subtasks_list_pill'),
+                              onTap: () {
+                                HapticFeedback.mediumImpact();
+                                DailySubtasksSheet.show(context);
+                              },
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -1218,6 +1233,104 @@ class _TimelineExpansionHandle extends StatelessWidget {
                       : colorScheme.onSurface,
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SubtasksListPill extends ConsumerWidget {
+  final VoidCallback onTap;
+
+  const _SubtasksListPill({super.key, required this.onTap});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final selectedDay = ref.watch(selectedDayProvider);
+    final eventsAsync = ref.watch(eventsForDateProvider(selectedDay));
+    final events = eventsAsync.value ?? const <SectorEvent>[];
+
+    int totalSubtasks = 0;
+    int completedSubtasks = 0;
+    for (final ev in events) {
+      for (final s in ev.subtaskItems) {
+        totalSubtasks++;
+        if (s.isCompleted) completedSubtasks++;
+      }
+    }
+
+    return Semantics(
+      button: true,
+      label: 'Show subtasks list',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.checklist_rounded,
+                size: 17,
+                color: totalSubtasks > 0
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Subtasks',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              if (totalSubtasks > 0) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 1.5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: completedSubtasks == totalSubtasks
+                        ? Colors.green.withValues(alpha: 0.2)
+                        : colorScheme.primary.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$completedSubtasks/$totalSubtasks',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: completedSubtasks == totalSubtasks
+                          ? Colors.green
+                          : colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

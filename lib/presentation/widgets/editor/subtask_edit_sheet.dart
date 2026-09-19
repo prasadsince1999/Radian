@@ -10,6 +10,7 @@ import '../../../domain/models/sector_event.dart';
 import '../../../domain/models/subtask_item.dart';
 import '../../controllers/clock_controller.dart';
 import '../common/bouncy_pressable.dart';
+import 'components/subtask_timeline_slider.dart';
 
 /// Dedicated single-subtask creation and editing modal sheet.
 ///
@@ -118,24 +119,6 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
     super.dispose();
   }
 
-  Future<void> _pickTime(bool isStart) async {
-    final initial = (isStart ? _startTime : _endTime) ?? TimeOfDay.now();
-    final picked = await showTimePicker(context: context, initialTime: initial);
-    if (picked != null) {
-      setState(() {
-        if (isStart) {
-          _startTime = picked;
-          _endTime ??= TimeOfDay(
-            hour: (picked.hour + (picked.minute >= 45 ? 1 : 0)) % 24,
-            minute: (picked.minute + 15) % 60,
-          );
-        } else {
-          _endTime = picked;
-        }
-      });
-    }
-  }
-
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -146,20 +129,6 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
     if (picked != null) {
       setState(() => _selectedDate = picked);
     }
-  }
-
-  void _applyQuickDuration(int minutes) {
-    HapticFeedback.lightImpact();
-    final baseStart = _startTime ?? TimeOfDay.now();
-    final totalStartMinutes = baseStart.hour * 60 + baseStart.minute;
-    final totalEndMinutes = totalStartMinutes + minutes;
-    setState(() {
-      _startTime = baseStart;
-      _endTime = TimeOfDay(
-        hour: (totalEndMinutes ~/ 60) % 24,
-        minute: totalEndMinutes % 60,
-      );
-    });
   }
 
   void _save(List<SectorEvent> availableEvents) {
@@ -460,6 +429,23 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
         .where((e) => e.id == _selectedParentEventId)
         .firstOrNull;
     final parentColor = activeParent?.color ?? colorScheme.primary;
+    final is24 = ref.watch(dialSettingsProvider.select((s) => s.is24HourMode));
+
+    final effectiveParentStart = widget.parentStartTime ??
+        (activeParent != null
+            ? TimeOfDay(
+                hour: activeParent.start.hour,
+                minute: activeParent.start.minute,
+              )
+            : const TimeOfDay(hour: 9, minute: 0));
+
+    final effectiveParentEnd = widget.parentEndTime ??
+        (activeParent != null
+            ? TimeOfDay(
+                hour: activeParent.end.hour,
+                minute: activeParent.end.minute,
+              )
+            : const TimeOfDay(hour: 17, minute: 0));
 
     return Container(
       decoration: BoxDecoration(
@@ -711,233 +697,25 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
               ),
               const SizedBox(height: 12),
 
-              // 2. Timing Card (Start, End & Quick Durations)
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainer,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: colorScheme.outlineVariant,
-                    width: 1.2,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.schedule_rounded,
-                          size: 18,
-                          color: parentColor,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'SUBTASK TIMING',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
+              // 2. Subtask Interactive Timeline Slider (Clean rectangle with left/right vertical times & middle draggable pill)
+              SubtaskTimelineSlider(
+                parentStartTime: effectiveParentStart,
+                parentEndTime: effectiveParentEnd,
+                subtaskStartTime: _startTime ?? effectiveParentStart,
+                subtaskEndTime: _endTime ??
+                    TimeOfDay(
+                      hour: (effectiveParentStart.hour + 1) % 24,
+                      minute: effectiveParentStart.minute,
                     ),
-                    const SizedBox(height: 10),
-                    if (widget.parentStartTime != null &&
-                        widget.parentEndTime != null) ...[
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: parentColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline_rounded,
-                              size: 13,
-                              color: parentColor,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Within block: ${widget.parentStartTime!.format(context)} – ${widget.parentEndTime!.format(context)}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: parentColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    Row(
-                      children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => _pickTime(true),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorScheme.surfaceContainerHigh,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: colorScheme.outlineVariant,
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'START',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w800,
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _startTime != null
-                                        ? _startTime!.format(context)
-                                        : 'Set Start',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: colorScheme.onSurface,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.arrow_forward_rounded,
-                          size: 16,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => _pickTime(false),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorScheme.surfaceContainerHigh,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: colorScheme.outlineVariant,
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'END',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w800,
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _endTime != null
-                                        ? _endTime!.format(context)
-                                        : 'Set End',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: colorScheme.onSurface,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          if (widget.parentStartTime != null &&
-                              widget.parentEndTime != null) ...[
-                            _DurationChip(
-                              label: 'Full Block',
-                              onTap: () {
-                                HapticFeedback.lightImpact();
-                                setState(() {
-                                  _startTime = widget.parentStartTime;
-                                  _endTime = widget.parentEndTime;
-                                });
-                              },
-                            ),
-                            const SizedBox(width: 6),
-                            _DurationChip(
-                              label: 'First 30m',
-                              onTap: () {
-                                HapticFeedback.lightImpact();
-                                final pStart = widget.parentStartTime!;
-                                final pEnd = widget.parentEndTime!;
-                                final sMins = pStart.hour * 60 + pStart.minute;
-                                final eMins = pEnd.hour * 60 + pEnd.minute;
-                                final subEndMins = (sMins + 30 <= eMins)
-                                    ? (sMins + 30)
-                                    : eMins;
-                                setState(() {
-                                  _startTime = pStart;
-                                  _endTime = TimeOfDay(
-                                    hour: (subEndMins ~/ 60) % 24,
-                                    minute: subEndMins % 60,
-                                  );
-                                });
-                              },
-                            ),
-                            const SizedBox(width: 6),
-                          ],
-                          _DurationChip(
-                            label: '+15m',
-                            onTap: () => _applyQuickDuration(15),
-                          ),
-                          const SizedBox(width: 6),
-                          _DurationChip(
-                            label: '+30m',
-                            onTap: () => _applyQuickDuration(30),
-                          ),
-                          const SizedBox(width: 6),
-                          _DurationChip(
-                            label: '+45m',
-                            onTap: () => _applyQuickDuration(45),
-                          ),
-                          const SizedBox(width: 6),
-                          _DurationChip(
-                            label: '+1h',
-                            onTap: () => _applyQuickDuration(60),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                parentColor: parentColor,
+                is24Hour: is24,
+                parentTitle: activeParent?.title,
+                onChanged: (newStart, newEnd) {
+                  setState(() {
+                    _startTime = newStart;
+                    _endTime = newEnd;
+                  });
+                },
               ),
               const SizedBox(height: 12),
 
@@ -1085,38 +863,6 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DurationChip extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-
-  const _DurationChip({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: theme.colorScheme.outlineVariant),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            color: theme.colorScheme.onSurface,
           ),
         ),
       ),

@@ -491,6 +491,12 @@ class SectographPainter extends CustomPainter {
     // Pass 2: Draw 3D Overlapping End Caps with drop shadows ON TOP of successor blocks!
     for (final l in pillLayouts) {
       if (l.showEndCap) {
+        final isDraggingEnd =
+            activeDraggingCap != null &&
+            l.event.id == activeDraggingCap!.event.id &&
+            (!activeDraggingCap!.isStartCap ||
+                activeDraggingCap!.isEntireBlock);
+
         SectorPillRenderer.drawIntegratedCap(
           canvas: canvas,
           center: center,
@@ -507,12 +513,10 @@ class SectographPainter extends CustomPainter {
           roundEnd: true,
           isContiguous: l.isContiguous,
           overlapDeg: l.isContiguous ? overlapDeg : 0.0,
+          isDragging: isDraggingEnd,
         );
 
-        if (activeDraggingCap != null &&
-            l.event.id == activeDraggingCap!.event.id &&
-            (!activeDraggingCap!.isStartCap ||
-                activeDraggingCap!.isEntireBlock)) {
+        if (isDraggingEnd) {
           final highlightPath = SectorPillRenderer.buildPillPath(
             center: center,
             rIn: l.rIn - 2.0,
@@ -537,6 +541,12 @@ class SectographPainter extends CustomPainter {
     // Pass 3: Draw Start Caps for isolated events
     for (final l in pillLayouts) {
       if (l.showStartCap) {
+        final isDraggingStart =
+            activeDraggingCap != null &&
+            l.event.id == activeDraggingCap!.event.id &&
+            (activeDraggingCap!.isStartCap ||
+                activeDraggingCap!.isEntireBlock);
+
         SectorPillRenderer.drawIntegratedCap(
           canvas: canvas,
           center: center,
@@ -551,12 +561,10 @@ class SectographPainter extends CustomPainter {
           cornerRadius: l.cornerRadius,
           roundStart: true,
           roundEnd: false,
+          isDragging: isDraggingStart,
         );
 
-        if (activeDraggingCap != null &&
-            l.event.id == activeDraggingCap!.event.id &&
-            (activeDraggingCap!.isStartCap ||
-                activeDraggingCap!.isEntireBlock)) {
+        if (isDraggingStart) {
           final highlightPath = SectorPillRenderer.buildPillPath(
             center: center,
             rIn: l.rIn - 2.0,
@@ -578,56 +586,16 @@ class SectographPainter extends CustomPainter {
       }
     }
 
-    // Pass 4: Visual Schedule Edit Mode Boundary Outlines & Grab Handles
+    // Pass 3.5: Draw edit mode outlines when editing (clean boundary outline, no dot-circles!)
     if (isDialEditing) {
       for (final l in pillLayouts) {
-        // Outline the block: bright white for selected, luminous stroke for others
         final outlinePaint = Paint()
           ..color = l.isSelected
               ? Colors.white
-              : Colors.white.withValues(alpha: 0.45)
+              : Colors.white.withValues(alpha: 0.40)
           ..style = PaintingStyle.stroke
           ..strokeWidth = l.isSelected ? 2.4 : 1.2;
         canvas.drawPath(l.pillPath, outlinePaint);
-
-        // Tactile grab handles at outer boundary corners (never overlaps internal time badges!)
-        final handleR = l.rOut;
-
-        // 1. Start grab handle
-        final startAngle = l.startDeg;
-        final startRad = SectorMath.dialAngleToCanvasRadians(startAngle);
-        final startPos = Offset(
-          center.dx + handleR * math.cos(startRad),
-          center.dy + handleR * math.sin(startRad),
-        );
-        final isDraggingStart =
-            activeDraggingCap != null &&
-            l.event.id == activeDraggingCap!.event.id &&
-            (activeDraggingCap!.isStartCap || activeDraggingCap!.isEntireBlock);
-        _drawGrabHandle(
-          canvas: canvas,
-          position: startPos,
-          isDragging: isDraggingStart,
-          baseColor: l.event.color,
-        );
-
-        // 2. End grab handle
-        final endAngle = l.startDeg + l.sweepDeg;
-        final endRad = SectorMath.dialAngleToCanvasRadians(endAngle);
-        final endPos = Offset(
-          center.dx + handleR * math.cos(endRad),
-          center.dy + handleR * math.sin(endRad),
-        );
-        final isDraggingEnd =
-            activeDraggingCap != null &&
-            l.event.id == activeDraggingCap!.event.id &&
-            (activeDraggingCap!.isEndCap || activeDraggingCap!.isEntireBlock);
-        _drawGrabHandle(
-          canvas: canvas,
-          position: endPos,
-          isDragging: isDraggingEnd,
-          baseColor: l.event.color,
-        );
       }
     }
 
@@ -938,52 +906,6 @@ class SectographPainter extends CustomPainter {
         ),
       );
     }
-  }
-
-  void _drawGrabHandle({
-    required Canvas canvas,
-    required Offset position,
-    required bool isDragging,
-    required Color baseColor,
-  }) {
-    final handleRadius = isDragging ? 5.8 : 4.4;
-    // Outer shadow / glow
-    canvas.drawCircle(
-      position,
-      handleRadius + 1.6,
-      Paint()
-        ..color = isDragging
-            ? colorScheme.primary.withValues(alpha: 0.65)
-            : Colors.black.withValues(alpha: 0.45)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0),
-    );
-    // Fill
-    canvas.drawCircle(
-      position,
-      handleRadius,
-      Paint()
-        ..color = isDragging
-            ? Colors.white
-            : Color.lerp(baseColor, Colors.white, 0.25)!
-        ..style = PaintingStyle.fill,
-    );
-    // Border ring
-    canvas.drawCircle(
-      position,
-      handleRadius,
-      Paint()
-        ..color = isDragging ? colorScheme.primary : Colors.white
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = isDragging ? 2.2 : 1.5,
-    );
-    // Center grip dot
-    canvas.drawCircle(
-      position,
-      1.4,
-      Paint()
-        ..color = isDragging ? colorScheme.primary : Colors.black87
-        ..style = PaintingStyle.fill,
-    );
   }
 
   @override
