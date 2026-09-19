@@ -9,7 +9,6 @@ import '../common/bouncy_pressable.dart';
 import '../common/radian_app_logo.dart';
 import '../dialogs/about_radian_dialog.dart';
 import '../sync/cloud_sync_vault_card.dart';
-import 'components/dial_ota_updates_section.dart';
 import 'components/dial_system_integrations_section.dart';
 import 'components/dial_theme_section.dart';
 import 'components/dial_time_format_section.dart';
@@ -122,10 +121,6 @@ class DialSettingsModal extends ConsumerWidget {
 
                 // Cloud Vault & Web Sync (Private Key, Eye Toggle, Warning, QR Code)
                 const CloudSyncVaultCard(),
-                const SizedBox(height: 12),
-
-                // Over-The-Air (OTA) Delivery & Releases
-                const DialOtaUpdatesSection(),
                 const SizedBox(height: 12),
 
                 // System & Device Integrations (Android Widget, Battery, Health Connect, MCP)

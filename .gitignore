@@ -53,6 +53,7 @@ app.*.map.json
 **/android/captures/
 *.jks
 *.keystore
+!android/app/radian-release.jks
 
 # Environment & Secrets
 .env

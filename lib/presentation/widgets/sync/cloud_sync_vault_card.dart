@@ -561,13 +561,17 @@ class _CloudSyncVaultCardState extends ConsumerState<CloudSyncVaultCard> {
                             size: 15,
                             color: secondaryText,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _showPhoneQrCode ? 'Hide Phone QR Code' : 'Show QR on this phone (to scan from another phone)',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: secondaryText,
+                          Flexible(
+                            child: Text(
+                              _showPhoneQrCode
+                                  ? 'Hide Phone QR Code'
+                                  : 'Show QR on this screen (pair phone)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: secondaryText,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],

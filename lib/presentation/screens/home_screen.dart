@@ -18,7 +18,10 @@ import '../widgets/dialogs/about_radian_dialog.dart';
 import '../widgets/dial/sectograph_dial.dart';
 import '../widgets/editor/dial_settings_modal.dart';
 import '../widgets/editor/event_edit_modal.dart';
+import '../../core/services/device_settings_service.dart';
+import '../../core/services/health_service.dart';
 import '../widgets/health/health_insights_sheet.dart';
+import '../widgets/sync/cloud_sync_modal.dart';
 import '../widgets/health/m3_activity_heatmap.dart';
 import '../widgets/mcp/mcp_status_sheet.dart';
 import '../widgets/timeline/expressive_timeline.dart';
@@ -378,18 +381,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             elevation: 4,
             onSelected: (value) {
               HapticFeedback.lightImpact();
-              if (value == 'health') {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  showDragHandle: false,
-                  sheetAnimationStyle: _kSheetAnimationStyle,
-                  constraints: const BoxConstraints(
-                    maxWidth: AppLayoutConstants.modalMaxWidth,
-                  ),
-                  shape: ExpressiveShapes.modalSheet,
-                  builder: (_) => const HealthInsightsSheet(),
-                );
+              if (value == 'sync_vault') {
+                CloudSyncModal.show(context);
+              } else if (value == 'battery') {
+                final isIgnored =
+                    ref.read(batteryOptimizationStatusProvider).value ?? false;
+                if (isIgnored) {
+                  DeviceSettingsService.openBatterySettings();
+                } else {
+                  DeviceSettingsService.requestIgnoreBatteryOptimization();
+                }
+                ref.invalidate(batteryOptimizationStatusProvider);
+              } else if (value == 'health_sync') {
+                final selectedDay = ref.read(selectedDayProvider);
+                ref.read(dailyHealthSummaryProvider(selectedDay).future).then((
+                  health,
+                ) async {
+                  final currentEvents =
+                      ref.read(dayEventsProvider).value ?? const [];
+                  final newSectors = await ref
+                      .read(syncHealthSessionsUseCaseProvider)
+                      .execute(health: health, existingEvents: currentEvents);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          newSectors.isEmpty
+                              ? 'Health Connect: Up to date (0 new sessions).'
+                              : 'Synced ${newSectors.length} workout/sleep session(s) to dial!',
+                        ),
+                        backgroundColor: colorScheme.surfaceContainerHigh,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                });
               } else if (value == 'mcp') {
                 showModalBottomSheet(
                   context: context,
@@ -402,60 +428,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   shape: ExpressiveShapes.modalSheet,
                   builder: (_) => const McpStatusSheet(),
                 );
-              } else if (value == 'preset_indian') {
-                ref
-                    .read(dialSettingsProvider.notifier)
-                    .updateSettings(settings.copyWith(is24HourMode: false));
-                ref.read(eventRepositoryProvider).loadPreset('indian_12h');
-              } else if (value == 'preset_intl') {
-                ref
-                    .read(dialSettingsProvider.notifier)
-                    .updateSettings(settings.copyWith(is24HourMode: true));
-                ref
-                    .read(eventRepositoryProvider)
-                    .loadPreset('international_24h');
-              } else if (value == 'about') {
-                AboutRadianDialog.show(context);
               } else if (value == 'check_updates') {
                 AppUpdateModal.show(context, checkImmediately: true);
+              } else if (value == 'about') {
+                AboutRadianDialog.show(context);
               }
             },
             itemBuilder: (context) => [
               PopupMenuItem(
-                value: 'preset_indian',
-                child: Text(
-                  'Load Indian Routine (12H)',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13.5,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              PopupMenuItem(
-                value: 'preset_intl',
-                child: Text(
-                  'Load Global Circadian (24H)',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13.5,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              const PopupMenuDivider(),
-              PopupMenuItem(
-                value: 'health',
+                value: 'sync_vault',
                 child: Row(
                   children: [
                     Icon(
-                      Icons.favorite_rounded,
+                      Icons.cloud_sync_rounded,
                       size: 18,
                       color: colorScheme.primary,
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      'Health Insights',
+                      'Sync & Web Pairing Vault',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.5,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'battery',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.battery_charging_full_rounded,
+                      size: 18,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Battery Optimization',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.5,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'health_sync',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.health_and_safety_rounded,
+                      size: 18,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Health Connect Sync',
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13.5,

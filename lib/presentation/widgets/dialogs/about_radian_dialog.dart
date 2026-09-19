@@ -3,10 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../controllers/app_update_controller.dart';
 import '../common/bouncy_pressable.dart';
 import '../common/radian_app_logo.dart';
-import '../update/app_update_modal.dart';
 
 /// Expressive Material 3 & KSM × Tech About Dialog for Radian.
 ///
@@ -61,14 +59,10 @@ class AboutRadianDialog extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final updateState = ref.watch(appUpdateControllerProvider);
-
     final primaryColor = colorScheme.primary;
     final onSurface = colorScheme.onSurface;
     final onSurfaceVariant = colorScheme.onSurfaceVariant;
     final outlineVariant = colorScheme.outlineVariant;
-
-    final hasUpdate = updateState.isAvailable || updateState.isReadyToInstall;
 
     return Dialog(
       backgroundColor: colorScheme.surfaceContainerHighest,
@@ -256,169 +250,7 @@ class AboutRadianDialog extends ConsumerWidget {
                     ),
                     const SizedBox(height: 14),
 
-                    // 2. Over-The-Air (OTA) Updates Card (Integrated Directly)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: hasUpdate
-                            ? colorScheme.primaryContainer.withValues(
-                                alpha: 0.35,
-                              )
-                            : colorScheme.surface,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: hasUpdate
-                              ? primaryColor.withValues(alpha: 0.5)
-                              : outlineVariant.withValues(alpha: 0.6),
-                          width: hasUpdate ? 1.4 : 1.0,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 34,
-                                height: 34,
-                                decoration: BoxDecoration(
-                                  color: colorScheme.primaryContainer,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: primaryColor.withValues(alpha: 0.3),
-                                  ),
-                                ),
-                                child: Icon(
-                                  Icons.system_update_rounded,
-                                  size: 18,
-                                  color: primaryColor,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Over-The-Air (OTA) Updates',
-                                      style: TextStyle(
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.w800,
-                                        color: onSurface,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Direct Edge Delivery · Zero Gatekeeping',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (updateState.isChecking)
-                                const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          // Live Status Banner
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  hasUpdate
-                                      ? Icons.new_releases_rounded
-                                      : Icons.verified_rounded,
-                                  size: 16,
-                                  color: hasUpdate
-                                      ? const Color(0xFFF59E0B)
-                                      : const Color(0xFF10B981),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    hasUpdate
-                                        ? 'Update ready: v${updateState.updateInfo?.version ?? 'New'}'
-                                        : 'Installed: v${AppStrings.appVersion} (Latest)',
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: onSurface,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  'Cloudflare + GitHub',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          // Primary Check Button
-                          BouncyPressable(
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              Navigator.of(context).pop();
-                              AppUpdateModal.show(
-                                context,
-                                checkImmediately: true,
-                              );
-                            },
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(vertical: 11),
-                              decoration: BoxDecoration(
-                                color: primaryColor,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.rocket_launch_rounded,
-                                    size: 16,
-                                    color: colorScheme.onPrimary,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Check for OTA Updates',
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w800,
-                                      color: colorScheme.onPrimary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // 3. Numbered Architecture & Specifications (01 - 04)
+                    // 2. Numbered Architecture & Specifications (01 - 04)
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
