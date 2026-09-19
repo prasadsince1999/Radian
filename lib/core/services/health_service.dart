@@ -192,3 +192,6 @@ final dailyHealthSummaryProvider =
       final repo = ref.watch(healthRepositoryProvider);
       return await repo.getDailySummary(date);
     });
+
+/// Tracks the timestamp of the last successful health sessions sync to the dial.
+final lastHealthSyncTimeProvider = StateProvider<DateTime?>((ref) => null);

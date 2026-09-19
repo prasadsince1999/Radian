@@ -5,12 +5,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_layout_constants.dart';
+import '../../core/constants/app_strings.dart';
 import '../../core/layout/window_size_class.dart';
 import '../../core/services/android_widget_service.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/expressive_shapes.dart';
+import '../../core/services/cloud_sync_service.dart';
 import '../controllers/clock_controller.dart';
 import '../controllers/cloud_sync_controller.dart';
 import '../controllers/app_update_controller.dart';
+import '../controllers/mcp_server_controller.dart';
 import '../widgets/calendar/calendar_sheet.dart';
 import '../widgets/common/bouncy_pressable.dart';
 import '../widgets/common/radian_logo.dart';
@@ -160,6 +164,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       final syncNotifier = ref.read(cloudSyncControllerProvider.notifier);
       syncNotifier.syncNow();
       syncNotifier.startPolling();
+      ref.invalidate(healthPermissionsStatusProvider);
+      ref.invalidate(batteryOptimizationStatusProvider);
     } else if (state == AppLifecycleState.paused) {
       ref.read(cloudSyncControllerProvider.notifier).stopPolling();
     }
@@ -227,7 +233,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final settings = ref.watch(dialSettingsProvider);
 
     // Keep Android Home Screen Widget in sync (throttled to minute boundaries & state changes)
     ref.listen(allEventsProvider, (_, _) => _syncAndroidWidget());
@@ -242,6 +247,73 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       }
     });
 
+    final cloudSyncState = ref.watch(cloudSyncControllerProvider);
+    final isBatteryIgnored =
+        ref.watch(batteryOptimizationStatusProvider).value ?? false;
+    final hasHealthPerms =
+        ref.watch(healthPermissionsStatusProvider).value ?? false;
+    final lastHealthSync = ref.watch(lastHealthSyncTimeProvider);
+    final mcpState = ref.watch(mcpServerControllerProvider);
+    final updateState = ref.watch(appUpdateControllerProvider);
+
+    // Indicator status colors and subtitles
+    final Color healthIconColor;
+    final String healthSubtitle;
+    if (!hasHealthPerms) {
+      healthIconColor = AppColors.statusError;
+      healthSubtitle = 'Permission needed (tap to connect)';
+    } else if (lastHealthSync == null) {
+      healthIconColor = AppColors.statusWarning;
+      healthSubtitle = 'Connected · Tap to sync';
+    } else {
+      healthIconColor = AppColors.statusSuccess;
+      healthSubtitle = 'Connected · Synced';
+    }
+
+    final Color batteryIconColor = isBatteryIgnored
+        ? AppColors.statusSuccess
+        : AppColors.statusWarning;
+    final String batterySubtitle = isBatteryIgnored
+        ? 'Unrestricted'
+        : 'Restricted (tap to allow)';
+
+    final Color syncVaultIconColor;
+    final String syncVaultSubtitle;
+    if (cloudSyncState.status == SyncStatus.error) {
+      syncVaultIconColor = AppColors.statusError;
+      syncVaultSubtitle = 'Sync error';
+    } else if (cloudSyncState.isSyncing) {
+      syncVaultIconColor = AppColors.statusWarning;
+      syncVaultSubtitle = 'Syncing...';
+    } else if (cloudSyncState.lastSyncTime != null ||
+        cloudSyncState.status == SyncStatus.synced) {
+      syncVaultIconColor = AppColors.statusSuccess;
+      syncVaultSubtitle = 'Connected & synced';
+    } else {
+      syncVaultIconColor = colorScheme.primary;
+      syncVaultSubtitle = 'Private vault';
+    }
+
+    final Color mcpIconColor = mcpState.isRunning
+        ? AppColors.statusSuccess
+        : colorScheme.primary;
+    final String mcpSubtitle = mcpState.isRunning
+        ? 'Active on Edge'
+        : 'Cloud Edge Hub';
+
+    final bool hasOtaUpdate =
+        updateState.isAvailable || updateState.isReadyToInstall;
+    final Color otaIconColor = hasOtaUpdate
+        ? AppColors.statusWarning
+        : (updateState.isUpToDate
+              ? AppColors.statusSuccess
+              : colorScheme.primary);
+    final String otaSubtitle = hasOtaUpdate
+        ? 'Update ready (tap to install)'
+        : (updateState.isUpToDate
+              ? 'v${AppStrings.appVersion} (Latest)'
+              : 'Check releases');
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
@@ -253,43 +325,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         titleSpacing: 16.0,
         title: const RadianLogo(),
         actions: [
-          // 0. Quick 12H Indian / 24H Global Mode Toggle Pill
+          // 0. Health Insights Squircle Button (Opens HealthInsightsSheet)
           BouncyPressable.standard(
             onTap: () {
               HapticFeedback.lightImpact();
-              final isCurrently24 = settings.is24HourMode;
-              ref.read(dialSettingsProvider.notifier).toggle24HourMode();
-              ref
-                  .read(eventRepositoryProvider)
-                  .loadPreset(
-                    !isCurrently24 ? 'international_24h' : 'indian_12h',
-                  );
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                sheetAnimationStyle: _kSheetAnimationStyle,
+                backgroundColor: Colors.transparent,
+                constraints: const BoxConstraints(
+                  maxWidth: AppLayoutConstants.modalMaxWidth,
+                ),
+                shape: ExpressiveShapes.modalSheet,
+                builder: (_) => const HealthInsightsSheet(),
+              );
             },
             child: Container(
+              width: AppLayoutConstants.actionButtonSize,
               height: AppLayoutConstants.actionButtonSize,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
-                color: settings.is24HourMode
-                    ? colorScheme.primaryContainer
-                    : colorScheme.surfaceContainerHigh,
+                color: AppColors.healthCoral.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(11),
                 border: Border.all(
-                  color: settings.is24HourMode
-                      ? colorScheme.primary.withValues(alpha: 0.45)
-                      : colorScheme.outlineVariant,
+                  color: AppColors.healthCoral.withValues(alpha: 0.4),
                   width: 1.2,
                 ),
               ),
-              alignment: Alignment.center,
-              child: Text(
-                settings.is24HourMode ? '24H' : '12H',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
-                  color: settings.is24HourMode
-                      ? colorScheme.primary
-                      : colorScheme.onSurface,
-                ),
+              child: const Icon(
+                Icons.favorite_rounded,
+                size: 18,
+                color: AppColors.healthCoral,
               ),
             ),
           ),
@@ -367,9 +434,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           const SizedBox(width: 6),
 
-          // 3. Overflow Menu: Health, MCP Hub, About
+          // 3. Overflow Menu: Vault, Battery, Health, MCP, OTA, About
           PopupMenuButton<String>(
             tooltip: 'More options',
+            constraints: const BoxConstraints(minWidth: 260, maxWidth: 300),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
               side: BorderSide(
@@ -379,7 +447,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
             color: colorScheme.surfaceContainerHigh,
             elevation: 4,
-            onSelected: (value) {
+            onSelected: (value) async {
               HapticFeedback.lightImpact();
               if (value == 'sync_vault') {
                 CloudSyncModal.show(context);
@@ -393,15 +461,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 }
                 ref.invalidate(batteryOptimizationStatusProvider);
               } else if (value == 'health_sync') {
-                final selectedDay = ref.read(selectedDayProvider);
-                ref.read(dailyHealthSummaryProvider(selectedDay).future).then((
-                  health,
-                ) async {
+                final hasPerms =
+                    ref.read(healthPermissionsStatusProvider).value ?? false;
+                if (!hasPerms) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text(
+                          'Opening Health Connect to grant biometric permissions...',
+                        ),
+                        backgroundColor: colorScheme.surfaceContainerHigh,
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                  await DeviceSettingsService.openHealthConnectSettings();
+                  ref.invalidate(healthPermissionsStatusProvider);
+                  ref.invalidate(healthSyncStatusProvider);
+                } else {
+                  final selectedDay = ref.read(selectedDayProvider);
+                  final health = await ref.read(
+                    dailyHealthSummaryProvider(selectedDay).future,
+                  );
                   final currentEvents =
                       ref.read(dayEventsProvider).value ?? const [];
                   final newSectors = await ref
                       .read(syncHealthSessionsUseCaseProvider)
                       .execute(health: health, existingEvents: currentEvents);
+                  ref.read(lastHealthSyncTimeProvider.notifier).state =
+                      DateTime.now();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -415,7 +504,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ),
                     );
                   }
-                });
+                }
               } else if (value == 'mcp') {
                 showModalBottomSheet(
                   context: context,
@@ -441,16 +530,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   children: [
                     Icon(
                       Icons.cloud_sync_rounded,
-                      size: 18,
-                      color: colorScheme.primary,
+                      size: 20,
+                      color: syncVaultIconColor,
                     ),
                     const SizedBox(width: 12),
-                    Text(
-                      'Sync & Web Pairing Vault',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13.5,
-                        color: colorScheme.onSurface,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Sync & Web Pairing Vault',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13.5,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          Text(
+                            syncVaultSubtitle,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                              color: syncVaultIconColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: syncVaultIconColor,
+                        shape: BoxShape.circle,
                       ),
                     ),
                   ],
@@ -461,17 +574,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 child: Row(
                   children: [
                     Icon(
-                      Icons.battery_charging_full_rounded,
-                      size: 18,
-                      color: colorScheme.primary,
+                      isBatteryIgnored
+                          ? Icons.battery_charging_full_rounded
+                          : Icons.battery_alert_rounded,
+                      size: 20,
+                      color: batteryIconColor,
                     ),
                     const SizedBox(width: 12),
-                    Text(
-                      'Battery Optimization',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13.5,
-                        color: colorScheme.onSurface,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Battery Optimization',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13.5,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          Text(
+                            batterySubtitle,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                              color: batteryIconColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: batteryIconColor,
+                        shape: BoxShape.circle,
                       ),
                     ),
                   ],
@@ -482,17 +621,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 child: Row(
                   children: [
                     Icon(
-                      Icons.health_and_safety_rounded,
-                      size: 18,
-                      color: colorScheme.primary,
+                      hasHealthPerms
+                          ? Icons.health_and_safety_rounded
+                          : Icons.favorite_border_rounded,
+                      size: 20,
+                      color: healthIconColor,
                     ),
                     const SizedBox(width: 12),
-                    Text(
-                      'Health Connect Sync',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13.5,
-                        color: colorScheme.onSurface,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Health Connect Sync',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13.5,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          Text(
+                            healthSubtitle,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                              color: healthIconColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: healthIconColor,
+                        shape: BoxShape.circle,
                       ),
                     ),
                   ],
@@ -502,18 +667,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 value: 'mcp',
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.hub_rounded,
-                      size: 18,
-                      color: colorScheme.primary,
-                    ),
+                    Icon(Icons.hub_rounded, size: 20, color: mcpIconColor),
                     const SizedBox(width: 12),
-                    Text(
-                      'AI & MCP Hub',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13.5,
-                        color: colorScheme.onSurface,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'AI & MCP Hub',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13.5,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          Text(
+                            mcpSubtitle,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                              color: mcpIconColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: mcpIconColor,
+                        shape: BoxShape.circle,
                       ),
                     ),
                   ],
@@ -525,17 +710,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 child: Row(
                   children: [
                     Icon(
-                      Icons.system_update_rounded,
-                      size: 18,
-                      color: colorScheme.primary,
+                      hasOtaUpdate
+                          ? Icons.system_update_rounded
+                          : Icons.check_circle_outline_rounded,
+                      size: 20,
+                      color: otaIconColor,
                     ),
                     const SizedBox(width: 12),
-                    Text(
-                      'Over-The-Air (OTA) Updates',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13.5,
-                        color: colorScheme.onSurface,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Over-The-Air (OTA) Updates',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13.5,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          Text(
+                            otaSubtitle,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                              color: otaIconColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: otaIconColor,
+                        shape: BoxShape.circle,
                       ),
                     ),
                   ],
@@ -547,16 +758,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   children: [
                     Icon(
                       Icons.info_outline_rounded,
-                      size: 18,
+                      size: 20,
                       color: colorScheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: 12),
-                    Text(
-                      'About Radian',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13.5,
-                        color: colorScheme.onSurface,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'About Radian',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13.5,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          Text(
+                            'v${AppStrings.appVersion} · KSM × Tech',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -576,7 +803,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
               child: Icon(
                 Icons.more_vert_rounded,
-                size: 18,
+                size: 19,
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
