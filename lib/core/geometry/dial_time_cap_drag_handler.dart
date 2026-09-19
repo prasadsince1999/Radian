@@ -355,13 +355,21 @@ class DialTimeCapDragHandler {
       }
 
       // 3. Calendar Day boundaries
+      final effectiveRotationEnd =
+          (event.end.isAfter(dayEnd) || candidateEnd.isAfter(dayEnd))
+          ? dayStart.add(
+              is24HourMode
+                  ? const Duration(days: 2)
+                  : const Duration(days: 1, hours: 12),
+            )
+          : dayEnd;
       if (candidateStart.isBefore(dayStart)) {
         candidateStart = dayStart;
         candidateEnd = candidateStart.add(hit.originalDuration);
         didClamp = true;
       }
-      if (candidateEnd.isAfter(dayEnd)) {
-        candidateEnd = dayEnd;
+      if (candidateEnd.isAfter(effectiveRotationEnd)) {
+        candidateEnd = effectiveRotationEnd;
         candidateStart = candidateEnd.subtract(hit.originalDuration);
         didClamp = true;
       }
@@ -395,13 +403,20 @@ class DialTimeCapDragHandler {
     if (hit.isStartCap) {
       // Dragging START cap: adjust start time
       // 1. Must be before end time by at least minBlockDuration
+      final maxBlockDuration = is24HourMode
+          ? const Duration(hours: 24)
+          : const Duration(hours: 12);
       final maxAllowedStart = event.end.subtract(minBlockDuration);
+      final minAllowedStart = event.end.subtract(maxBlockDuration);
+      final earliestStart = minAllowedStart.isAfter(dayStart)
+          ? minAllowedStart
+          : dayStart;
       if (candidateTime.isAfter(maxAllowedStart)) {
         candidateTime = maxAllowedStart;
         didClamp = true;
       }
-      if (candidateTime.isBefore(dayStart)) {
-        candidateTime = dayStart;
+      if (candidateTime.isBefore(earliestStart)) {
+        candidateTime = earliestStart;
         didClamp = true;
       }
 
@@ -473,8 +488,17 @@ class DialTimeCapDragHandler {
         candidateTime = minAllowedEnd;
         didClamp = true;
       }
-      if (candidateTime.isAfter(dayEnd)) {
-        candidateTime = dayEnd;
+      final maxBlockDuration = is24HourMode
+          ? const Duration(hours: 24)
+          : const Duration(hours: 12);
+      final maxAllowedEnd = event.start.add(maxBlockDuration);
+      // For overnight events or dragging past midnight, allow up to maxAllowedEnd
+      final effectiveDayEnd =
+          (event.end.isAfter(dayEnd) || candidateTime.isAfter(dayEnd))
+          ? maxAllowedEnd
+          : dayEnd;
+      if (candidateTime.isAfter(effectiveDayEnd)) {
+        candidateTime = effectiveDayEnd;
         didClamp = true;
       }
 
@@ -493,12 +517,12 @@ class DialTimeCapDragHandler {
             final dur = curr.end.difference(curr.start);
             var newStart = pred.end;
             var newEnd = newStart.add(dur);
-            if (newEnd.isAfter(dayEnd)) {
-              newEnd = dayEnd;
+            if (newEnd.isAfter(effectiveDayEnd)) {
+              newEnd = effectiveDayEnd;
               newStart = newEnd.subtract(dur);
               didClamp = true;
 
-              // Propagate backward clamp: blocks cannot be pushed past dayEnd
+              // Propagate backward clamp: blocks cannot be pushed past effectiveDayEnd
               var clampBoundary = newStart;
               for (int k = i - 1; k >= myIndex; k--) {
                 if (activeEvents[k].end.isAfter(clampBoundary)) {

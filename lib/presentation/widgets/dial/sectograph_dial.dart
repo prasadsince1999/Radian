@@ -261,61 +261,74 @@ class SectographDial extends ConsumerWidget {
 
                       if (isDialEditing) {
                         final isAm = dialSegment == Dial12HourSegment.am;
-                        final segStart = DateTime(
+                        final noon = DateTime(
                           viewingDay.year,
                           viewingDay.month,
                           viewingDay.day,
-                          isAm ? 0 : 12,
+                          12,
                           0,
                         );
-                        final segEnd = isAm
-                            ? DateTime(
-                                viewingDay.year,
-                                viewingDay.month,
-                                viewingDay.day,
-                                12,
-                                0,
-                              )
-                            : DateTime(
-                                viewingDay.year,
-                                viewingDay.month,
-                                viewingDay.day + 1,
-                                0,
-                                0,
-                              );
+                        final dayStart = DateTime(
+                          viewingDay.year,
+                          viewingDay.month,
+                          viewingDay.day,
+                          0,
+                          0,
+                        );
+                        final dayEnd = DateTime(
+                          viewingDay.year,
+                          viewingDay.month,
+                          viewingDay.day + 1,
+                          0,
+                          0,
+                        );
 
                         for (final e in projectedDayEvents) {
                           if (e.isAllDay) continue;
 
-                          if (e.start.isBefore(segEnd) &&
-                              e.end.isAfter(segStart)) {
-                            final effStart = e.start.isBefore(segStart)
-                                ? segStart
-                                : e.start;
-                            final effEnd = e.end.isAfter(segEnd)
-                                ? segEnd
-                                : e.end;
-                            final duration = effEnd.difference(effStart);
-                            if (duration.inMinutes > 0) {
-                              final startAngle = SectorMath.timeToDialAngle(
-                                effStart,
-                                is24HourMode: false,
-                              );
-                              final sweepAngle =
-                                  SectorMath.durationToSweepAngle(
-                                    duration,
-                                    is24HourMode: false,
-                                  );
+                          // In 12H Edit mode:
+                          // - AM segment: events starting in AM on viewingDay (e.start < noon),
+                          //   or overnight carry-over from yesterday into this morning.
+                          // - PM segment: events starting in PM on viewingDay (e.start >= noon and < dayEnd).
+                          final inSegment = isAm
+                              ? (e.start.isBefore(noon) &&
+                                    e.end.isAfter(dayStart))
+                              : (e.start.isBefore(dayEnd) &&
+                                    !e.start.isBefore(noon));
 
-                              rawEvents.add(
-                                e.copyWith(
-                                  topLevel: 0,
-                                  bottomLevel: 1000,
-                                  startAngle: startAngle,
-                                  sweepAngle: sweepAngle,
-                                ),
-                              );
-                            }
+                          if (!inSegment) continue;
+
+                          // For events carried over from yesterday, start at dayStart (00:00).
+                          // For events starting on viewingDay, preserve their true start and end!
+                          // Do NOT clip effEnd at midnight for overnight PM events (e.g. 8:15 PM - 2:15 AM).
+                          final effStart = e.start.isBefore(dayStart)
+                              ? dayStart
+                              : e.start;
+                          final effEnd = e.end;
+                          final actualDuration = effEnd.difference(effStart);
+                          final duration =
+                              actualDuration > const Duration(hours: 12)
+                              ? const Duration(hours: 12)
+                              : actualDuration;
+
+                          if (duration.inMinutes > 0) {
+                            final startAngle = SectorMath.timeToDialAngle(
+                              effStart,
+                              is24HourMode: false,
+                            );
+                            final sweepAngle = SectorMath.durationToSweepAngle(
+                              duration,
+                              is24HourMode: false,
+                            );
+
+                            rawEvents.add(
+                              e.copyWith(
+                                topLevel: 0,
+                                bottomLevel: 1000,
+                                startAngle: startAngle,
+                                sweepAngle: sweepAngle,
+                              ),
+                            );
                           }
                         }
                       } else {

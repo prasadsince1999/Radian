@@ -313,7 +313,6 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
     }
   }
 
-
   void _deleteEvent() {
     if (widget.event != null) {
       final ev = widget.event!;
@@ -889,15 +888,21 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
                         Icon(
                           Icons.touch_app_rounded,
                           size: 13,
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.7,
+                          ),
                         ),
                         const SizedBox(width: 5),
-                        Text(
-                          'Block times are set by dragging sectors on the watch dial',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                        Expanded(
+                          child: Text(
+                            'Block times are set by dragging sectors on the watch dial',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.7,
+                              ),
+                            ),
                           ),
                         ),
                       ],
