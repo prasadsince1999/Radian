@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -122,15 +123,32 @@ class AndroidWidgetService {
         }
       }
 
-      // Render 1:1 circular dial image offscreen
+      // Render base circular dial image offscreen (without needle & center clock)
+      // Native Android will composite the real-time ticking needle and center clock every minute!
       final dialBytes = await DialImageRenderer.renderDialPng(
         events: dayEvents,
         currentTime: currentTime,
         settings: settings,
         colorScheme: colorScheme,
         activeEvent: activeEvent,
-        size: 1024.0,
+        size: 720.0,
+        showNeedle: false,
+        showCenterClock: false,
       );
+
+      final eventsData = dayEvents
+          .map(
+            (e) => {
+              'id': e.id,
+              'title': e.title,
+              'start': e.start.millisecondsSinceEpoch,
+              'end': e.end.millisecondsSinceEpoch,
+              'color': e.color.toARGB32(),
+            },
+          )
+          .toList();
+      final eventsJson = jsonEncode(eventsData);
+      final dialBgColor = colorScheme.surfaceContainerLowest.toARGB32();
 
       await _channel.invokeMethod('updateWidget', {
         'title': title,
@@ -138,6 +156,9 @@ class AndroidWidgetService {
         'status': status,
         'date': date,
         'dialBytes': dialBytes,
+        'is24HourMode': is24,
+        'dialBgColor': dialBgColor,
+        'eventsJson': eventsJson,
       });
     } catch (e, st) {
       debugPrint('syncWidget error: $e\n$st');

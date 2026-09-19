@@ -123,6 +123,32 @@ void main() {
       expect(focusedBytes![0], 0x89);
     });
 
+    testWidgets(
+      'renders base dial without needle and center clock for Android widget',
+      (tester) async {
+        Uint8List? baseDialBytes;
+
+        await tester.runAsync(() async {
+          baseDialBytes = await DialImageRenderer.renderDialPng(
+            events: events,
+            currentTime: now,
+            settings: const DialSettings(is24HourMode: false),
+            colorScheme: colorScheme,
+            size: 200.0,
+            showNeedle: false,
+            showCenterClock: false,
+          );
+        });
+
+        expect(baseDialBytes, isNotNull);
+        expect(baseDialBytes!.length, greaterThan(100));
+        expect(baseDialBytes![0], 0x89);
+        expect(baseDialBytes![1], 0x50);
+        expect(baseDialBytes![2], 0x4E);
+        expect(baseDialBytes![3], 0x47);
+      },
+    );
+
     test('DialSettings dialShape serialization round-trip', () {
       const settings = DialSettings(dialShape: DialShape.waveRounded);
       final json = settings.toJson();

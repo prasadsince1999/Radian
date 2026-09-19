@@ -118,7 +118,21 @@ class MainActivity : FlutterActivity() {
                         val status = call.argument<String>("status") ?: "READY"
                         val date = call.argument<String>("date") ?: ""
                         val dialBytes = call.argument<ByteArray>("dialBytes")
-                        result.success(widgetSyncHelper.updateWidget(title, time, status, date, dialBytes))
+                        val is24HourMode = call.argument<Boolean>("is24HourMode") ?: false
+                        val dialBgColor = (call.argument<Number>("dialBgColor"))?.toInt() ?: 0
+                        val eventsJson = call.argument<String>("eventsJson")
+                        result.success(
+                            widgetSyncHelper.updateWidget(
+                                title,
+                                time,
+                                status,
+                                date,
+                                dialBytes,
+                                is24HourMode,
+                                dialBgColor,
+                                eventsJson
+                            )
+                        )
                     }
                     "getInitialAction" -> {
                         val action = pendingAction

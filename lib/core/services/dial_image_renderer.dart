@@ -24,7 +24,9 @@ abstract final class DialImageRenderer {
     required ColorScheme colorScheme,
     SectorEvent? activeEvent,
     SectorEvent? selectedEvent,
-    double size = 1024.0,
+    double size = 720.0,
+    bool showNeedle = true,
+    bool showCenterClock = true,
   }) async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
@@ -184,7 +186,8 @@ abstract final class DialImageRenderer {
       scrubAngle: null,
       settings: settings,
       colorScheme: colorScheme,
-      showCenterClock: true,
+      showCenterClock: showCenterClock,
+      showNeedle: showNeedle,
       lens: lens,
     );
 

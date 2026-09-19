@@ -7,10 +7,10 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g. 1.0.2)'
+        description: 'Release version (e.g. 1.0.3)'
         required: false
         type: string
-        default: '1.0.2'
+        default: '1.0.3'
       create_release:
         description: 'Create or update GitHub Release'
         required: false
@@ -52,7 +52,7 @@ jobs:
           mkdir -p release-assets
           TAG="${{ github.ref_name }}"
           if [ -z "$TAG" ] || [ "$TAG" = "main" ]; then
-            TAG="v${{ inputs.version || '1.0.2' }}"
+            TAG="v${{ inputs.version || '1.0.3' }}"
           fi
           # Produce both version-tagged and canonical APKs
           cp build/app/outputs/flutter-apk/app-release.apk "release-assets/Radian-${TAG}.apk"

@@ -23,29 +23,40 @@ class WidgetSyncHelper(private val context: Context) {
         time: String,
         status: String,
         date: String,
-        dialBytes: ByteArray?
+        dialBytes: ByteArray?,
+        is24HourMode: Boolean = false,
+        dialBgColor: Int = 0,
+        eventsJson: String? = null
     ): Boolean {
-        // Save image atomically if present
+        // Save base dial image atomically if present
         if (dialBytes != null && dialBytes.isNotEmpty()) {
             try {
-                val tempFile = File(context.filesDir, "widget_dial_tmp.png")
-                val targetFile = File(context.filesDir, "widget_dial.png")
+                val tempFile = File(context.filesDir, "widget_dial_base_tmp.png")
+                val targetFile = File(context.filesDir, "widget_dial_base.png")
                 FileOutputStream(tempFile).use { fos ->
                     fos.write(dialBytes)
                     fos.flush()
                 }
                 tempFile.renameTo(targetFile)
+                // Also write to fallback widget_dial.png for backward compatibility
+                targetFile.copyTo(File(context.filesDir, "widget_dial.png"), overwrite = true)
             } catch (_: Exception) {}
         }
 
         // Save prefs
         val prefs = context.getSharedPreferences(SectographWidgetProvider.PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit()
+        val editor = prefs.edit()
             .putString(SectographWidgetProvider.KEY_TITLE, title)
             .putString(SectographWidgetProvider.KEY_TIME, time)
             .putString(SectographWidgetProvider.KEY_STATUS, status)
             .putString(SectographWidgetProvider.KEY_DATE, date)
-            .apply()
+            .putBoolean(SectographWidgetProvider.KEY_IS_24_HOUR, is24HourMode)
+            .putInt(SectographWidgetProvider.KEY_DIAL_BG_COLOR, dialBgColor)
+
+        if (eventsJson != null) {
+            editor.putString(SectographWidgetProvider.KEY_EVENTS_JSON, eventsJson)
+        }
+        editor.apply()
 
         // Trigger native AppWidget update and schedule minute loop
         SectographWidgetProvider.updateAll(context)

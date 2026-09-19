@@ -30,6 +30,7 @@ class SectographPainter extends CustomPainter {
   final DialSettings settings;
   final ColorScheme colorScheme;
   final bool showCenterClock;
+  final bool showNeedle;
   final FisheyeTimeLens? lens;
   final CapHitResult? activeDraggingCap;
 
@@ -42,6 +43,7 @@ class SectographPainter extends CustomPainter {
     required this.settings,
     required this.colorScheme,
     this.showCenterClock = false,
+    this.showNeedle = true,
     this.lens,
     this.activeDraggingCap,
   });
@@ -115,14 +117,16 @@ class SectographPainter extends CustomPainter {
     );
 
     // 5. Two-stage hierarchical "NOW" hour needle & celestial beacon
-    _drawDayNightSweep(
-      canvas,
-      center,
-      baseRadius,
-      innerRadius,
-      routineTrackIn,
-      routineTrackOut,
-    );
+    if (showNeedle) {
+      _drawDayNightSweep(
+        canvas,
+        center,
+        baseRadius,
+        innerRadius,
+        routineTrackIn,
+        routineTrackOut,
+      );
+    }
 
     // 6. Rich center clock face for offscreen / widget rendering
     if (showCenterClock &&
@@ -890,6 +894,8 @@ class SectographPainter extends CustomPainter {
         oldDelegate.events != events ||
         oldDelegate.settings != settings ||
         oldDelegate.colorScheme != colorScheme ||
+        oldDelegate.showNeedle != showNeedle ||
+        oldDelegate.showCenterClock != showCenterClock ||
         oldDelegate.lens != lens ||
         oldDelegate.activeDraggingCap != activeDraggingCap;
   }

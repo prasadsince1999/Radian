@@ -148,7 +148,7 @@ export default {
                 capabilities: { tools: { listChanged: false } },
                 serverInfo: {
                   name: 'Radian',
-                  version: '1.0.2',
+                  version: '1.0.3',
                   description: '360° AI-Native Circular Time Blocking & Schedule Planner',
                   icon: `${url.origin}/icon.png`,
                   iconUrl: `${url.origin}/icon.png`,
@@ -324,16 +324,16 @@ export default {
         JSON.stringify(
           {
             success: true,
-            tag: 'v1.0.2',
-            version: '1.0.2',
+            tag: 'v1.0.3',
+            version: '1.0.3',
             downloadUrl:
-              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.2/Radian-v1.0.2.apk',
-            apkName: 'Radian-v1.0.2.apk',
+              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.3/Radian-v1.0.3.apk',
+            apkName: 'Radian-v1.0.3.apk',
             sizeBytes: 74868000,
             releaseNotes:
-              '### Radian v1.0.2 - Live Over-The-Air (OTA) Updates & Expressive About Experience\n\n- In-App Over-The-Air (OTA) Updates: Directly inspect, download, and install releases from Cloudflare Edge + GitHub without gatekeepers.\n- Expressive KSM × Tech About Screen: Numbered system architecture (01-04), developer heritage, and verified links.\n- Physical Laptop-to-Phone Flow: Seamless camera scanning of desktop QR code to pair vaults instantly.\n- Clean Typography: Pure 12H / 24H typography with icons removed.',
+              '### Radian v1.0.3 - Real-Time Android Circular Widget Synchronization & Minute Ticking\n\n- Real-Time Circular Widget Synchronization: Completely resolved widget freezing at stale timestamps (e.g., 12:01 PM). Decoupled static schedule dial from dynamic minute ticking.\n- Native Kotlin Composite Canvas: Ultra-low-overhead (<2ms, 0 battery drain) minute-by-minute crimson needle rotation and dynamic center digital clock typography (HH:mm, AM/PM, date, active event pill chip).\n- Reboot & Wakeup Resilience: Auto-reschedules exact alarms on system reboot, screen unlock (USER_PRESENT), midnight date change, and package updates.',
             publishedAt: new Date().toISOString(),
-            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.2',
+            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.3',
           },
           null,
           2
@@ -355,7 +355,7 @@ export default {
         info: {
           title: 'Sectograph Cloudflare API',
           description: 'Cloudflare D1-backed time planning and circular dial automation API',
-          version: '1.0.2',
+          version: '1.0.3',
         },
         servers: [{ url: url.origin }],
         paths: {
