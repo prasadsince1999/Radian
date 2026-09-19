@@ -384,36 +384,45 @@ void main() {
       expect(allEvents.first.category, equals('Deep Focus'));
     });
 
-    testWidgets('opening subtask sheet presents parent time bounds banner', (
-      tester,
-    ) async {
-      tester.view.devicePixelRatio = 1.0;
-      tester.view.physicalSize = const Size(800, 1200);
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets(
+      'opening subtask sheet presents clean slider and schedule duration',
+      (tester) async {
+        tester.view.devicePixelRatio = 1.0;
+        tester.view.physicalSize = const Size(800, 1200);
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
-          child: MaterialApp(
-            home: Scaffold(body: EventEditModal(initialDate: testDate)),
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
+            child: MaterialApp(
+              home: Scaffold(body: EventEditModal(initialDate: testDate)),
+            ),
           ),
-        ),
-      );
+        );
 
-      await tester.pumpAndSettle();
+        await tester.pumpAndSettle();
 
-      // Subtasks section is elevated directly below timing
-      expect(find.text('Add Subtask'), findsOneWidget);
-      await tester.tap(find.text('Add Subtask'));
-      await tester.pumpAndSettle();
+        // Subtasks section is elevated directly below timing
+        expect(find.text('Add Subtask'), findsOneWidget);
+        await tester.tap(find.text('Add Subtask'));
+        await tester.pumpAndSettle();
 
-      // In SubtaskEditSheet, verify "Within block:" banner and quick slice buttons are present
-      expect(find.textContaining('Within block:'), findsOneWidget);
-      expect(find.text('Full Block'), findsOneWidget);
-    });
+        // In SubtaskEditSheet, verify new schedule & duration section and clean slider
+        expect(find.text('New Subtask'), findsOneWidget);
+        expect(find.text('SCHEDULE & DURATION'), findsOneWidget);
+        expect(find.text('START DATE'), findsOneWidget);
+        expect(find.text('END DATE'), findsOneWidget);
+        expect(find.text('Infinite'), findsOneWidget);
+        expect(find.text('REMINDER'), findsOneWidget);
+
+        // Verify removed obsolete items are gone
+        expect(find.textContaining('Within block:'), findsNothing);
+        expect(find.text('Full Block'), findsNothing);
+      },
+    );
 
     testWidgets(
       'selecting color and icon in IconColorPickerSheet updates sector color on event',

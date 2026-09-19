@@ -59,7 +59,9 @@ class DailySubtasksSheet extends ConsumerWidget {
     final subtaskEntries = <({SectorEvent parent, SubtaskItem subtask})>[];
     for (final ev in events) {
       for (final sub in ev.subtaskItems) {
-        subtaskEntries.add((parent: ev, subtask: sub));
+        if (sub.isScheduledForDate(selectedDay)) {
+          subtaskEntries.add((parent: ev, subtask: sub));
+        }
       }
     }
 

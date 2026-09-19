@@ -11,6 +11,8 @@ class SubtaskItem {
   final TimeOfDay? startTime;
   final TimeOfDay? endTime;
   final DateTime? date;
+  final DateTime? endDate;
+  final bool isUnlimited;
   final int? reminderMinutes;
 
   const SubtaskItem({
@@ -21,6 +23,8 @@ class SubtaskItem {
     this.startTime,
     this.endTime,
     this.date,
+    this.endDate,
+    this.isUnlimited = false,
     this.reminderMinutes,
   });
 
@@ -31,6 +35,8 @@ class SubtaskItem {
     TimeOfDay? startTime,
     TimeOfDay? endTime,
     DateTime? date,
+    DateTime? endDate,
+    bool isUnlimited = false,
     int? reminderMinutes,
   }) {
     return SubtaskItem(
@@ -41,6 +47,8 @@ class SubtaskItem {
       startTime: startTime,
       endTime: endTime,
       date: date,
+      endDate: endDate,
+      isUnlimited: isUnlimited,
       reminderMinutes: reminderMinutes,
     );
   }
@@ -53,9 +61,12 @@ class SubtaskItem {
     TimeOfDay? startTime,
     TimeOfDay? endTime,
     DateTime? date,
+    DateTime? endDate,
+    bool? isUnlimited,
     int? reminderMinutes,
     bool clearReminder = false,
     bool clearTiming = false,
+    bool clearEndDate = false,
   }) {
     return SubtaskItem(
       id: id ?? this.id,
@@ -65,10 +76,28 @@ class SubtaskItem {
       startTime: clearTiming ? null : (startTime ?? this.startTime),
       endTime: clearTiming ? null : (endTime ?? this.endTime),
       date: date ?? this.date,
+      endDate: clearEndDate ? null : (endDate ?? this.endDate),
+      isUnlimited: isUnlimited ?? this.isUnlimited,
       reminderMinutes: clearReminder
           ? null
           : (reminderMinutes ?? this.reminderMinutes),
     );
+  }
+
+  /// Returns whether this subtask is active/scheduled for the specified [day].
+  bool isScheduledForDate(DateTime day) {
+    final target = DateTime(day.year, day.month, day.day);
+    if (date != null) {
+      final startDay = DateTime(date!.year, date!.month, date!.day);
+      if (target.isBefore(startDay)) return false;
+      if (isUnlimited) return true;
+      if (endDate != null) {
+        final endDay = DateTime(endDate!.year, endDate!.month, endDate!.day);
+        return !target.isAfter(endDay);
+      }
+      return target.isAtSameMomentAs(startDay);
+    }
+    return true;
   }
 
   Map<String, dynamic> toJson() {
@@ -82,6 +111,8 @@ class SubtaskItem {
       'endHour': endTime?.hour,
       'endMinute': endTime?.minute,
       'date': date?.toIso8601String(),
+      'endDate': endDate?.toIso8601String(),
+      'isUnlimited': isUnlimited,
       'reminderMinutes': reminderMinutes,
     };
   }
@@ -113,8 +144,12 @@ class SubtaskItem {
       startTime: start,
       endTime: end,
       date: json['date'] != null
-          ? DateTime.parse(json['date'] as String)
+          ? DateTime.tryParse(json['date'] as String)
           : null,
+      endDate: json['endDate'] != null
+          ? DateTime.tryParse(json['endDate'] as String)
+          : null,
+      isUnlimited: json['isUnlimited'] as bool? ?? false,
       reminderMinutes: json['reminderMinutes'] as int?,
     );
   }
@@ -140,6 +175,8 @@ class SubtaskItem {
           startTime == other.startTime &&
           endTime == other.endTime &&
           date == other.date &&
+          endDate == other.endDate &&
+          isUnlimited == other.isUnlimited &&
           reminderMinutes == other.reminderMinutes;
 
   @override
@@ -151,5 +188,7 @@ class SubtaskItem {
       startTime.hashCode ^
       endTime.hashCode ^
       date.hashCode ^
+      endDate.hashCode ^
+      isUnlimited.hashCode ^
       reminderMinutes.hashCode;
 }

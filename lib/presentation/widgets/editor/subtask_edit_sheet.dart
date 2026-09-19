@@ -68,7 +68,9 @@ class SubtaskEditSheet extends ConsumerStatefulWidget {
 class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
   late final TextEditingController _titleController;
   late String _selectedParentEventId;
-  late DateTime _selectedDate;
+  late DateTime _startDate;
+  DateTime? _endDate;
+  bool _isUnlimited = false;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
   int? _selectedReminderMinutes;
@@ -81,7 +83,9 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
     _titleController = TextEditingController(text: existing?.title ?? '');
     _selectedParentEventId =
         existing?.parentEventId ?? widget.initialParentEventId ?? '';
-    _selectedDate = existing?.date ?? widget.initialDate ?? DateTime.now();
+    _startDate = existing?.date ?? widget.initialDate ?? DateTime.now();
+    _endDate = existing?.endDate;
+    _isUnlimited = existing?.isUnlimited ?? false;
     _startTime = existing?.startTime;
     _endTime = existing?.endTime;
 
@@ -119,16 +123,49 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
     super.dispose();
   }
 
-  Future<void> _pickDate() async {
+  Future<void> _pickStartDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDate: _startDate,
       firstDate: DateTime.now().subtract(const Duration(days: 365)),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
     );
     if (picked != null) {
-      setState(() => _selectedDate = picked);
+      setState(() {
+        _startDate = picked;
+        if (_endDate != null && _endDate!.isBefore(_startDate)) {
+          _endDate = _startDate;
+        }
+      });
     }
+  }
+
+  Future<void> _pickEndDate() async {
+    final initial = _endDate != null && !_endDate!.isBefore(_startDate)
+        ? _endDate!
+        : _startDate;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: _startDate,
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+    );
+    if (picked != null) {
+      setState(() {
+        _endDate = picked;
+        _isUnlimited = false;
+      });
+    }
+  }
+
+  void _toggleUnlimited() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _isUnlimited = !_isUnlimited;
+      if (_isUnlimited) {
+        _endDate = null;
+      }
+    });
   }
 
   void _save(List<SectorEvent> availableEvents) {
@@ -176,7 +213,9 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
       isCompleted: _isCompleted,
       startTime: _startTime,
       endTime: _endTime,
-      date: _selectedDate,
+      date: _startDate,
+      endDate: _isUnlimited ? null : _endDate,
+      isUnlimited: _isUnlimited,
       reminderMinutes: _selectedReminderMinutes,
     );
 
@@ -206,11 +245,14 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
     final updatedParent = targetParent.copyWith(subtaskItems: currentSubtasks);
     repo.updateEvent(updatedParent);
 
-    HapticFeedback.mediumImpact();
-    Navigator.of(context).pop(subtask);
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
 
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
+    HapticFeedback.mediumImpact();
+    nav.pop(subtask);
+
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
       SnackBar(
         content: Text('Saved subtask to "${targetParent.title}"'),
         behavior: SnackBarBehavior.floating,
@@ -415,7 +457,7 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
     final isDark = theme.brightness == Brightness.dark;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    final eventsAsync = ref.watch(eventsForDateProvider(_selectedDate));
+    final eventsAsync = ref.watch(eventsForDateProvider(_startDate));
     final availableEvents = (eventsAsync.value ?? const <SectorEvent>[])
         .where((e) => !e.isAllDay)
         .toList();
@@ -431,7 +473,8 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
     final parentColor = activeParent?.color ?? colorScheme.primary;
     final is24 = ref.watch(dialSettingsProvider.select((s) => s.is24HourMode));
 
-    final effectiveParentStart = widget.parentStartTime ??
+    final effectiveParentStart =
+        widget.parentStartTime ??
         (activeParent != null
             ? TimeOfDay(
                 hour: activeParent.start.hour,
@@ -439,7 +482,8 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
               )
             : const TimeOfDay(hour: 9, minute: 0));
 
-    final effectiveParentEnd = widget.parentEndTime ??
+    final effectiveParentEnd =
+        widget.parentEndTime ??
         (activeParent != null
             ? TimeOfDay(
                 hour: activeParent.end.hour,
@@ -702,7 +746,8 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
                 parentStartTime: effectiveParentStart,
                 parentEndTime: effectiveParentEnd,
                 subtaskStartTime: _startTime ?? effectiveParentStart,
-                subtaskEndTime: _endTime ??
+                subtaskEndTime:
+                    _endTime ??
                     TimeOfDay(
                       hour: (effectiveParentStart.hour + 1) % 24,
                       minute: effectiveParentStart.minute,
@@ -719,117 +764,327 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
               ),
               const SizedBox(height: 12),
 
-              // 3. Date & Reminder Row
-              Row(
-                children: [
-                  // Date Card
-                  Expanded(
-                    child: InkWell(
-                      onTap: _pickDate,
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainer,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: colorScheme.outlineVariant,
-                            width: 1.2,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'DATE',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              DateFormat('EEE, MMM d').format(_selectedDate),
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.onSurface,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+              // 3. Schedule & Duration (Start Date, End Date, Infinite)
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainer,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: colorScheme.outlineVariant,
+                    width: 1.2,
                   ),
-                  const SizedBox(width: 10),
-
-                  // Reminder Card
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainer,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: colorScheme.outlineVariant,
-                          width: 1.2,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today_rounded,
+                          size: 16,
+                          color: parentColor,
                         ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'REMINDER',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'SCHEDULE & DURATION',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                            color: colorScheme.onSurfaceVariant,
                           ),
-                          const SizedBox(height: 4),
-                          DropdownButtonHideUnderline(
-                            child: DropdownButton<int?>(
-                              value: _selectedReminderMinutes,
-                              isDense: true,
-                              isExpanded: true,
-                              items: const [
-                                DropdownMenuItem(
-                                  value: null,
-                                  child: Text('None'),
+                        ),
+                        const Spacer(),
+                        BouncyPressable(
+                          scaleDownFactor: 0.92,
+                          onTap: _toggleUnlimited,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _isUnlimited
+                                  ? parentColor.withValues(alpha: 0.18)
+                                  : colorScheme.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _isUnlimited
+                                    ? parentColor
+                                    : colorScheme.outlineVariant,
+                                width: _isUnlimited ? 1.5 : 1.0,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.all_inclusive_rounded,
+                                  size: 14,
+                                  color: _isUnlimited
+                                      ? parentColor
+                                      : colorScheme.onSurfaceVariant,
                                 ),
-                                DropdownMenuItem(
-                                  value: 0,
-                                  child: Text('At start'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 5,
-                                  child: Text('5 min before'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 10,
-                                  child: Text('10 min before'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 15,
-                                  child: Text('15 min before'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 30,
-                                  child: Text('30 min before'),
+                                const SizedBox(width: 5),
+                                Text(
+                                  'Infinite',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: _isUnlimited
+                                        ? FontWeight.w800
+                                        : FontWeight.w600,
+                                    color: _isUnlimited
+                                        ? parentColor
+                                        : colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
                               ],
-                              onChanged: (mins) => setState(
-                                () => _selectedReminderMinutes = mins,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        // Start Date Tile
+                        Expanded(
+                          child: InkWell(
+                            onTap: _pickStartDate,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorScheme.surfaceContainerHigh,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: colorScheme.outlineVariant,
+                                  width: 1.0,
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'START DATE',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.3,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    DateFormat('EEE, MMM d').format(_startDate),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: colorScheme.onSurface,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                        ],
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 16,
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.6,
+                            ),
+                          ),
+                        ),
+                        // End Date Tile
+                        Expanded(
+                          child: InkWell(
+                            onTap: _isUnlimited ? null : _pickEndDate,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _isUnlimited
+                                    ? parentColor.withValues(alpha: 0.08)
+                                    : colorScheme.surfaceContainerHigh,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: _isUnlimited
+                                      ? parentColor.withValues(alpha: 0.4)
+                                      : colorScheme.outlineVariant,
+                                  width: 1.0,
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'END DATE',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.3,
+                                      color: _isUnlimited
+                                          ? parentColor
+                                          : colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          _isUnlimited
+                                              ? 'Ongoing ∞'
+                                              : (_endDate != null
+                                                    ? DateFormat('EEE, MMM d')
+                                                          .format(_endDate!)
+                                                    : 'Same day'),
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: _isUnlimited
+                                                ? parentColor
+                                                : colorScheme.onSurface,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (_endDate != null && !_isUnlimited)
+                                        GestureDetector(
+                                          onTap: () {
+                                            HapticFeedback.selectionClick();
+                                            setState(() => _endDate = null);
+                                          },
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(
+                                              left: 4,
+                                            ),
+                                            child: Icon(
+                                              Icons.close_rounded,
+                                              size: 16,
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // 4. Dedicated Reminder Card (Moved below Date section as requested)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainer,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: colorScheme.outlineVariant,
+                    width: 1.2,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.notifications_active_outlined,
+                      size: 20,
+                      color: parentColor,
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'REMINDER',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        Text(
+                          'Subtask alert',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: colorScheme.outlineVariant,
+                          width: 1.0,
+                        ),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int?>(
+                          value: _selectedReminderMinutes,
+                          isDense: true,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.onSurface,
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: null, child: Text('None')),
+                            DropdownMenuItem(value: 0, child: Text('At start')),
+                            DropdownMenuItem(
+                              value: 5,
+                              child: Text('5 min before'),
+                            ),
+                            DropdownMenuItem(
+                              value: 10,
+                              child: Text('10 min before'),
+                            ),
+                            DropdownMenuItem(
+                              value: 15,
+                              child: Text('15 min before'),
+                            ),
+                            DropdownMenuItem(
+                              value: 30,
+                              child: Text('30 min before'),
+                            ),
+                          ],
+                          onChanged: (mins) =>
+                              setState(() => _selectedReminderMinutes = mins),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
 

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../core/utils/time_formatters.dart';
-
 /// Clean visual timeline slider for scheduling a micro-subtask within its parent macro time block.
 ///
 /// Layout:
@@ -79,17 +77,6 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
     return snapped.clamp(min, max);
   }
 
-  void _applyQuickDuration(int minutes) {
-    HapticFeedback.lightImpact();
-    final span = _parentSpan;
-    final currentStart = _getOffset(widget.subtaskStartTime, span);
-    final targetEnd = (currentStart + minutes).clamp(currentStart + 5, span);
-    widget.onChanged(
-      widget.subtaskStartTime,
-      _timeFromOffset(targetEnd),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -105,32 +92,12 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
     }
     final subtaskDurationMinutes = endOffset - startOffset;
 
-    final parentStartFormatted = TimeFormatters.formatTimeOfDay(
-      widget.parentStartTime,
-      is24Hour: widget.is24Hour,
-    );
-    final parentEndFormatted = TimeFormatters.formatTimeOfDay(
-      widget.parentEndTime,
-      is24Hour: widget.is24Hour,
-    );
-    final subtaskStartFormatted = TimeFormatters.formatTimeOfDay(
-      widget.subtaskStartTime,
-      is24Hour: widget.is24Hour,
-    );
-    final subtaskEndFormatted = TimeFormatters.formatTimeOfDay(
-      widget.subtaskEndTime,
-      is24Hour: widget.is24Hour,
-    );
-
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: accent.withValues(alpha: 0.35),
-          width: 1.2,
-        ),
+        border: Border.all(color: accent.withValues(alpha: 0.35), width: 1.2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,38 +134,15 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-
-          // Context badge: "Within block: [start] – [end]"
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.schedule_rounded, size: 12, color: accent),
-                const SizedBox(width: 5),
-                Text(
-                  'Within block: $parentStartFormatted – $parentEndFormatted',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: accent,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
           // Visual Rectangle with Left & Right Vertical Times and Middle Track
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
             decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+              color: colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.45,
+              ),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: colorScheme.outlineVariant.withValues(alpha: 0.5),
@@ -206,7 +150,7 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
             ),
             child: Row(
               children: [
-                // Left Vertical Time Box
+                // Left Vertical Time Box (Parent Start)
                 _buildVerticalTimeBox(
                   context: context,
                   time: widget.parentStartTime,
@@ -231,7 +175,7 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                     builder: (context, constraints) {
                       final trackWidth = constraints.maxWidth;
                       const trackHeight = 44.0;
-                      const minPillWidth = 36.0;
+                      const minPillWidth = 72.0;
 
                       final startFrac = (startOffset / span).clamp(0.0, 1.0);
                       final endFrac = (endOffset / span).clamp(0.0, 1.0);
@@ -247,6 +191,30 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                         (trackWidth - pillWidth).clamp(0.0, trackWidth),
                       );
 
+                      final isStartDragging =
+                          _activeDrag == _DragTarget.startHandle ||
+                          _activeDrag == _DragTarget.pillMove;
+                      final isEndDragging =
+                          _activeDrag == _DragTarget.endHandle ||
+                          _activeDrag == _DragTarget.pillMove;
+
+                      final showCenterDuration = pillWidth >= 90;
+                      final startCapStr = _formatCapTime(
+                        widget.subtaskStartTime,
+                        includePeriod: false,
+                      );
+                      final endCapStr = _formatCapTime(
+                        widget.subtaskEndTime,
+                        includePeriod: false,
+                      );
+
+                      final isDark =
+                          ThemeData.estimateBrightnessForColor(accent) ==
+                          Brightness.dark;
+                      final onAccentColor = isDark
+                          ? Colors.white
+                          : Colors.black87;
+
                       return GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onHorizontalDragStart: (details) {
@@ -255,19 +223,30 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                           _initialStartOffset = startOffset;
                           _initialEndOffset = endOffset;
 
-                          // Hit detection on left handle, right handle, or pill body
-                          if ((localX - pillLeft).abs() <= 16) {
+                          final startCapBoundary = pillLeft + 36.0;
+                          final endCapBoundary = (pillLeft + pillWidth) - 36.0;
+
+                          // Hit detection prioritizing edge caps then pill body
+                          if ((localX - pillLeft).abs() <= 24 ||
+                              (localX >= pillLeft &&
+                                  localX <= startCapBoundary)) {
                             _activeDrag = _DragTarget.startHandle;
-                          } else if ((localX - (pillLeft + pillWidth)).abs() <= 16) {
+                          } else if ((localX - (pillLeft + pillWidth)).abs() <=
+                                  24 ||
+                              (localX >= endCapBoundary &&
+                                  localX <= pillLeft + pillWidth)) {
                             _activeDrag = _DragTarget.endHandle;
                           } else if (localX >= pillLeft &&
                               localX <= pillLeft + pillWidth) {
                             _activeDrag = _DragTarget.pillMove;
                           } else {
-                            // Tap outside: snap nearest edge or jump
+                            // Tap outside: snap nearest edge
                             if (localX < pillLeft) {
                               _activeDrag = _DragTarget.startHandle;
-                              final newStartFrac = (localX / trackWidth).clamp(0.0, 1.0);
+                              final newStartFrac = (localX / trackWidth).clamp(
+                                0.0,
+                                1.0,
+                              );
                               final newStart = _snapTo5(
                                 (newStartFrac * span).round(),
                                 0,
@@ -279,7 +258,10 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                               );
                             } else {
                               _activeDrag = _DragTarget.endHandle;
-                              final newEndFrac = (localX / trackWidth).clamp(0.0, 1.0);
+                              final newEndFrac = (localX / trackWidth).clamp(
+                                0.0,
+                                1.0,
+                              );
                               final newEnd = _snapTo5(
                                 (newEndFrac * span).round(),
                                 startOffset + 5,
@@ -294,8 +276,10 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                           HapticFeedback.selectionClick();
                         },
                         onHorizontalDragUpdate: (details) {
-                          final deltaPx = details.localPosition.dx - _dragStartX;
-                          final deltaMins = (deltaPx / trackWidth * span).round();
+                          final deltaPx =
+                              details.localPosition.dx - _dragStartX;
+                          final deltaMins = (deltaPx / trackWidth * span)
+                              .round();
 
                           if (_activeDrag == _DragTarget.startHandle) {
                             final candidate = _initialStartOffset + deltaMins;
@@ -326,15 +310,18 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                               );
                             }
                           } else if (_activeDrag == _DragTarget.pillMove) {
-                            final duration = _initialEndOffset - _initialStartOffset;
-                            final candidateStart = _initialStartOffset + deltaMins;
+                            final duration =
+                                _initialEndOffset - _initialStartOffset;
+                            final candidateStart =
+                                _initialStartOffset + deltaMins;
                             final newStart = _snapTo5(
                               candidateStart,
                               0,
                               span - duration,
                             );
                             final newEnd = newStart + duration;
-                            if (newStart != startOffset || newEnd != endOffset) {
+                            if (newStart != startOffset ||
+                                newEnd != endOffset) {
                               HapticFeedback.selectionClick();
                               widget.onChanged(
                                 _timeFromOffset(newStart),
@@ -344,31 +331,30 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                           }
                         },
                         onHorizontalDragEnd: (_) {
-                          _activeDrag = _DragTarget.none;
+                          setState(() => _activeDrag = _DragTarget.none);
                         },
                         onHorizontalDragCancel: () {
-                          _activeDrag = _DragTarget.none;
+                          setState(() => _activeDrag = _DragTarget.none);
                         },
                         child: SizedBox(
                           height: trackHeight,
                           child: Stack(
                             alignment: Alignment.centerLeft,
                             children: [
-                              // Background Track Bar with Tick Markers
+                              // Background Track Bar
                               Container(
                                 height: 10,
                                 decoration: BoxDecoration(
                                   color: colorScheme.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(5),
                                   border: Border.all(
-                                    color: colorScheme.outlineVariant.withValues(
-                                      alpha: 0.4,
-                                    ),
+                                    color: colorScheme.outlineVariant
+                                        .withValues(alpha: 0.4),
                                   ),
                                 ),
                               ),
 
-                              // Interactive Draggable Subtask Capsule Pill
+                              // Interactive Draggable Subtask Capsule Pill with Boundary Time Caps
                               Positioned(
                                 left: pillLeft,
                                 width: pillWidth,
@@ -388,51 +374,138 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                                   ),
                                   child: Row(
                                     children: [
-                                      // Left boundary drag affordance
-                                      Container(
-                                        width: 10,
-                                        alignment: Alignment.center,
+                                      // 1. Left Edge: Start Time Boundary Cap (Vertical, matching sector dial edge)
+                                      Align(
+                                        alignment: Alignment.centerLeft,
                                         child: Container(
-                                          width: 2.5,
-                                          height: 14,
+                                          width: 22,
+                                          height: double.infinity,
                                           decoration: BoxDecoration(
-                                            color: Colors.white.withValues(alpha: 0.7),
-                                            borderRadius: BorderRadius.circular(2),
+                                            color: isStartDragging
+                                                ? Color.lerp(
+                                                    accent,
+                                                    Colors.white,
+                                                    0.32,
+                                                  )!
+                                                : Color.lerp(
+                                                    accent,
+                                                    Colors.black,
+                                                    0.42,
+                                                  )!,
+                                            borderRadius:
+                                                const BorderRadius.horizontal(
+                                                  left: Radius.circular(20),
+                                                ),
+                                            border: isStartDragging
+                                                ? Border.all(
+                                                    color: Colors.white,
+                                                    width: 1.5,
+                                                  )
+                                                : null,
                                           ),
-                                        ),
-                                      ),
-                                      // Center Pill Text
-                                      Expanded(
-                                        child: Center(
-                                          child: Text(
-                                            pillWidth > 75
-                                                ? '$subtaskDurationMinutes m'
-                                                : '${subtaskDurationMinutes}m',
-                                            style: TextStyle(
-                                              fontSize: 11.5,
-                                              fontWeight: FontWeight.w800,
-                                              color: ThemeData.estimateBrightnessForColor(
-                                                            accent,
-                                                          ) ==
-                                                          Brightness.dark
-                                                  ? Colors.white
-                                                  : Colors.black87,
+                                          child: Center(
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              child: RotatedBox(
+                                                quarterTurns: 3,
+                                                child: Text(
+                                                  startCapStr,
+                                                  style: TextStyle(
+                                                    fontSize: isStartDragging
+                                                        ? 10.5
+                                                        : 9.5,
+                                                    fontWeight: FontWeight.w900,
+                                                    letterSpacing: -0.2,
+                                                    fontFeatures: const [
+                                                      FontFeature.tabularFigures(),
+                                                    ],
+                                                    color: isStartDragging
+                                                        ? Colors.black87
+                                                        : Colors.white,
+                                                  ),
+                                                ),
+                                              ),
                                             ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.clip,
                                           ),
                                         ),
                                       ),
-                                      // Right boundary drag affordance
-                                      Container(
-                                        width: 10,
-                                        alignment: Alignment.center,
+
+                                      // 2. Middle: Subtask Duration
+                                      if (showCenterDuration)
+                                        Expanded(
+                                          child: Center(
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              child: Text(
+                                                subtaskDurationMinutes >= 60
+                                                    ? '${subtaskDurationMinutes ~/ 60}h${subtaskDurationMinutes % 60 > 0 ? ' ${subtaskDurationMinutes % 60}m' : ''}'
+                                                    : '${subtaskDurationMinutes}m',
+                                                style: TextStyle(
+                                                  fontSize: 10.5,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: onAccentColor,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.clip,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      else
+                                        const Spacer(),
+
+                                      // 3. Right Edge: End Time Boundary Cap (Vertical, matching sector dial edge)
+                                      Align(
+                                        alignment: Alignment.centerRight,
                                         child: Container(
-                                          width: 2.5,
-                                          height: 14,
+                                          width: 22,
+                                          height: double.infinity,
                                           decoration: BoxDecoration(
-                                            color: Colors.white.withValues(alpha: 0.7),
-                                            borderRadius: BorderRadius.circular(2),
+                                            color: isEndDragging
+                                                ? Color.lerp(
+                                                    accent,
+                                                    Colors.white,
+                                                    0.32,
+                                                  )!
+                                                : Color.lerp(
+                                                    accent,
+                                                    Colors.black,
+                                                    0.42,
+                                                  )!,
+                                            borderRadius:
+                                                const BorderRadius.horizontal(
+                                                  right: Radius.circular(20),
+                                                ),
+                                            border: isEndDragging
+                                                ? Border.all(
+                                                    color: Colors.white,
+                                                    width: 1.5,
+                                                  )
+                                                : null,
+                                          ),
+                                          child: Center(
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              child: RotatedBox(
+                                                quarterTurns: 3,
+                                                child: Text(
+                                                  endCapStr,
+                                                  style: TextStyle(
+                                                    fontSize: isEndDragging
+                                                        ? 10.5
+                                                        : 9.5,
+                                                    fontWeight: FontWeight.w900,
+                                                    letterSpacing: -0.2,
+                                                    fontFeatures: const [
+                                                      FontFeature.tabularFigures(),
+                                                    ],
+                                                    color: isEndDragging
+                                                        ? Colors.black87
+                                                        : Colors.white,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -459,7 +532,7 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                 ),
                 const SizedBox(width: 6),
 
-                // Right Vertical Time Box
+                // Right Vertical Time Box (Parent End)
                 _buildVerticalTimeBox(
                   context: context,
                   time: widget.parentEndTime,
@@ -470,78 +543,22 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
               ],
             ),
           ),
-          const SizedBox(height: 10),
-
-          // Subtask Scheduled Range Readout
-          Center(
-            child: Text(
-              '$subtaskStartFormatted – $subtaskEndFormatted · $subtaskDurationMinutes min',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: colorScheme.onSurface,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Quick Presets Row
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _TimelinePresetChip(
-                  label: 'Full Block',
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    widget.onChanged(
-                      widget.parentStartTime,
-                      widget.parentEndTime,
-                    );
-                  },
-                ),
-                const SizedBox(width: 6),
-                _TimelinePresetChip(
-                  label: 'First 30m',
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    final targetEnd = _snapTo5(
-                      30,
-                      5,
-                      span,
-                    );
-                    widget.onChanged(
-                      widget.parentStartTime,
-                      _timeFromOffset(targetEnd),
-                    );
-                  },
-                ),
-                const SizedBox(width: 6),
-                _TimelinePresetChip(
-                  label: '+15m',
-                  onTap: () => _applyQuickDuration(15),
-                ),
-                const SizedBox(width: 6),
-                _TimelinePresetChip(
-                  label: '+30m',
-                  onTap: () => _applyQuickDuration(30),
-                ),
-                const SizedBox(width: 6),
-                _TimelinePresetChip(
-                  label: '+45m',
-                  onTap: () => _applyQuickDuration(45),
-                ),
-                const SizedBox(width: 6),
-                _TimelinePresetChip(
-                  label: '+1h',
-                  onTap: () => _applyQuickDuration(60),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
+  }
+
+  String _formatCapTime(TimeOfDay time, {required bool includePeriod}) {
+    if (widget.is24Hour) {
+      return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    }
+    final h = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
+    final m = time.minute.toString().padLeft(2, '0');
+    if (includePeriod) {
+      final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+      return '$h:$m $period';
+    }
+    return '$h:$m';
   }
 
   Widget _buildVerticalTimeBox({
@@ -597,44 +614,6 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _TimelinePresetChip extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-
-  const _TimelinePresetChip({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Material(
-      color: colorScheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
       ),
     );
   }

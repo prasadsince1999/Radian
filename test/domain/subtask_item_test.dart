@@ -73,5 +73,31 @@ void main() {
         expect(restored.subtaskItems.length, 2);
       },
     );
+
+    test('supports endDate, isUnlimited, and isScheduledForDate', () {
+      final sub = SubtaskItem.create(
+        parentEventId: 'ev-1',
+        title: 'Daily Habit',
+        date: DateTime(2026, 9, 15),
+        endDate: DateTime(2026, 9, 20),
+        isUnlimited: false,
+      );
+
+      expect(sub.isScheduledForDate(DateTime(2026, 9, 14)), isFalse);
+      expect(sub.isScheduledForDate(DateTime(2026, 9, 15)), isTrue);
+      expect(sub.isScheduledForDate(DateTime(2026, 9, 18)), isTrue);
+      expect(sub.isScheduledForDate(DateTime(2026, 9, 20)), isTrue);
+      expect(sub.isScheduledForDate(DateTime(2026, 9, 21)), isFalse);
+
+      final unlimitedSub = sub.copyWith(isUnlimited: true, clearEndDate: true);
+      expect(unlimitedSub.isScheduledForDate(DateTime(2026, 9, 14)), isFalse);
+      expect(unlimitedSub.isScheduledForDate(DateTime(2026, 9, 15)), isTrue);
+      expect(unlimitedSub.isScheduledForDate(DateTime(2026, 12, 31)), isTrue);
+
+      final json = unlimitedSub.toJson();
+      final restored = SubtaskItem.fromJson(json);
+      expect(restored.isUnlimited, isTrue);
+      expect(restored.date, DateTime(2026, 9, 15));
+    });
   });
 }

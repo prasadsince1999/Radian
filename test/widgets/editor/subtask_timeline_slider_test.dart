@@ -45,21 +45,23 @@ void main() {
       expect(find.text('9:00'), findsOneWidget);
       expect(find.text('12:00'), findsOneWidget);
 
-      // Verify Within block badge
-      expect(find.textContaining('Within block:'), findsOneWidget);
+      // Verify Within block badge is removed
+      expect(find.textContaining('Within block:'), findsNothing);
 
-      // Verify presets
-      expect(find.text('Full Block'), findsOneWidget);
-      expect(find.text('First 30m'), findsOneWidget);
-      expect(find.text('+15m'), findsOneWidget);
-      expect(find.text('+30m'), findsOneWidget);
+      // Verify pill edge caps render subtask start and end times
+      expect(find.textContaining('10:00'), findsWidgets);
+      expect(find.textContaining('11:00'), findsWidgets);
+      expect(find.text('60 min'), findsOneWidget); // Header badge
+      expect(find.text('1h'), findsOneWidget); // Center duration
 
-      // Tap 'Full Block' preset
-      await tester.tap(find.text('Full Block'));
+      // Drag right end cap to adjust duration
+      await tester.drag(
+        find.textContaining('11:00').first,
+        const Offset(30, 0),
+      );
       await tester.pumpAndSettle();
 
-      expect(currentStart, equals(const TimeOfDay(hour: 9, minute: 0)));
-      expect(currentEnd, equals(const TimeOfDay(hour: 12, minute: 0)));
+      expect(currentEnd.minute, isNot(equals(0)));
     });
 
     testWidgets('handles overnight parent block across midnight correctly', (
@@ -74,8 +76,11 @@ void main() {
             body: StatefulBuilder(
               builder: (context, setState) {
                 return SubtaskTimelineSlider(
-                  parentStartTime: const TimeOfDay(hour: 20, minute: 0), // 8:00 PM
-                  parentEndTime: const TimeOfDay(hour: 2, minute: 0),   // 2:00 AM
+                  parentStartTime: const TimeOfDay(
+                    hour: 20,
+                    minute: 0,
+                  ), // 8:00 PM
+                  parentEndTime: const TimeOfDay(hour: 2, minute: 0), // 2:00 AM
                   subtaskStartTime: currentStart,
                   subtaskEndTime: currentEnd,
                   parentColor: Colors.blueAccent,
@@ -100,12 +105,9 @@ void main() {
       expect(find.text('2:00'), findsOneWidget);
       expect(find.text('AM'), findsWidgets);
 
-      // Tap 'First 30m' preset
-      await tester.tap(find.text('First 30m'));
-      await tester.pumpAndSettle();
-
-      expect(currentStart, equals(const TimeOfDay(hour: 20, minute: 0)));
-      expect(currentEnd, equals(const TimeOfDay(hour: 20, minute: 30)));
+      // Verify live edge caps on subtask pill
+      expect(find.textContaining('10:00'), findsWidgets);
+      expect(find.textContaining('1:00'), findsWidgets);
     });
   });
 }
