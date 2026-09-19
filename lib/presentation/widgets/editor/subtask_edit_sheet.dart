@@ -44,9 +44,16 @@ class SubtaskEditSheet extends ConsumerStatefulWidget {
     return showModalBottomSheet<SubtaskItem>(
       context: context,
       useRootNavigator: true,
+      useSafeArea: true,
       isScrollControlled: true,
       showDragHandle: false,
       backgroundColor: Colors.transparent,
+      sheetAnimationStyle: const AnimationStyle(
+        duration: Duration(milliseconds: 280),
+        reverseDuration: Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
       constraints: const BoxConstraints(
         maxWidth: AppLayoutConstants.modalMaxWidth,
       ),

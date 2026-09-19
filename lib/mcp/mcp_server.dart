@@ -68,6 +68,7 @@ class McpServer {
     router.post('/api/bulk_plan', _handleRestBulkPlan);
     router.get('/api/settings', _handleRestGetSettings);
     router.post('/api/settings', _handleRestPostSettings);
+    router.post('/api/subtask', _handleRestSubtask);
     router.get('/api/health', _handleRestGetHealth);
     router.post('/api/health/sync', _handleRestSyncHealth);
     router.get('/api/openapi.json', _handleOpenApiSchema);
@@ -523,6 +524,23 @@ class McpServer {
     );
   }
 
+  Future<Response> _handleRestSubtask(Request request) async {
+    final bodyStr = await request.readAsString();
+    final body = jsonDecode(bodyStr) as Map<String, dynamic>;
+    final res = await McpTools.executeTool(
+      name: 'manage_subtask',
+      arguments: body,
+      repository: repository,
+      getSettings: getSettings,
+      updateSettings: updateSettings,
+      healthRepository: _healthRepo,
+    );
+    return Response.ok(
+      jsonEncode(res),
+      headers: {'content-type': 'application/json'},
+    );
+  }
+
   Future<Response> _handleRestGetHealth(Request request) async {
     final date =
         request.requestedUri.queryParameters['date'] ??
@@ -644,6 +662,15 @@ class McpServer {
           'post': {
             'summary': 'Update dial customization settings',
             'operationId': 'updateSettings',
+            'responses': {
+              '200': {'description': 'OK'},
+            },
+          },
+        },
+        '/api/subtask': {
+          'post': {
+            'summary': 'Manage micro-subtasks inside a macro time block',
+            'operationId': 'manageSubtask',
             'responses': {
               '200': {'description': 'OK'},
             },

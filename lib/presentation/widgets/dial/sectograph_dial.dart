@@ -717,19 +717,21 @@ class SectographDial extends ConsumerWidget {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          CustomPaint(
-                            size: Size(dialSize, dialSize),
-                            painter: SectographPainter(
-                              events: displayEvents,
-                              selectedEvent: selectedEvent,
-                              activeEvent: effectiveActive,
-                              currentTime: effectiveTime,
-                              scrubAngle: scrubAngle,
-                              settings: settings,
-                              colorScheme: colorScheme,
-                              lens: lens,
-                              activeDraggingCap: activeDraggingCap,
-                              isDialEditing: isDialEditing,
+                          RepaintBoundary(
+                            child: CustomPaint(
+                              size: Size(dialSize, dialSize),
+                              painter: SectographPainter(
+                                events: displayEvents,
+                                selectedEvent: selectedEvent,
+                                activeEvent: effectiveActive,
+                                currentTime: effectiveTime,
+                                scrubAngle: scrubAngle,
+                                settings: settings,
+                                colorScheme: colorScheme,
+                                lens: lens,
+                                activeDraggingCap: activeDraggingCap,
+                                isDialEditing: isDialEditing,
+                              ),
                             ),
                           ),
                           ClipOval(
@@ -737,19 +739,13 @@ class SectographDial extends ConsumerWidget {
                               width: innerRadius * 2 * 0.94,
                               height: innerRadius * 2 * 0.94,
                               child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 260),
-                                switchInCurve: Curves.easeOutCubic,
-                                switchOutCurve: Curves.easeInCubic,
+                                duration: const Duration(milliseconds: 220),
+                                switchInCurve: Curves.easeOut,
+                                switchOutCurve: Curves.easeIn,
                                 transitionBuilder: (child, animation) {
                                   return FadeTransition(
                                     opacity: animation,
-                                    child: ScaleTransition(
-                                      scale: Tween<double>(
-                                        begin: 0.88,
-                                        end: 1.0,
-                                      ).animate(animation),
-                                      child: child,
-                                    ),
+                                    child: child,
                                   );
                                 },
                                 child: isDialEditing

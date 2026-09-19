@@ -136,14 +136,66 @@ export class McpHandler {
       },
       {
         name: 'update_dial_settings',
-        description: 'Remotely update dial appearance and operation (12h/24h mode, theme, seed color).',
+        description: 'Remotely update dial appearance and operation (12h/24h mode, theme, centerClockDisplay, dateOfBirth, seed color).',
         inputSchema: {
           type: 'object',
           properties: {
             is24HourMode: { type: 'boolean' },
             themeMode: { type: 'string', enum: ['system', 'light', 'dark'] },
             seedColorHex: { type: 'string' },
+            centerClockDisplay: {
+              type: 'string',
+              enum: ['digital', 'analog', 'dateTime', 'countdown', 'dobAge', 'currentSubtask'],
+              description: 'Center circle display style: digital, analog, dateTime, countdown, dobAge, or currentSubtask',
+            },
+            dateOfBirth: {
+              type: 'string',
+              description: 'ISO-8601 Date of birth (YYYY-MM-DD) for Life Clock (dobAge) mode',
+            },
           },
+        },
+      },
+      {
+        name: 'manage_subtask',
+        description: 'Add, update, toggle completion, or delete a micro-subtask inside a scheduled parent time block.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            action: {
+              type: 'string',
+              enum: ['add', 'update', 'toggle_complete', 'delete'],
+              description: 'Subtask lifecycle action',
+            },
+            sectorId: {
+              type: 'string',
+              description: 'Target parent macro sector/event ID',
+            },
+            subtaskId: {
+              type: 'string',
+              description: 'Subtask ID (required for update, toggle_complete, delete)',
+            },
+            title: {
+              type: 'string',
+              description: 'Subtask name/title',
+            },
+            startTime: {
+              type: 'string',
+              description: 'Optional subtask start time formatted as HH:mm',
+            },
+            endTime: {
+              type: 'string',
+              description: 'Optional subtask end time formatted as HH:mm',
+            },
+            isCompleted: {
+              type: 'boolean',
+              description: 'Completion status flag',
+            },
+            reminderOffsetMinutes: {
+              type: 'integer',
+              description: 'Optional alert lead-time in minutes',
+            },
+          },
+          required: ['action', 'sectorId'],
         },
       },
       {
@@ -203,7 +255,7 @@ export class McpHandler {
               },
               serverInfo: {
                 name: 'Radian',
-                version: '1.0.3',
+                version: '1.0.4',
                 description: '360° AI-Native Circular Time Blocking & Schedule Planner',
                 icon: iconUrl,
                 iconUrl: iconUrl,
@@ -426,6 +478,72 @@ export class McpHandler {
       case 'delete_sector': {
         await this.repo.softDeleteEvent(args.id, effectiveSyncKey);
         return { success: true, deletedId: args.id };
+      }
+
+      case 'manage_subtask': {
+        const sectorId = args.sectorId || args.sector_id;
+        const action = args.action;
+        if (!sectorId) throw new Error('Missing required argument: sectorId');
+        if (!action) throw new Error('Missing required argument: action');
+
+        const event = await this.repo.getEventById(sectorId, effectiveSyncKey);
+        if (!event) throw new Error(`Parent sector '${sectorId}' not found.`);
+
+        let subtasksList: any[] = [];
+        try {
+          if (event.subtasks) {
+            subtasksList = typeof event.subtasks === 'string' ? JSON.parse(event.subtasks) : event.subtasks;
+          }
+        } catch (_) {
+          subtasksList = [];
+        }
+
+        switch (action) {
+          case 'add': {
+            const newSubtask = {
+              id: args.subtaskId || crypto.randomUUID(),
+              title: args.title || 'Untitled Subtask',
+              startTime: args.startTime || null,
+              endTime: args.endTime || null,
+              isCompleted: args.isCompleted ?? false,
+              reminderOffsetMinutes: args.reminderOffsetMinutes ?? null,
+            };
+            subtasksList.push(newSubtask);
+            await this.repo.updateEventSubtasks(sectorId, JSON.stringify(subtasksList), effectiveSyncKey);
+            return { success: true, action: 'add', subtask: newSubtask, totalSubtasks: subtasksList.length };
+          }
+          case 'update': {
+            const subtaskId = args.subtaskId;
+            if (!subtaskId) throw new Error("Missing 'subtaskId' for update action.");
+            const idx = subtasksList.findIndex(s => s.id === subtaskId);
+            if (idx < 0) throw new Error(`Subtask '${subtaskId}' not found.`);
+            if (args.title !== undefined) subtasksList[idx].title = args.title;
+            if (args.startTime !== undefined) subtasksList[idx].startTime = args.startTime;
+            if (args.endTime !== undefined) subtasksList[idx].endTime = args.endTime;
+            if (args.isCompleted !== undefined) subtasksList[idx].isCompleted = args.isCompleted;
+            if (args.reminderOffsetMinutes !== undefined) subtasksList[idx].reminderOffsetMinutes = args.reminderOffsetMinutes;
+            await this.repo.updateEventSubtasks(sectorId, JSON.stringify(subtasksList), effectiveSyncKey);
+            return { success: true, action: 'update', subtask: subtasksList[idx] };
+          }
+          case 'toggle_complete': {
+            const subtaskId = args.subtaskId;
+            if (!subtaskId) throw new Error("Missing 'subtaskId' for toggle_complete action.");
+            const idx = subtasksList.findIndex(s => s.id === subtaskId);
+            if (idx < 0) throw new Error(`Subtask '${subtaskId}' not found.`);
+            subtasksList[idx].isCompleted = args.isCompleted !== undefined ? args.isCompleted : !subtasksList[idx].isCompleted;
+            await this.repo.updateEventSubtasks(sectorId, JSON.stringify(subtasksList), effectiveSyncKey);
+            return { success: true, action: 'toggle_complete', subtask: subtasksList[idx] };
+          }
+          case 'delete': {
+            const subtaskId = args.subtaskId;
+            if (!subtaskId) throw new Error("Missing 'subtaskId' for delete action.");
+            subtasksList = subtasksList.filter(s => s.id !== subtaskId);
+            await this.repo.updateEventSubtasks(sectorId, JSON.stringify(subtasksList), effectiveSyncKey);
+            return { success: true, action: 'delete', subtaskId, totalRemaining: subtasksList.length };
+          }
+          default:
+            throw new Error(`Unsupported action '${action}' for manage_subtask.`);
+        }
       }
 
       case 'get_dial_settings': {

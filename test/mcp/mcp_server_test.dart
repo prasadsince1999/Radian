@@ -136,7 +136,7 @@ void main() {
         final tools = decoded['result']['tools'] as List<dynamic>;
         final toolNames = tools.map((t) => t['name'] as String).toList();
 
-        expect(tools.length, 16);
+        expect(tools.length, 17);
         expect(toolNames, contains('get_clock_state'));
         expect(toolNames, contains('list_sectors'));
         expect(toolNames, contains('find_free_gaps'));
@@ -147,6 +147,7 @@ void main() {
         expect(toolNames, contains('update_sector'));
         expect(toolNames, contains('delete_sector'));
         expect(toolNames, contains('clear_sectors'));
+        expect(toolNames, contains('manage_subtask'));
         expect(toolNames, contains('get_dial_settings'));
         expect(toolNames, contains('update_dial_settings'));
         expect(toolNames, contains('analyze_day_balance'));
@@ -506,7 +507,7 @@ void main() {
         final respBody = await response.transform(utf8.decoder).join();
         final decoded = jsonDecode(respBody) as Map<String, dynamic>;
         final tools = decoded['tools'] as List<dynamic>;
-        expect(tools.length, 16);
+        expect(tools.length, 17);
         expect(tools.first['type'], 'function');
         client.close();
       },
@@ -531,7 +532,7 @@ void main() {
         expect(decoded['name'], AppStrings.appName);
         expect(decoded['protocolVersion'], '2024-11-05');
         expect(decoded['status'], 'online');
-        expect(decoded['tools'], hasLength(16));
+        expect(decoded['tools'], hasLength(17));
         client.close();
       },
     );
@@ -582,6 +583,75 @@ void main() {
       expect(decoded['activeCalories'], isNotNull);
       expect(decoded['totalCalories'], isNotNull);
       expect(decoded['sleepDurationMinutes'], isNotNull);
+      client.close();
+    });
+
+    test('MCP tools/call manage_subtask adds and toggles subtask', () async {
+      final today = DateTime.now();
+      await repository.addEvent(
+        SectorEvent(
+          id: 'parent-block-1',
+          title: 'Macro Project Work',
+          start: DateTime(today.year, today.month, today.day, 14, 0),
+          end: DateTime(today.year, today.month, today.day, 16, 0),
+        ),
+      );
+
+      final client = HttpClient();
+
+      // 1. Add subtask via MCP RPC
+      final addReq = await client.postUrl(
+        Uri.parse('http://127.0.0.1:$testPort/mcp'),
+      );
+      addReq.headers.contentType = ContentType.json;
+      addReq.write(
+        jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 60,
+          'method': 'tools/call',
+          'params': {
+            'name': 'manage_subtask',
+            'arguments': {
+              'action': 'add',
+              'parentEventId': 'parent-block-1',
+              'title': 'Write unit tests',
+              'startTime': '14:15',
+              'endTime': '15:00',
+            },
+          },
+        }),
+      );
+      final addResp = await addReq.close();
+      expect(addResp.statusCode, HttpStatus.ok);
+      final addBody = await addResp.transform(utf8.decoder).join();
+      final addDecoded = jsonDecode(addBody) as Map<String, dynamic>;
+      final addContent = jsonDecode(
+        addDecoded['result']['content'][0]['text'] as String,
+      ) as Map<String, dynamic>;
+      expect(addContent['success'], isTrue);
+      final createdSub = addContent['subtask'] as Map<String, dynamic>;
+      expect(createdSub['title'], 'Write unit tests');
+      final subtaskId = createdSub['id'] as String;
+
+      // 2. Toggle completion via REST /api/subtask
+      final toggleReq = await client.postUrl(
+        Uri.parse('http://127.0.0.1:$testPort/api/subtask'),
+      );
+      toggleReq.headers.contentType = ContentType.json;
+      toggleReq.write(
+        jsonEncode({
+          'action': 'toggle_complete',
+          'parentEventId': 'parent-block-1',
+          'subtaskId': subtaskId,
+        }),
+      );
+      final toggleResp = await toggleReq.close();
+      expect(toggleResp.statusCode, HttpStatus.ok);
+      final toggleBody = await toggleResp.transform(utf8.decoder).join();
+      final toggleDecoded = jsonDecode(toggleBody) as Map<String, dynamic>;
+      expect(toggleDecoded['success'], isTrue);
+      expect(toggleDecoded['isCompleted'], isTrue);
+
       client.close();
     });
   });

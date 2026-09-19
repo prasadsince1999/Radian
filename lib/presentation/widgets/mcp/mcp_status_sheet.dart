@@ -7,7 +7,6 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../controllers/mcp_server_controller.dart';
 import '../common/bouncy_pressable.dart';
-import '../sync/cloud_sync_vault_card.dart';
 
 class McpStatusSheet extends ConsumerStatefulWidget {
   const McpStatusSheet({super.key});
@@ -23,7 +22,7 @@ class _McpStatusSheetState extends ConsumerState<McpStatusSheet>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -331,7 +330,6 @@ class _McpStatusSheetState extends ConsumerState<McpStatusSheet>
                     Tab(text: 'Gemini'),
                     Tab(text: 'Claude'),
                     Tab(text: 'ChatGPT'),
-                    Tab(text: 'Cloud Sync'),
                   ],
                 ),
               ),
@@ -362,6 +360,7 @@ class _McpStatusSheetState extends ConsumerState<McpStatusSheet>
                         ),
                       );
                     case 2:
+                    default:
                       return _buildConfigTab(
                         context,
                         colorScheme: colorScheme,
@@ -373,13 +372,6 @@ class _McpStatusSheetState extends ConsumerState<McpStatusSheet>
                           'OpenAPI URL',
                           colorScheme,
                         ),
-                      );
-                    case 3:
-                    default:
-                      return _buildCloudSyncTab(
-                        context,
-                        colorScheme: colorScheme,
-                        isDark: theme.brightness == Brightness.dark,
                       );
                   }
                 },
@@ -670,17 +662,6 @@ class _McpStatusSheetState extends ConsumerState<McpStatusSheet>
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildCloudSyncTab(
-    BuildContext context, {
-    required ColorScheme colorScheme,
-    required bool isDark,
-  }) {
-    return const SingleChildScrollView(
-      padding: EdgeInsets.symmetric(vertical: 8),
-      child: CloudSyncVaultCard(),
     );
   }
 }

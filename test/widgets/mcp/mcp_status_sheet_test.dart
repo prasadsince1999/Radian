@@ -21,7 +21,7 @@ void main() {
       expect(find.text('Gemini'), findsOneWidget);
       expect(find.text('Claude'), findsOneWidget);
       expect(find.text('ChatGPT'), findsOneWidget);
-      expect(find.text('Cloud Sync'), findsOneWidget);
+      expect(find.text('Cloud Sync'), findsNothing);
       expect(find.text('Name'), findsOneWidget);
       expect(find.text(AppStrings.appName), findsOneWidget);
       expect(find.text('Server URL'), findsOneWidget);
@@ -35,9 +35,7 @@ void main() {
       expect(find.textContaining('npx untun'), findsNothing);
     });
 
-    testWidgets('switches to Cloud Sync tab and renders sync button', (
-      tester,
-    ) async {
+    testWidgets('switches to Claude tab and renders config', (tester) async {
       await tester.pumpWidget(
         const ProviderScope(
           child: MaterialApp(home: Scaffold(body: McpStatusSheet())),
@@ -45,13 +43,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Tap Cloud Sync tab
-      await tester.tap(find.text('Cloud Sync'));
+      // Tap Claude tab
+      await tester.tap(find.text('Claude'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Sync & Web Pairing Vault'), findsOneWidget);
-      expect(find.text('PRIVATE VAULT KEY'), findsOneWidget);
-      expect(find.text('Sync Now'), findsOneWidget);
+      expect(find.text('Claude Desktop & Cursor'), findsOneWidget);
+      expect(find.text('Copy Configuration'), findsOneWidget);
     });
   });
 }

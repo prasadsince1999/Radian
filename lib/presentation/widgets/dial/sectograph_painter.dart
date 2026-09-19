@@ -544,8 +544,7 @@ class SectographPainter extends CustomPainter {
         final isDraggingStart =
             activeDraggingCap != null &&
             l.event.id == activeDraggingCap!.event.id &&
-            (activeDraggingCap!.isStartCap ||
-                activeDraggingCap!.isEntireBlock);
+            (activeDraggingCap!.isStartCap || activeDraggingCap!.isEntireBlock);
 
         SectorPillRenderer.drawIntegratedCap(
           canvas: canvas,

@@ -6,7 +6,14 @@ enum SectorVisualTheme { solid, outline, softGradient, roundedCaps }
 
 enum HandStyle { sleekNeedle, glowingArrow, minimalDot }
 
-enum CenterClockDisplay { digital, analog, both }
+enum CenterClockDisplay {
+  digital,
+  analog,
+  dateTime,
+  countdown,
+  dobAge,
+  currentSubtask,
+}
 
 enum DialShape { circle, waveRounded }
 
@@ -28,6 +35,7 @@ class DialSettings {
   final int startHour;
   final bool isFocusLensEnabled;
   final double lensMagnification;
+  final DateTime? dateOfBirth;
 
   const DialSettings({
     this.is24HourMode = false,
@@ -43,6 +51,7 @@ class DialSettings {
     this.startHour = 0,
     this.isFocusLensEnabled = true,
     this.lensMagnification = 1.75,
+    this.dateOfBirth,
   });
 
   Color get seedColor {
@@ -69,6 +78,8 @@ class DialSettings {
     int? startHour,
     bool? isFocusLensEnabled,
     double? lensMagnification,
+    DateTime? dateOfBirth,
+    bool clearDateOfBirth = false,
   }) {
     return DialSettings(
       is24HourMode: is24HourMode ?? this.is24HourMode,
@@ -84,6 +95,7 @@ class DialSettings {
       startHour: startHour ?? this.startHour,
       isFocusLensEnabled: isFocusLensEnabled ?? this.isFocusLensEnabled,
       lensMagnification: lensMagnification ?? this.lensMagnification,
+      dateOfBirth: clearDateOfBirth ? null : (dateOfBirth ?? this.dateOfBirth),
     );
   }
 
@@ -101,6 +113,7 @@ class DialSettings {
     'startHour': startHour,
     'isFocusLensEnabled': isFocusLensEnabled,
     'lensMagnification': lensMagnification,
+    'dateOfBirth': dateOfBirth?.toIso8601String(),
   };
 
   factory DialSettings.fromJson(Map<String, dynamic> json) {
@@ -140,6 +153,9 @@ class DialSettings {
       isFocusLensEnabled: json['isFocusLensEnabled'] as bool? ?? true,
       lensMagnification:
           (json['lensMagnification'] as num?)?.toDouble() ?? 1.75,
+      dateOfBirth: json['dateOfBirth'] != null
+          ? DateTime.tryParse(json['dateOfBirth'] as String)
+          : null,
     );
   }
 }

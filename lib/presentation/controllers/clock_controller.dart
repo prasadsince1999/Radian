@@ -223,12 +223,21 @@ class DialSettingsNotifier extends StateNotifier<DialSettings> {
     updateSettings(state.copyWith(centerClockDisplay: display));
   }
 
+  void setDateOfBirth(DateTime? dob) {
+    updateSettings(
+      state.copyWith(dateOfBirth: dob, clearDateOfBirth: dob == null),
+    );
+  }
+
   void cycleCenterClockDisplay() {
     final current = state.centerClockDisplay;
     final next = switch (current) {
-      CenterClockDisplay.both => CenterClockDisplay.digital,
       CenterClockDisplay.digital => CenterClockDisplay.analog,
-      CenterClockDisplay.analog => CenterClockDisplay.both,
+      CenterClockDisplay.analog => CenterClockDisplay.dateTime,
+      CenterClockDisplay.dateTime => CenterClockDisplay.countdown,
+      CenterClockDisplay.countdown => CenterClockDisplay.dobAge,
+      CenterClockDisplay.dobAge => CenterClockDisplay.currentSubtask,
+      CenterClockDisplay.currentSubtask => CenterClockDisplay.digital,
     };
     setCenterClockDisplay(next);
   }

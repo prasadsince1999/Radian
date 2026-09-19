@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -161,7 +162,7 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                 const SizedBox(width: 6),
                 Container(
                   width: 2.5,
-                  height: 44,
+                  height: 58,
                   decoration: BoxDecoration(
                     color: accent.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(2),
@@ -174,8 +175,8 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final trackWidth = constraints.maxWidth;
-                      const trackHeight = 44.0;
-                      const minPillWidth = 72.0;
+                      const trackHeight = 64.0;
+                      const minPillWidth = 54.0;
 
                       final startFrac = (startOffset / span).clamp(0.0, 1.0);
                       final endFrac = (endOffset / span).clamp(0.0, 1.0);
@@ -198,7 +199,8 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                           _activeDrag == _DragTarget.endHandle ||
                           _activeDrag == _DragTarget.pillMove;
 
-                      final showCenterDuration = pillWidth >= 90;
+                      final hasRoomForCapText = pillWidth >= 76.0;
+                      final capWidth = hasRoomForCapText ? 22.0 : 12.0;
                       final startCapStr = _formatCapTime(
                         widget.subtaskStartTime,
                         includePeriod: false,
@@ -223,17 +225,18 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                           _initialStartOffset = startOffset;
                           _initialEndOffset = endOffset;
 
-                          final startCapBoundary = pillLeft + 36.0;
-                          final endCapBoundary = (pillLeft + pillWidth) - 36.0;
+                          final halfPill = pillWidth / 2.0;
+                          final startHitRange = math.min(capWidth + 12.0, halfPill);
+                          final endHitRange = math.min(capWidth + 12.0, halfPill);
 
                           // Hit detection prioritizing edge caps then pill body
-                          if ((localX - pillLeft).abs() <= 24 ||
+                          if ((localX - pillLeft).abs() <= 20 ||
                               (localX >= pillLeft &&
-                                  localX <= startCapBoundary)) {
+                                  localX <= pillLeft + startHitRange)) {
                             _activeDrag = _DragTarget.startHandle;
                           } else if ((localX - (pillLeft + pillWidth)).abs() <=
-                                  24 ||
-                              (localX >= endCapBoundary &&
+                                  20 ||
+                              (localX >= (pillLeft + pillWidth) - endHitRange &&
                                   localX <= pillLeft + pillWidth)) {
                             _activeDrag = _DragTarget.endHandle;
                           } else if (localX >= pillLeft &&
@@ -378,7 +381,7 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                                       Align(
                                         alignment: Alignment.centerLeft,
                                         child: Container(
-                                          width: 22,
+                                          width: capWidth,
                                           height: double.infinity,
                                           decoration: BoxDecoration(
                                             color: isStartDragging
@@ -404,45 +407,61 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                                                 : null,
                                           ),
                                           child: Center(
-                                            child: FittedBox(
-                                              fit: BoxFit.scaleDown,
-                                              child: RotatedBox(
-                                                quarterTurns: 3,
-                                                child: Text(
-                                                  startCapStr,
-                                                  style: TextStyle(
-                                                    fontSize: isStartDragging
-                                                        ? 10.5
-                                                        : 9.5,
-                                                    fontWeight: FontWeight.w900,
-                                                    letterSpacing: -0.2,
-                                                    fontFeatures: const [
-                                                      FontFeature.tabularFigures(),
-                                                    ],
-                                                    color: isStartDragging
-                                                        ? Colors.black87
-                                                        : Colors.white,
+                                            child: hasRoomForCapText
+                                                ? FittedBox(
+                                                    fit: BoxFit.scaleDown,
+                                                    child: RotatedBox(
+                                                      quarterTurns: 3,
+                                                      child: Text(
+                                                        startCapStr,
+                                                        style: TextStyle(
+                                                          fontSize: isStartDragging
+                                                              ? 11.0
+                                                              : 10.0,
+                                                          fontWeight: FontWeight.w900,
+                                                          letterSpacing: -0.2,
+                                                          fontFeatures: const [
+                                                            FontFeature.tabularFigures(),
+                                                          ],
+                                                          color: isStartDragging
+                                                              ? Colors.black87
+                                                              : Colors.white,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  )
+                                                : Container(
+                                                    width: 2.5,
+                                                    height: 22,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white
+                                                          .withValues(alpha: 0.85),
+                                                      borderRadius:
+                                                          BorderRadius.circular(1.5),
+                                                    ),
                                                   ),
-                                                ),
-                                              ),
-                                            ),
                                           ),
                                         ),
                                       ),
 
-                                      // 2. Middle: Subtask Duration
-                                      if (showCenterDuration)
-                                        Expanded(
+                                      // 2. Middle: Subtask Duration (Smoothly scales down when squeezed, never disappears)
+                                      Expanded(
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 2,
+                                          ),
                                           child: Center(
                                             child: FittedBox(
                                               fit: BoxFit.scaleDown,
                                               child: Text(
                                                 subtaskDurationMinutes >= 60
-                                                    ? '${subtaskDurationMinutes ~/ 60}h${subtaskDurationMinutes % 60 > 0 ? ' ${subtaskDurationMinutes % 60}m' : ''}'
+                                                    ? (pillWidth < 90
+                                                          ? '${subtaskDurationMinutes ~/ 60}h${subtaskDurationMinutes % 60 > 0 ? '${subtaskDurationMinutes % 60}' : ''}'
+                                                          : '${subtaskDurationMinutes ~/ 60}h${subtaskDurationMinutes % 60 > 0 ? ' ${subtaskDurationMinutes % 60}m' : ''}')
                                                     : '${subtaskDurationMinutes}m',
                                                 style: TextStyle(
-                                                  fontSize: 10.5,
-                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 12.0,
+                                                  fontWeight: FontWeight.w900,
                                                   color: onAccentColor,
                                                 ),
                                                 maxLines: 1,
@@ -450,15 +469,14 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                                               ),
                                             ),
                                           ),
-                                        )
-                                      else
-                                        const Spacer(),
+                                        ),
+                                      ),
 
                                       // 3. Right Edge: End Time Boundary Cap (Vertical, matching sector dial edge)
                                       Align(
                                         alignment: Alignment.centerRight,
                                         child: Container(
-                                          width: 22,
+                                          width: capWidth,
                                           height: double.infinity,
                                           decoration: BoxDecoration(
                                             color: isEndDragging
@@ -484,28 +502,39 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                                                 : null,
                                           ),
                                           child: Center(
-                                            child: FittedBox(
-                                              fit: BoxFit.scaleDown,
-                                              child: RotatedBox(
-                                                quarterTurns: 3,
-                                                child: Text(
-                                                  endCapStr,
-                                                  style: TextStyle(
-                                                    fontSize: isEndDragging
-                                                        ? 10.5
-                                                        : 9.5,
-                                                    fontWeight: FontWeight.w900,
-                                                    letterSpacing: -0.2,
-                                                    fontFeatures: const [
-                                                      FontFeature.tabularFigures(),
-                                                    ],
-                                                    color: isEndDragging
-                                                        ? Colors.black87
-                                                        : Colors.white,
+                                            child: hasRoomForCapText
+                                                ? FittedBox(
+                                                    fit: BoxFit.scaleDown,
+                                                    child: RotatedBox(
+                                                      quarterTurns: 3,
+                                                      child: Text(
+                                                        endCapStr,
+                                                        style: TextStyle(
+                                                          fontSize: isEndDragging
+                                                              ? 11.0
+                                                              : 10.0,
+                                                          fontWeight: FontWeight.w900,
+                                                          letterSpacing: -0.2,
+                                                          fontFeatures: const [
+                                                            FontFeature.tabularFigures(),
+                                                          ],
+                                                          color: isEndDragging
+                                                              ? Colors.black87
+                                                              : Colors.white,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  )
+                                                : Container(
+                                                    width: 2.5,
+                                                    height: 22,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white
+                                                          .withValues(alpha: 0.85),
+                                                      borderRadius:
+                                                          BorderRadius.circular(1.5),
+                                                    ),
                                                   ),
-                                                ),
-                                              ),
-                                            ),
                                           ),
                                         ),
                                       ),
@@ -524,7 +553,7 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                 const SizedBox(width: 6),
                 Container(
                   width: 2.5,
-                  height: 44,
+                  height: 58,
                   decoration: BoxDecoration(
                     color: accent.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(2),
@@ -578,10 +607,10 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
 
     return Container(
       width: 48,
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

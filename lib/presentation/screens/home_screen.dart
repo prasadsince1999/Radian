@@ -462,50 +462,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 }
                 ref.invalidate(batteryOptimizationStatusProvider);
               } else if (value == 'health_sync') {
-                final hasPerms =
-                    ref.read(healthPermissionsStatusProvider).value ?? false;
-                if (!hasPerms) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text(
-                          'Opening Health Connect to grant biometric permissions...',
-                        ),
-                        backgroundColor: colorScheme.surfaceContainerHigh,
-                        behavior: SnackBarBehavior.floating,
-                        duration: const Duration(seconds: 3),
-                      ),
-                    );
-                  }
-                  await DeviceSettingsService.openHealthConnectSettings();
-                  ref.invalidate(healthPermissionsStatusProvider);
-                  ref.invalidate(healthSyncStatusProvider);
-                } else {
-                  final selectedDay = ref.read(selectedDayProvider);
-                  final health = await ref.read(
-                    dailyHealthSummaryProvider(selectedDay).future,
-                  );
-                  final currentEvents =
-                      ref.read(dayEventsProvider).value ?? const [];
-                  final newSectors = await ref
-                      .read(syncHealthSessionsUseCaseProvider)
-                      .execute(health: health, existingEvents: currentEvents);
-                  ref.read(lastHealthSyncTimeProvider.notifier).state =
-                      DateTime.now();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          newSectors.isEmpty
-                              ? 'Health Connect: Up to date (0 new sessions).'
-                              : 'Synced ${newSectors.length} workout/sleep session(s) to dial!',
-                        ),
-                        backgroundColor: colorScheme.surfaceContainerHigh,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  }
-                }
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  sheetAnimationStyle: _kSheetAnimationStyle,
+                  constraints: const BoxConstraints(
+                    maxWidth: AppLayoutConstants.modalMaxWidth,
+                  ),
+                  shape: ExpressiveShapes.modalSheet,
+                  builder: (_) => const HealthInsightsSheet(),
+                );
               } else if (value == 'mcp') {
                 showModalBottomSheet(
                   context: context,
@@ -869,10 +836,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               animation: _expansionAnimation,
               child: const RepaintBoundary(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 4.0,
-                    vertical: 1.0,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 4.0, vertical: 1.0),
                   child: SectographDial(),
                 ),
               ),
@@ -921,8 +885,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
                         // Timeline Blocks Section (fills remaining space)
                         Expanded(
-                          child: ExpressiveTimeline(
-                            showAllEvents: isWholeScreen,
+                          child: RepaintBoundary(
+                            child: ExpressiveTimeline(
+                              showAllEvents: isWholeScreen,
+                            ),
                           ),
                         ),
                       ],

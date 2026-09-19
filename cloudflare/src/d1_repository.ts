@@ -110,6 +110,22 @@ export class D1Repository {
       .run();
   }
 
+  async getEventById(id: string, syncKey: string = 'default'): Promise<SectorEventRecord | null> {
+    const res = await this.db
+      .prepare('SELECT * FROM events WHERE id = ?1 AND sync_key = ?2 AND deleted_at IS NULL')
+      .bind(id, syncKey)
+      .first<SectorEventRecord>();
+    return res || null;
+  }
+
+  async updateEventSubtasks(id: string, subtasksJson: string, syncKey: string = 'default'): Promise<void> {
+    const now = new Date().toISOString();
+    await this.db
+      .prepare('UPDATE events SET subtasks = ?1, updated_at = ?2 WHERE id = ?3 AND sync_key = ?4')
+      .bind(subtasksJson, now, id, syncKey)
+      .run();
+  }
+
   async bulkUpsertEvents(
     events: Array<Partial<SectorEventRecord> & { id: string; title: string; start: string; end: string }>,
     syncKey: string = 'default'

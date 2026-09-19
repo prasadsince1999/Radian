@@ -5,6 +5,7 @@ import '../core/services/health_service.dart';
 import '../data/repositories/health_repository_impl.dart';
 import '../domain/models/dial_settings.dart';
 import '../domain/models/sector_event.dart';
+import '../domain/models/subtask_item.dart';
 import '../domain/repositories/event_repository.dart';
 import '../domain/repositories/health_repository.dart';
 import '../domain/use_cases/sync_health_sessions_use_case.dart';
@@ -242,7 +243,7 @@ class McpTools {
       },
       {
         'name': 'update_dial_settings',
-        'description': 'Remotely customize dial appearance and operation (12h/24h mode, theme, seed accent color, tick style, hand style).',
+        'description': 'Remotely customize dial appearance and operation (12h/24h mode, theme, seed accent color, tick style, hand style, center circle display mode, date of birth).',
         'inputSchema': {
           'type': 'object',
           'properties': {
@@ -267,7 +268,78 @@ class McpTools {
               'type': 'string',
               'enum': ['sleekNeedle', 'glowingArrow', 'minimalDot'],
             },
+            'centerClockDisplay': {
+              'type': 'string',
+              'enum': [
+                'digital',
+                'analog',
+                'dateTime',
+                'countdown',
+                'dobAge',
+                'currentSubtask',
+              ],
+              'description': 'Center circle customization mode: digital (digital clock), analog (classic ticking hands), dateTime (current date + time), countdown (time remaining or countdown to next block), dobAge (Life Clock based on date of birth), or currentSubtask (currently active micro-task).',
+            },
+            'dateOfBirth': {
+              'type': 'string',
+              'description': 'Date of birth in YYYY-MM-DD format (used by dobAge Life Clock), or empty string/null to clear.',
+            },
           },
+        },
+      },
+      {
+        'name': 'manage_subtask',
+        'description': 'Add, update, toggle completion, or delete micro-subtasks within a parent macro time block on the circular dial.',
+        'inputSchema': {
+          'type': 'object',
+          'properties': {
+            'action': {
+              'type': 'string',
+              'enum': ['add', 'update', 'toggle_complete', 'delete'],
+              'description': 'Subtask operation to execute.',
+            },
+            'parentEventId': {
+              'type': 'string',
+              'description': 'ID of the parent macro block (event).',
+            },
+            'subtaskId': {
+              'type': 'string',
+              'description': 'ID of the subtask (required for update, toggle_complete, delete).',
+            },
+            'title': {
+              'type': 'string',
+              'description': 'Title or description of the subtask.',
+            },
+            'startTime': {
+              'type': 'string',
+              'description': 'Start time within day in HH:mm 24h format (e.g. "09:30" or "14:15").',
+            },
+            'endTime': {
+              'type': 'string',
+              'description': 'End time within day in HH:mm 24h format (e.g. "10:00" or "15:00").',
+            },
+            'date': {
+              'type': 'string',
+              'description': 'Target date in YYYY-MM-DD format (defaults to parent event start date).',
+            },
+            'endDate': {
+              'type': 'string',
+              'description': 'Optional end date for multi-day subtasks.',
+            },
+            'isCompleted': {
+              'type': 'boolean',
+              'description': 'Completion status of the subtask.',
+            },
+            'isUnlimited': {
+              'type': 'boolean',
+              'description': 'Whether the subtask applies to all days (unlimited recurrence).',
+            },
+            'reminderMinutes': {
+              'type': 'integer',
+              'description': 'Optional reminder notification minutes.',
+            },
+          },
+          'required': ['action', 'parentEventId'],
         },
       },
       {
@@ -316,12 +388,73 @@ class McpTools {
     ];
   }
 
-  static List<String> _parseSubtasks(dynamic raw) {
+  static TimeOfDay? _parseTimeOfDay(dynamic t) {
+    if (t is String && t.contains(':')) {
+      final parts = t.split(':');
+      if (parts.length >= 2) {
+        final h = int.tryParse(parts[0].trim());
+        final m = int.tryParse(parts[1].trim());
+        if (h != null && m != null && h >= 0 && h < 24 && m >= 0 && m < 60) {
+          return TimeOfDay(hour: h, minute: m);
+        }
+      }
+    }
+    return null;
+  }
+
+  static List<SubtaskItem> _parseSubtaskItems(dynamic raw, String parentId) {
     if (raw is! List) return const [];
-    return raw
-        .map((s) => s.toString().trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
+    final items = <SubtaskItem>[];
+    for (final item in raw) {
+      if (item is Map<String, dynamic>) {
+        TimeOfDay? start;
+        if (item['startTime'] != null) {
+          start = _parseTimeOfDay(item['startTime']);
+        }
+        TimeOfDay? end;
+        if (item['endTime'] != null) {
+          end = _parseTimeOfDay(item['endTime']);
+        }
+        items.add(
+          SubtaskItem(
+            id: item['id'] as String? ?? const Uuid().v4(),
+            parentEventId: parentId,
+            title: item['title'] as String? ?? '',
+            isCompleted: item['isCompleted'] as bool? ?? false,
+            startTime:
+                start ??
+                (item['startHour'] != null && item['startMinute'] != null
+                    ? TimeOfDay(
+                        hour: item['startHour'] as int,
+                        minute: item['startMinute'] as int,
+                      )
+                    : null),
+            endTime:
+                end ??
+                (item['endHour'] != null && item['endMinute'] != null
+                    ? TimeOfDay(
+                        hour: item['endHour'] as int,
+                        minute: item['endMinute'] as int,
+                      )
+                    : null),
+            date: item['date'] != null
+                ? DateTime.tryParse(item['date'].toString())
+                : null,
+            endDate: item['endDate'] != null
+                ? DateTime.tryParse(item['endDate'].toString())
+                : null,
+            isUnlimited: item['isUnlimited'] as bool? ?? false,
+            reminderMinutes: item['reminderMinutes'] as int?,
+          ),
+        );
+      } else if (item != null) {
+        final title = item.toString().trim();
+        if (title.isNotEmpty) {
+          items.add(SubtaskItem.fromString(title, parentEventId: parentId));
+        }
+      }
+    }
+    return items;
   }
 
   static DateTime? _tryParseIsoDate(dynamic d) {
@@ -369,6 +502,43 @@ class McpTools {
           }
         }
 
+        SubtaskItem? activeSubtask;
+        if (active != null && active.subtaskItems.isNotEmpty) {
+          final curMinutes = now.hour * 60 + now.minute;
+          for (final s in active.subtaskItems) {
+            if (s.startTime != null && s.endTime != null) {
+              final sStart = s.startTime!.hour * 60 + s.startTime!.minute;
+              final sEnd = s.endTime!.hour * 60 + s.endTime!.minute;
+              if (curMinutes >= sStart && curMinutes < sEnd) {
+                activeSubtask = s;
+                break;
+              }
+            }
+          }
+          activeSubtask ??= active.subtaskItems
+              .where((s) => !s.isCompleted)
+              .firstOrNull;
+        }
+
+        if (activeSubtask == null) {
+          final curMinutes = now.hour * 60 + now.minute;
+          for (final e in events) {
+            for (final s in e.subtaskItems) {
+              if (s.isScheduledForDate(targetDate) &&
+                  s.startTime != null &&
+                  s.endTime != null) {
+                final sStart = s.startTime!.hour * 60 + s.startTime!.minute;
+                final sEnd = s.endTime!.hour * 60 + s.endTime!.minute;
+                if (curMinutes >= sStart && curMinutes < sEnd) {
+                  activeSubtask = s;
+                  break;
+                }
+              }
+            }
+            if (activeSubtask != null) break;
+          }
+        }
+
         final upcoming = events.where((e) => e.start.isAfter(now)).toList()
           ..sort((a, b) => a.start.compareTo(b.start));
 
@@ -376,10 +546,16 @@ class McpTools {
           'currentTime': now.toIso8601String(),
           'date': targetDate.toIso8601String().substring(0, 10),
           'is24HourMode': settings.is24HourMode,
+          'centerClockDisplay': settings.centerClockDisplay.name,
+          'dateOfBirth': settings.dateOfBirth?.toIso8601String().substring(
+            0,
+            10,
+          ),
           'activeEvent': active?.toJson(),
           'activeEventRemainingMinutes': active != null
               ? active.end.difference(now).inMinutes
               : 0,
+          'activeSubtask': activeSubtask?.toJson(),
           'totalEventsToday': events.length,
           'upcomingEvents': upcoming.take(3).map((e) => e.toJson()).toList(),
         };
@@ -418,15 +594,17 @@ class McpTools {
           final end = _tryParseIsoDate(item['end']);
           if (start == null || end == null || !end.isAfter(start)) continue;
 
+          final id = const Uuid().v4();
+          final rawSubtasks = item['subtaskItems'] ?? item['subtasks'];
           final event = SectorEvent(
-            id: const Uuid().v4(),
+            id: id,
             title: item['title'] as String? ?? 'Untitled',
             start: start,
             end: end,
             category: item['category'] as String? ?? 'General',
             colorHex: item['colorHex'] as String? ?? '#6366F1',
             notes: item['notes'] as String? ?? '',
-            subtasks: _parseSubtasks(item['subtasks']),
+            subtaskItems: _parseSubtaskItems(rawSubtasks, id),
           );
           created.add(event);
         }
@@ -451,15 +629,17 @@ class McpTools {
           final end = _tryParseIsoDate(item['end']);
           if (start == null || end == null || !end.isAfter(start)) continue;
 
+          final id = const Uuid().v4();
+          final rawSubtasks = item['subtaskItems'] ?? item['subtasks'];
           final event = SectorEvent(
-            id: const Uuid().v4(),
+            id: id,
             title: item['title'] as String? ?? 'Untitled',
             start: start,
             end: end,
             category: item['category'] as String? ?? 'General',
             colorHex: item['colorHex'] as String? ?? '#6366F1',
             notes: item['notes'] as String? ?? '',
-            subtasks: _parseSubtasks(item['subtasks']),
+            subtaskItems: _parseSubtaskItems(rawSubtasks, id),
           );
           replacement.add(event);
         }
@@ -498,14 +678,16 @@ class McpTools {
               final taskStart = currentGapStart;
               final taskEnd = taskStart.add(duration);
 
+              final id = const Uuid().v4();
+              final rawSubtasks = t['subtaskItems'] ?? t['subtasks'];
               final event = SectorEvent(
-                id: const Uuid().v4(),
+                id: id,
                 title: t['title'] as String? ?? 'Focus Task',
                 start: taskStart,
                 end: taskEnd,
                 category: t['category'] as String? ?? 'Focus',
                 colorHex: t['colorHex'] as String? ?? '#10B981',
-                subtasks: _parseSubtasks(t['subtasks']),
+                subtaskItems: _parseSubtaskItems(rawSubtasks, id),
               );
               scheduled.add(event);
               currentGapStart = taskEnd;
@@ -546,24 +728,26 @@ class McpTools {
             'error': 'End time must be strictly after start time',
           };
         }
+        final id = const Uuid().v4();
+        final rawSubtasks = arguments['subtaskItems'] ?? arguments['subtasks'];
         final event = SectorEvent(
-          id: const Uuid().v4(),
+          id: id,
           title: title,
           start: start,
           end: end,
           category: arguments['category'] as String? ?? 'General',
           colorHex: arguments['colorHex'] as String? ?? '#6366F1',
           notes: arguments['notes'] as String? ?? '',
-          subtasks: _parseSubtasks(arguments['subtasks']),
+          subtaskItems: _parseSubtaskItems(rawSubtasks, id),
         );
         await repository.addEvent(event);
         return {'success': true, 'sector': event.toJson()};
 
       case 'update_sector':
         final id = arguments['id'] as String? ?? '';
-        final events = await repository.getEventsForDay(now);
+        final allEvents = await repository.getAllEvents();
         SectorEvent? existing;
-        for (final e in events) {
+        for (final e in allEvents) {
           if (e.id == id) {
             existing = e;
             break;
@@ -597,9 +781,12 @@ class McpTools {
           };
         }
 
-        List<String>? updatedSubtasks;
-        if (arguments.containsKey('subtasks')) {
-          updatedSubtasks = _parseSubtasks(arguments['subtasks']);
+        List<SubtaskItem>? updatedSubtaskItems;
+        if (arguments.containsKey('subtaskItems') ||
+            arguments.containsKey('subtasks')) {
+          final rawSubtasks =
+              arguments['subtaskItems'] ?? arguments['subtasks'];
+          updatedSubtaskItems = _parseSubtaskItems(rawSubtasks, existing.id);
         }
 
         final updated = existing.copyWith(
@@ -609,15 +796,15 @@ class McpTools {
           category: arguments['category'] as String?,
           colorHex: arguments['colorHex'] as String?,
           notes: arguments['notes'] as String?,
-          subtasks: updatedSubtasks ?? existing.subtasks,
+          subtaskItems: updatedSubtaskItems ?? existing.subtaskItems,
         );
         await repository.updateEvent(updated);
         return {'success': true, 'sector': updated.toJson()};
 
       case 'delete_sector':
         final id = arguments['id'] as String? ?? '';
-        final events = await repository.getEventsForDay(now);
-        final exists = events.any((e) => e.id == id);
+        final allEvents = await repository.getAllEvents();
+        final exists = allEvents.any((e) => e.id == id);
         if (!exists) {
           return {'success': false, 'error': 'Sector not found with id: $id'};
         }
@@ -631,6 +818,207 @@ class McpTools {
           'success': true,
           'date': targetDate.toIso8601String().substring(0, 10),
         };
+
+      case 'manage_subtask':
+        final action = arguments['action'] as String?;
+        final parentEventId = arguments['parentEventId'] as String?;
+
+        if (action == null || parentEventId == null || parentEventId.isEmpty) {
+          return {
+            'success': false,
+            'error': 'Both "action" and "parentEventId" are required',
+          };
+        }
+
+        final allEvents = await repository.getAllEvents();
+        SectorEvent? parent;
+        for (final e in allEvents) {
+          if (e.id == parentEventId) {
+            parent = e;
+            break;
+          }
+        }
+        if (parent == null) {
+          return {
+            'success': false,
+            'error': 'Parent event not found with id: $parentEventId',
+          };
+        }
+
+        switch (action) {
+          case 'add':
+            final title = arguments['title'] as String? ?? 'Subtask';
+            if (title.trim().isEmpty) {
+              return {
+                'success': false,
+                'error': 'Subtask title cannot be empty',
+              };
+            }
+            final startTime = _parseTimeOfDay(arguments['startTime']);
+            final endTime = _parseTimeOfDay(arguments['endTime']);
+            final date = arguments['date'] != null
+                ? DateTime.tryParse(arguments['date'].toString())
+                : null;
+            final endDate = arguments['endDate'] != null
+                ? DateTime.tryParse(arguments['endDate'].toString())
+                : null;
+            final isCompleted = arguments['isCompleted'] as bool? ?? false;
+            final isUnlimited = arguments['isUnlimited'] as bool? ?? false;
+            final reminderMinutes = arguments['reminderMinutes'] as int?;
+
+            final newSubtask = SubtaskItem.create(
+              parentEventId: parentEventId,
+              title: title,
+              isCompleted: isCompleted,
+              startTime: startTime,
+              endTime: endTime,
+              date:
+                  date ??
+                  DateTime(
+                    parent.start.year,
+                    parent.start.month,
+                    parent.start.day,
+                  ),
+              endDate: endDate,
+              isUnlimited: isUnlimited,
+              reminderMinutes: reminderMinutes,
+            );
+
+            final updated = parent.copyWith(
+              subtaskItems: [...parent.subtaskItems, newSubtask],
+            );
+            await repository.updateEvent(updated);
+            return {
+              'success': true,
+              'action': 'add',
+              'parentEventId': parentEventId,
+              'subtask': newSubtask.toJson(),
+            };
+
+          case 'update':
+            final subtaskId = arguments['subtaskId'] as String?;
+            if (subtaskId == null || subtaskId.isEmpty) {
+              return {
+                'success': false,
+                'error': 'subtaskId is required for update',
+              };
+            }
+            final index = parent.subtaskItems.indexWhere(
+              (s) => s.id == subtaskId,
+            );
+            if (index == -1) {
+              return {
+                'success': false,
+                'error':
+                    'Subtask not found with id: $subtaskId in event: $parentEventId',
+              };
+            }
+            final existingSub = parent.subtaskItems[index];
+            final updatedSub = existingSub.copyWith(
+              title: arguments['title'] as String?,
+              startTime: arguments.containsKey('startTime')
+                  ? _parseTimeOfDay(arguments['startTime'])
+                  : existingSub.startTime,
+              endTime: arguments.containsKey('endTime')
+                  ? _parseTimeOfDay(arguments['endTime'])
+                  : existingSub.endTime,
+              date: arguments.containsKey('date')
+                  ? DateTime.tryParse(arguments['date'].toString())
+                  : existingSub.date,
+              endDate: arguments.containsKey('endDate')
+                  ? DateTime.tryParse(arguments['endDate'].toString())
+                  : existingSub.endDate,
+              isCompleted: arguments['isCompleted'] as bool?,
+              isUnlimited: arguments['isUnlimited'] as bool?,
+              reminderMinutes: arguments['reminderMinutes'] as int?,
+            );
+
+            final updatedList = List<SubtaskItem>.from(parent.subtaskItems);
+            updatedList[index] = updatedSub;
+            await repository.updateEvent(
+              parent.copyWith(subtaskItems: updatedList),
+            );
+            return {
+              'success': true,
+              'action': 'update',
+              'parentEventId': parentEventId,
+              'subtask': updatedSub.toJson(),
+            };
+
+          case 'toggle_complete':
+            final subtaskId = arguments['subtaskId'] as String?;
+            if (subtaskId == null || subtaskId.isEmpty) {
+              return {
+                'success': false,
+                'error': 'subtaskId is required for toggle_complete',
+              };
+            }
+            final index = parent.subtaskItems.indexWhere(
+              (s) => s.id == subtaskId,
+            );
+            if (index == -1) {
+              return {
+                'success': false,
+                'error':
+                    'Subtask not found with id: $subtaskId in event: $parentEventId',
+              };
+            }
+            final existingSub = parent.subtaskItems[index];
+            final newCompleted = arguments.containsKey('isCompleted')
+                ? (arguments['isCompleted'] as bool? ??
+                      !existingSub.isCompleted)
+                : !existingSub.isCompleted;
+            final updatedSub = existingSub.copyWith(isCompleted: newCompleted);
+
+            final updatedList = List<SubtaskItem>.from(parent.subtaskItems);
+            updatedList[index] = updatedSub;
+            await repository.updateEvent(
+              parent.copyWith(subtaskItems: updatedList),
+            );
+            return {
+              'success': true,
+              'action': 'toggle_complete',
+              'parentEventId': parentEventId,
+              'isCompleted': newCompleted,
+              'subtask': updatedSub.toJson(),
+            };
+
+          case 'delete':
+            final subtaskId = arguments['subtaskId'] as String?;
+            if (subtaskId == null || subtaskId.isEmpty) {
+              return {
+                'success': false,
+                'error': 'subtaskId is required for delete',
+              };
+            }
+            final exists = parent.subtaskItems.any((s) => s.id == subtaskId);
+            if (!exists) {
+              return {
+                'success': false,
+                'error':
+                    'Subtask not found with id: $subtaskId in event: $parentEventId',
+              };
+            }
+            final updatedList = parent.subtaskItems
+                .where((s) => s.id != subtaskId)
+                .toList();
+            await repository.updateEvent(
+              parent.copyWith(subtaskItems: updatedList),
+            );
+            return {
+              'success': true,
+              'action': 'delete',
+              'parentEventId': parentEventId,
+              'deletedSubtaskId': subtaskId,
+            };
+
+          default:
+            return {
+              'success': false,
+              'error':
+                  'Invalid action: $action. Supported actions: add, update, toggle_complete, delete',
+            };
+        }
 
       case 'get_dial_settings':
         return getSettings().toJson();
@@ -674,6 +1062,26 @@ class McpTools {
             if (e.name == val) {
               updated = updated.copyWith(handStyle: e);
               break;
+            }
+          }
+        }
+        if (arguments['centerClockDisplay'] != null) {
+          final val = arguments['centerClockDisplay'].toString();
+          for (final e in CenterClockDisplay.values) {
+            if (e.name == val) {
+              updated = updated.copyWith(centerClockDisplay: e);
+              break;
+            }
+          }
+        }
+        if (arguments.containsKey('dateOfBirth')) {
+          final dobRaw = arguments['dateOfBirth'];
+          if (dobRaw == null || dobRaw.toString().trim().isEmpty) {
+            updated = updated.copyWith(clearDateOfBirth: true);
+          } else {
+            final parsedDob = DateTime.tryParse(dobRaw.toString());
+            if (parsedDob != null) {
+              updated = updated.copyWith(dateOfBirth: parsedDob);
             }
           }
         }
