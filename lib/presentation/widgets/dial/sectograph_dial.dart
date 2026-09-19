@@ -283,33 +283,29 @@ class SectographDial extends ConsumerWidget {
                           0,
                         );
 
+                        final segStart = isAm ? dayStart : noon;
+                        final segEnd = isAm ? noon : dayEnd;
+
                         for (final e in projectedDayEvents) {
                           if (e.isAllDay) continue;
 
                           // In 12H Edit mode:
-                          // - AM segment: events starting in AM on viewingDay (e.start < noon),
-                          //   or overnight carry-over from yesterday into this morning.
-                          // - PM segment: events starting in PM on viewingDay (e.start >= noon and < dayEnd).
+                          // Segment window: AM is 00:00 - 12:00, PM is 12:00 - 24:00.
                           final inSegment = isAm
                               ? (e.start.isBefore(noon) &&
                                     e.end.isAfter(dayStart))
                               : (e.start.isBefore(dayEnd) &&
-                                    !e.start.isBefore(noon));
+                                    e.end.isAfter(noon));
 
                           if (!inSegment) continue;
 
-                          // For events carried over from yesterday, start at dayStart (00:00).
-                          // For events starting on viewingDay, preserve their true start and end!
-                          // Do NOT clip effEnd at midnight for overnight PM events (e.g. 8:15 PM - 2:15 AM).
-                          final effStart = e.start.isBefore(dayStart)
-                              ? dayStart
+                          // Strictly clamp effStart and effEnd to [segStart, segEnd]
+                          // so blocks never cross the 12-hour boundary and overlap other blocks!
+                          final effStart = e.start.isBefore(segStart)
+                              ? segStart
                               : e.start;
-                          final effEnd = e.end;
-                          final actualDuration = effEnd.difference(effStart);
-                          final duration =
-                              actualDuration > const Duration(hours: 12)
-                              ? const Duration(hours: 12)
-                              : actualDuration;
+                          final effEnd = e.end.isAfter(segEnd) ? segEnd : e.end;
+                          final duration = effEnd.difference(effStart);
 
                           if (duration.inMinutes > 0) {
                             final startAngle = SectorMath.timeToDialAngle(
@@ -323,6 +319,8 @@ class SectographDial extends ConsumerWidget {
 
                             rawEvents.add(
                               e.copyWith(
+                                start: effStart,
+                                end: effEnd,
                                 topLevel: 0,
                                 bottomLevel: 1000,
                                 startAngle: startAngle,
@@ -371,7 +369,18 @@ class SectographDial extends ConsumerWidget {
                         }
                       }
 
-                      computedEvents = rawEvents;
+                      // Deconflict blocks in 12-hour mode so overlapping events never render on top of each other
+                      final deconflicted = <SectorEvent>[];
+                      for (final ev in rawEvents) {
+                        if (!deconflicted.any(
+                          (existing) =>
+                              ev.start.isBefore(existing.end) &&
+                              existing.start.isBefore(ev.end),
+                        )) {
+                          deconflicted.add(ev);
+                        }
+                      }
+                      computedEvents = deconflicted;
                     }
 
                     // Compute effective time and effective active event for digital readout

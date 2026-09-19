@@ -275,205 +275,72 @@ void main() {
       expect(allEvents, isEmpty);
     });
 
-    testWidgets(
-      'renders Date selection cards and updates Unlimited state dynamically',
-      (tester) async {
-        tester.view.devicePixelRatio = 1.0;
-        tester.view.physicalSize = const Size(800, 1200);
-        addTearDown(() {
-          tester.view.resetPhysicalSize();
-          tester.view.resetDevicePixelRatio();
-        });
+    testWidgets('renders slim time line with start and end time badges', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(800, 1200);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
 
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
-            child: MaterialApp(
-              home: Scaffold(body: EventEditModal(initialDate: testDate)),
-            ),
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
+          child: MaterialApp(
+            home: Scaffold(body: EventEditModal(initialDate: testDate)),
           ),
-        );
+        ),
+      );
 
-        await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-        // Verify Start & End date cards and Unlimited toggle exist
-        expect(find.byKey(const ValueKey('start_date_tile')), findsOneWidget);
-        expect(find.byKey(const ValueKey('end_date_tile')), findsOneWidget);
-        expect(
-          find.byKey(const ValueKey('unlimited_date_toggle')),
-          findsOneWidget,
-        );
+      // Verify Start & End time tiles exist in the slim line
+      expect(find.byKey(const ValueKey('start_time_tile')), findsOneWidget);
+      expect(find.byKey(const ValueKey('end_time_tile')), findsOneWidget);
+      expect(find.text('TIME'), findsOneWidget);
+    });
 
-        // Initially Unlimited is active
-        expect(find.text('Unlimited'), findsOneWidget);
-        expect(find.text('∞'), findsOneWidget);
+    testWidgets('creating block saves event on initialDate in repository', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(800, 1200);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
 
-        // Tap Unlimited toggle to switch to fixed end date
-        await tester.tap(find.byKey(const ValueKey('unlimited_date_toggle')));
-        await tester.pumpAndSettle();
-
-        // End date should now show a formatted date
-        expect(find.byKey(const ValueKey('end_date_tile')), findsOneWidget);
-      },
-    );
-
-    testWidgets(
-      'selecting weekly days (clock style) saves repeatDays and recurrence in repository',
-      (tester) async {
-        tester.view.devicePixelRatio = 1.0;
-        tester.view.physicalSize = const Size(800, 1200);
-        addTearDown(() {
-          tester.view.resetPhysicalSize();
-          tester.view.resetDevicePixelRatio();
-        });
-
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
-            child: MaterialApp(
-              home: Scaffold(body: EventEditModal(initialDate: testDate)),
-            ),
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
+          child: MaterialApp(
+            home: Scaffold(body: EventEditModal(initialDate: testDate)),
           ),
-        );
+        ),
+      );
 
-        await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-        // Enter title
-        final titleField = find.byType(TextField).first;
-        await tester.enterText(titleField, 'Morning Standup');
-        await tester.pumpAndSettle();
+      // Enter title
+      final titleField = find.byType(TextField).first;
+      await tester.enterText(titleField, 'Focus Session');
+      await tester.pumpAndSettle();
 
-        // Verify Repeat header exists
-        expect(find.text('Repeat'), findsOneWidget);
+      // Tap "Create Block"
+      await tester.ensureVisible(find.text('Create Block'));
+      await tester.tap(find.text('Create Block'));
+      await tester.pumpAndSettle();
 
-        // Tap "M" (Monday) weekday bubble
-        await tester.tap(find.text('M'));
-        await tester.pumpAndSettle();
-
-        // Unlimited toggle should appear
-        expect(find.text('Unlimited'), findsOneWidget);
-        expect(find.text('∞'), findsOneWidget);
-
-        // Tap "Create Block"
-        await tester.ensureVisible(find.text('Create Block'));
-        await tester.tap(find.text('Create Block'));
-        await tester.pumpAndSettle();
-
-        final allEvents = await fakeRepo.getAllEvents();
-        expect(allEvents.length, equals(1));
-        final created = allEvents.first;
-        expect(created.title, equals('Morning Standup'));
-        expect(created.repeatDays, equals([1]));
-        expect(created.recurrenceEndDate, isNull); // Unlimited
-      },
-    );
-
-    testWidgets(
-      'unlimited block without specific weekday filter repeats daily and appears on next day',
-      (tester) async {
-        tester.view.devicePixelRatio = 1.0;
-        tester.view.physicalSize = const Size(800, 1200);
-        addTearDown(() {
-          tester.view.resetPhysicalSize();
-          tester.view.resetDevicePixelRatio();
-        });
-
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
-            child: MaterialApp(
-              home: Scaffold(body: EventEditModal(initialDate: testDate)),
-            ),
-          ),
-        );
-
-        await tester.pumpAndSettle();
-
-        // Enter title
-        final titleField = find.byType(TextField).first;
-        await tester.enterText(titleField, 'Daily Routine Block');
-        await tester.pumpAndSettle();
-
-        // Verify Unlimited & Daily repeat badge
-        expect(find.text('Unlimited'), findsOneWidget);
-        expect(find.text('Daily'), findsOneWidget);
-
-        // Tap "Create Block"
-        await tester.ensureVisible(find.text('Create Block'));
-        await tester.tap(find.text('Create Block'));
-        await tester.pumpAndSettle();
-
-        final allEvents = await fakeRepo.getAllEvents();
-        expect(allEvents.length, equals(1));
-        final created = allEvents.first;
-        expect(created.title, equals('Daily Routine Block'));
-        expect(created.repeatDays, equals([1, 2, 3, 4, 5, 6, 7]));
-        expect(created.recurrenceEndDate, isNull); // Unlimited
-
-        // Verify appearance on the next day!
-        final nextDay = testDate.add(const Duration(days: 1));
-        final nextDayEvents = await fakeRepo.getEventsForDay(nextDay);
-        expect(nextDayEvents.length, equals(1));
-        expect(nextDayEvents.first.title, equals('Daily Routine Block'));
-        expect(nextDayEvents.first.start.day, equals(nextDay.day));
-      },
-    );
-
-    testWidgets(
-      'toggling off unlimited creates single-day event which does not appear on next day',
-      (tester) async {
-        tester.view.devicePixelRatio = 1.0;
-        tester.view.physicalSize = const Size(800, 1200);
-        addTearDown(() {
-          tester.view.resetPhysicalSize();
-          tester.view.resetDevicePixelRatio();
-        });
-
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
-            child: MaterialApp(
-              home: Scaffold(body: EventEditModal(initialDate: testDate)),
-            ),
-          ),
-        );
-
-        await tester.pumpAndSettle();
-
-        // Enter title
-        final titleField = find.byType(TextField).first;
-        await tester.enterText(titleField, 'One-time Task');
-        await tester.pumpAndSettle();
-
-        // Tap ∞ toggle to turn off unlimited
-        await tester.tap(find.byKey(const ValueKey('unlimited_date_toggle')));
-        await tester.pumpAndSettle();
-
-        expect(find.text('Once'), findsOneWidget);
-
-        // Tap "Create Block"
-        await tester.ensureVisible(find.text('Create Block'));
-        await tester.tap(find.text('Create Block'));
-        await tester.pumpAndSettle();
-
-        final allEvents = await fakeRepo.getAllEvents();
-        expect(allEvents.length, equals(1));
-        final created = allEvents.first;
-        expect(created.title, equals('One-time Task'));
-        expect(created.repeatDays, isNull);
-        expect(created.recurrenceEndDate, isNull);
-
-        // Verify it appears on initial testDate
-        final todayEvents = await fakeRepo.getEventsForDay(testDate);
-        expect(todayEvents.length, equals(1));
-        expect(todayEvents.first.title, equals('One-time Task'));
-
-        // Verify it does NOT appear on next day
-        final nextDay = testDate.add(const Duration(days: 1));
-        final nextDayEvents = await fakeRepo.getEventsForDay(nextDay);
-        expect(nextDayEvents, isEmpty);
-      },
-    );
+      final allEvents = await fakeRepo.getAllEvents();
+      expect(allEvents.length, equals(1));
+      final created = allEvents.first;
+      expect(created.title, equals('Focus Session'));
+      expect(created.start.year, equals(testDate.year));
+      expect(created.start.month, equals(testDate.month));
+      expect(created.start.day, equals(testDate.day));
+    });
 
     testWidgets('selecting category chip auto-fills title and sets color', (
       tester,

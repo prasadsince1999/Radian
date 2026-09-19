@@ -13,7 +13,6 @@ import '../../controllers/clock_controller.dart';
 import '../../controllers/cloud_sync_controller.dart';
 import '../common/bouncy_pressable.dart';
 import 'subtask_edit_sheet.dart';
-import 'components/event_date_repeat_card.dart';
 import 'icon_color_picker_sheet.dart';
 
 /// Modal bottom sheet for creating or editing a Sectograph time block.
@@ -31,7 +30,6 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
   late TextEditingController _titleController;
   late TextEditingController _notesController;
   late DateTime _startDate;
-  late DateTime _endDate;
   late TimeOfDay _startTime;
   late TimeOfDay _endTime;
   late String _selectedCategory;
@@ -40,9 +38,6 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
   late List<SubtaskItem> _subtaskItems;
   late bool _isAllDay;
   int? _selectedReminderMinutes;
-  late Set<int> _selectedWeeklyDays;
-  late bool _isUnlimitedEndDate;
-  DateTime? _recurrenceEndDate;
 
   late List<String> _palette;
 
@@ -87,42 +82,10 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
         ? TimeOfDay(hour: ev.end.hour, minute: ev.end.minute)
         : TimeOfDay(hour: defaultEnd.hour, minute: defaultEnd.minute);
 
-    final isOvernight =
-        _endTime.hour * 60 + _endTime.minute <=
-        _startTime.hour * 60 + _startTime.minute;
-    _endDate =
-        ev?.end ??
-        (isOvernight ? _startDate.add(const Duration(days: 1)) : _startDate);
-
     _selectedCategory = ev?.category ?? 'Work';
     _selectedColorHex = ev?.colorHex ?? '#6366F1';
     _selectedIconName = ev?.effectiveIconName ?? '';
     _selectedReminderMinutes = ev?.reminderMinutes;
-
-    final isRepeating =
-        (ev?.repeatDays != null && ev!.repeatDays!.isNotEmpty) ||
-        (ev?.recurrenceEndDate != null);
-
-    if (ev == null) {
-      _isUnlimitedEndDate = true;
-      _selectedWeeklyDays = <int>{};
-      _recurrenceEndDate = null;
-      _endDate = _startDate;
-    } else if (isRepeating) {
-      _isUnlimitedEndDate = ev.recurrenceEndDate == null;
-      _recurrenceEndDate = ev.recurrenceEndDate;
-      _endDate = ev.recurrenceEndDate ?? _startDate;
-      _selectedWeeklyDays = ev.repeatDays != null && ev.repeatDays!.isNotEmpty
-          ? (ev.repeatDays!.length == 7
-                ? <int>{}
-                : Set<int>.from(ev.repeatDays!))
-          : <int>{};
-    } else {
-      _isUnlimitedEndDate = false;
-      _recurrenceEndDate = null;
-      _endDate = _startDate;
-      _selectedWeeklyDays = <int>{};
-    }
     _isAllDay = ev?.isAllDay ?? false;
   }
 
@@ -185,132 +148,6 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
 
   DateTime _combine(DateTime date, TimeOfDay tod) {
     return DateTime(date.year, date.month, date.day, tod.hour, tod.minute);
-  }
-
-  void _toggleWeekday(int day) {
-    setState(() {
-      if (_selectedWeeklyDays.contains(day)) {
-        _selectedWeeklyDays.remove(day);
-      } else {
-        _selectedWeeklyDays.add(day);
-      }
-      if (_selectedWeeklyDays.isNotEmpty &&
-          !_isUnlimitedEndDate &&
-          (_recurrenceEndDate == null ||
-              !_recurrenceEndDate!.isAfter(_startDate))) {
-        _isUnlimitedEndDate = true;
-      }
-    });
-  }
-
-  void _toggleUnlimitedEndDate() {
-    setState(() {
-      _isUnlimitedEndDate = !_isUnlimitedEndDate;
-      if (_isUnlimitedEndDate) {
-        _recurrenceEndDate = null;
-      } else {
-        _selectedWeeklyDays.clear();
-        _endDate = _startDate;
-        _recurrenceEndDate = null;
-      }
-    });
-  }
-
-  Future<void> _pickDate([bool isStart = true]) async {
-    final initial = isStart
-        ? _startDate
-        : (_endDate.isBefore(_startDate) ? _startDate : _endDate);
-    final accent = _currentColor;
-    final onAccent =
-        ThemeData.estimateBrightnessForColor(accent) == Brightness.dark
-        ? Colors.white
-        : Colors.black;
-
-    final baseTheme = Theme.of(context);
-    final colorScheme = baseTheme.colorScheme;
-    final isDark = baseTheme.brightness == Brightness.dark;
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: isStart ? DateTime(2020) : _startDate,
-      lastDate: DateTime(2035),
-      builder: (context, child) {
-        return Theme(
-          data: baseTheme.copyWith(
-            colorScheme: colorScheme.copyWith(
-              primary: accent,
-              onPrimary: onAccent,
-            ),
-            datePickerTheme: DatePickerThemeData(
-              backgroundColor: isDark
-                  ? colorScheme.surfaceContainerHigh
-                  : colorScheme.surface,
-              headerBackgroundColor: isDark
-                  ? colorScheme.surfaceContainerHighest
-                  : colorScheme.surfaceContainerHigh,
-              headerForegroundColor: colorScheme.onSurface,
-              surfaceTintColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: colorScheme.outlineVariant, width: 1.2),
-              ),
-              dayForegroundColor: WidgetStateColor.resolveWith((states) {
-                if (states.contains(WidgetState.selected)) {
-                  return onAccent;
-                }
-                if (states.contains(WidgetState.disabled)) {
-                  return colorScheme.onSurfaceVariant.withValues(alpha: 0.38);
-                }
-                return colorScheme.onSurface;
-              }),
-              dayBackgroundColor: WidgetStateColor.resolveWith((states) {
-                if (states.contains(WidgetState.selected)) {
-                  return accent;
-                }
-                return Colors.transparent;
-              }),
-              todayForegroundColor: WidgetStatePropertyAll(accent),
-              todayBorder: BorderSide(color: accent, width: 1.2),
-              yearForegroundColor: WidgetStateColor.resolveWith(
-                (states) => states.contains(WidgetState.selected)
-                    ? onAccent
-                    : colorScheme.onSurface,
-              ),
-              yearBackgroundColor: WidgetStateColor.resolveWith(
-                (states) => states.contains(WidgetState.selected)
-                    ? accent
-                    : Colors.transparent,
-              ),
-              cancelButtonStyle: TextButton.styleFrom(
-                foregroundColor: colorScheme.onSurfaceVariant,
-                textStyle: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              confirmButtonStyle: TextButton.styleFrom(
-                foregroundColor: accent,
-                textStyle: const TextStyle(fontWeight: FontWeight.w900),
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
-      setState(() {
-        if (isStart) {
-          _startDate = picked;
-          if (!_isUnlimitedEndDate && _endDate.isBefore(_startDate)) {
-            _endDate = _startDate;
-            _recurrenceEndDate = _startDate;
-          }
-        } else {
-          _endDate = picked;
-          _recurrenceEndDate = picked;
-          _isUnlimitedEndDate = false;
-        }
-      });
-    }
   }
 
   void _deleteEvent() {
@@ -405,23 +242,8 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
       endDt = startDt.add(const Duration(hours: 1));
     }
 
-    final effectiveRepeatDays = () {
-      if (_selectedWeeklyDays.isNotEmpty) {
-        return _selectedWeeklyDays.toList()..sort();
-      }
-      if (_isUnlimitedEndDate) {
-        return [1, 2, 3, 4, 5, 6, 7];
-      }
-      if (_recurrenceEndDate != null &&
-          _recurrenceEndDate!.isAfter(_startDate)) {
-        return [1, 2, 3, 4, 5, 6, 7];
-      }
-      return null;
-    }();
-
-    final effectiveRecurrenceEndDate = _isUnlimitedEndDate
-        ? null
-        : (_endDate.isAfter(_startDate) ? _endDate : null);
+    final effectiveRepeatDays = widget.event?.repeatDays;
+    final effectiveRecurrenceEndDate = widget.event?.recurrenceEndDate;
 
     final newEvent = SectorEvent(
       id: widget.event?.id ?? const Uuid().v4(),
@@ -744,168 +566,82 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
               ),
               const SizedBox(height: 12),
 
-              // 2. Start & End Time Card (Clean & Tappable, No All-day / drag helper)
+              // 2. Start & End Time - Slim Line (Read-Only from Dial Dragging)
               Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: cardBg,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: cardBorder, width: 1.2),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.schedule_rounded,
-                          size: 18,
+                    Icon(Icons.schedule_rounded, size: 16, color: currentColor),
+                    const SizedBox(width: 8),
+                    Text(
+                      'TIME',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    KeyedSubtree(
+                      key: const ValueKey('start_time_tile'),
+                      child: Text(
+                        TimeFormatters.formatTimeOfDay(_startTime),
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Text(
+                        '–',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    KeyedSubtree(
+                      key: const ValueKey('end_time_tile'),
+                      child: Text(
+                        TimeFormatters.formatTimeOfDay(_endTime),
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: currentColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        _durationLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
                           color: currentColor,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'TIME',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: currentColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            _durationLabel,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: currentColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            key: const ValueKey('start_time_tile'),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerHigh,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: colorScheme.outlineVariant,
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'START',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  TimeFormatters.formatTimeOfDay(_startTime),
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Icon(
-                            Icons.arrow_forward_rounded,
-                            size: 18,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        Expanded(
-                          child: Container(
-                            key: const ValueKey('end_time_tile'),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerHigh,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: colorScheme.outlineVariant,
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'END',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  TimeFormatters.formatTimeOfDay(_endTime),
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.touch_app_rounded,
-                          size: 13,
-                          color: colorScheme.onSurfaceVariant.withValues(
-                            alpha: 0.7,
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        Expanded(
-                          child: Text(
-                            'Block times are set by dragging sectors on the watch dial',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: colorScheme.onSurfaceVariant.withValues(
-                                alpha: 0.7,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -1161,21 +897,7 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
 
-              // 4. Date & Repeat Card
-              EventDateRepeatCard(
-                startDate: _startDate,
-                endDate: _endDate,
-                isUnlimitedEndDate: _isUnlimitedEndDate,
-                selectedWeeklyDays: _selectedWeeklyDays,
-                currentColor: currentColor,
-                cardBg: cardBg,
-                cardBorder: cardBorder,
-                onPickDate: _pickDate,
-                onToggleUnlimited: _toggleUnlimitedEndDate,
-                onToggleWeekday: _toggleWeekday,
-              ),
               const SizedBox(height: 16),
 
               // Hero Save Button

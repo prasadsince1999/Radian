@@ -290,6 +290,11 @@ class DialTimeCapDragHandler {
     final dayStart = DateTime(refDay.year, refDay.month, refDay.day, 0, 0);
     final dayEnd = DateTime(refDay.year, refDay.month, refDay.day + 1, 0, 0);
 
+    final noon = DateTime(refDay.year, refDay.month, refDay.day, 12, 0);
+    final isPm = !is24HourMode && event.start.hour >= 12;
+    final segStart = is24HourMode ? dayStart : (isPm ? noon : dayStart);
+    final segEnd = is24HourMode ? dayEnd : (isPm ? dayEnd : noon);
+
     // Active non-all-day events on this day sorted by start time
     final activeEvents = allDayEvents.where((e) => !e.isAllDay).toList()
       ..sort((a, b) => a.start.compareTo(b.start));
@@ -354,22 +359,14 @@ class DialTimeCapDragHandler {
         }
       }
 
-      // 3. Calendar Day boundaries
-      final effectiveRotationEnd =
-          (event.end.isAfter(dayEnd) || candidateEnd.isAfter(dayEnd))
-          ? dayStart.add(
-              is24HourMode
-                  ? const Duration(days: 2)
-                  : const Duration(days: 1, hours: 12),
-            )
-          : dayEnd;
-      if (candidateStart.isBefore(dayStart)) {
-        candidateStart = dayStart;
+      // 3. Segment boundaries (segStart, segEnd)
+      if (candidateStart.isBefore(segStart)) {
+        candidateStart = segStart;
         candidateEnd = candidateStart.add(hit.originalDuration);
         didClamp = true;
       }
-      if (candidateEnd.isAfter(effectiveRotationEnd)) {
-        candidateEnd = effectiveRotationEnd;
+      if (candidateEnd.isAfter(segEnd)) {
+        candidateEnd = segEnd;
         candidateStart = candidateEnd.subtract(hit.originalDuration);
         didClamp = true;
       }
@@ -408,9 +405,9 @@ class DialTimeCapDragHandler {
           : const Duration(hours: 12);
       final maxAllowedStart = event.end.subtract(minBlockDuration);
       final minAllowedStart = event.end.subtract(maxBlockDuration);
-      final earliestStart = minAllowedStart.isAfter(dayStart)
+      final earliestStart = minAllowedStart.isAfter(segStart)
           ? minAllowedStart
-          : dayStart;
+          : segStart;
       if (candidateTime.isAfter(maxAllowedStart)) {
         candidateTime = maxAllowedStart;
         didClamp = true;
@@ -435,12 +432,12 @@ class DialTimeCapDragHandler {
             final dur = curr.end.difference(curr.start);
             var newEnd = succ.start;
             var newStart = newEnd.subtract(dur);
-            if (newStart.isBefore(dayStart)) {
-              newStart = dayStart;
+            if (newStart.isBefore(segStart)) {
+              newStart = segStart;
               newEnd = newStart.add(dur);
               didClamp = true;
 
-              // Propagate forward clamp: blocks cannot be pushed before dayStart
+              // Propagate forward clamp: blocks cannot be pushed before segStart
               var clampBoundary = newEnd;
               for (int k = i + 1; k <= myIndex; k++) {
                 if (activeEvents[k].start.isBefore(clampBoundary)) {
@@ -492,13 +489,9 @@ class DialTimeCapDragHandler {
           ? const Duration(hours: 24)
           : const Duration(hours: 12);
       final maxAllowedEnd = event.start.add(maxBlockDuration);
-      // For overnight events or dragging past midnight, allow up to maxAllowedEnd
-      final effectiveDayEnd =
-          (event.end.isAfter(dayEnd) || candidateTime.isAfter(dayEnd))
-          ? maxAllowedEnd
-          : dayEnd;
-      if (candidateTime.isAfter(effectiveDayEnd)) {
-        candidateTime = effectiveDayEnd;
+      final latestEnd = maxAllowedEnd.isBefore(segEnd) ? maxAllowedEnd : segEnd;
+      if (candidateTime.isAfter(latestEnd)) {
+        candidateTime = latestEnd;
         didClamp = true;
       }
 
@@ -517,12 +510,12 @@ class DialTimeCapDragHandler {
             final dur = curr.end.difference(curr.start);
             var newStart = pred.end;
             var newEnd = newStart.add(dur);
-            if (newEnd.isAfter(effectiveDayEnd)) {
-              newEnd = effectiveDayEnd;
+            if (newEnd.isAfter(latestEnd)) {
+              newEnd = latestEnd;
               newStart = newEnd.subtract(dur);
               didClamp = true;
 
-              // Propagate backward clamp: blocks cannot be pushed past effectiveDayEnd
+              // Propagate backward clamp: blocks cannot be pushed past latestEnd
               var clampBoundary = newStart;
               for (int k = i - 1; k >= myIndex; k--) {
                 if (activeEvents[k].end.isAfter(clampBoundary)) {
