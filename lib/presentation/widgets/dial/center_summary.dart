@@ -6,7 +6,6 @@ import '../../../core/utils/time_formatters.dart';
 import '../../../domain/models/dial_settings.dart';
 import '../../../domain/models/sector_event.dart';
 import '../../controllers/clock_controller.dart';
-import '../common/bouncy_pressable.dart';
 
 class CenterSummary extends ConsumerWidget {
   final DateTime currentTime;
@@ -130,27 +129,6 @@ class CenterSummary extends ConsumerWidget {
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                   fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-              const SizedBox(height: 4),
-              BouncyPressable(
-                scaleDownFactor: 0.85,
-                onTap: onDismissSelected,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHigh,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: colorScheme.outlineVariant,
-                      width: 1.2,
-                    ),
-                  ),
-                  child: Icon(
-                    Icons.close_rounded,
-                    size: 14,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
                 ),
               ),
             ],

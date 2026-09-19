@@ -867,7 +867,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               animation: _expansionAnimation,
               child: const RepaintBoundary(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(8.0, 4.0, 8.0, 2.0),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 4.0,
+                    vertical: 1.0,
+                  ),
                   child: SectographDial(),
                 ),
               ),

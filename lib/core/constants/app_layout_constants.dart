@@ -24,9 +24,9 @@ abstract final class AppLayoutConstants {
   // --- Dial Geometry ---
   static const int scallopLobes = 12;
   static const double scallopAmp = 0.0;
-  static const double innerRadiusRatio = 0.42;
-  static const double routineTrackInnerOffset = 2.0;
-  static const double routineTrackOuterMargin = 3.5;
+  static const double innerRadiusRatio = 0.38;
+  static const double routineTrackInnerOffset = 1.0;
+  static const double routineTrackOuterMargin = 1.8;
   static const double dialSizeHeadroom = 36.0;
 
   // --- Standard Component Sizes ---
@@ -39,10 +39,10 @@ abstract final class AppLayoutConstants {
   static const int maxDialVisibleBlocks = 10;
   static const int maxBlocks12H = 12;
   static const int maxBlocks24H = 18;
-  static const double standardCapSpanDeg24H = 5.6;
-  static const double standardCapSpanDeg12H = 6.8;
-  static const double minSweepForCaps24H = 8.0;
-  static const double minSweepForCaps12H = 12.0;
+  static const double standardCapSpanDeg24H = 7.2;
+  static const double standardCapSpanDeg12H = 9.2;
+  static const double minSweepForCaps24H = 10.0;
+  static const double minSweepForCaps12H = 14.0;
 
   // --- Content-Aware Natural Block Stretch Constants ---
   /// Minimum sweep angle in 24H mode so caps + icon + title keyword + duration fit with zero overlap.

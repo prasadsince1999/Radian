@@ -196,7 +196,7 @@ class SectorPillRenderer {
     }
 
     // 2. Solid darker badge color on cap highlighting the boundary time (pure solid, zero inner blur!)
-    final badgeColor = Color.lerp(eventColor, Colors.black, 0.30)!;
+    final badgeColor = Color.lerp(eventColor, Colors.black, 0.36)!;
     canvas.drawPath(
       capPath,
       Paint()
@@ -217,15 +217,22 @@ class SectorPillRenderer {
       center.dy + midR * math.sin(midRad),
     );
 
-    final fontSize = is24HourMode ? 6.8 : 7.4;
+    final fontSize = is24HourMode ? 8.6 : 10.0;
     final textPainter = TextPainter(
       text: TextSpan(
         text: timeStr,
         style: TextStyle(
           fontSize: fontSize,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w900,
           color: const Color(0xFFFFFFFF),
-          letterSpacing: -0.2,
+          letterSpacing: -0.1,
+          shadows: const [
+            Shadow(
+              color: Colors.black87,
+              blurRadius: 2.5,
+              offset: Offset(0, 0.5),
+            ),
+          ],
           fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),
@@ -235,15 +242,15 @@ class SectorPillRenderer {
 
     // Ensure text fits strictly inside cap arc and radial clearance
     final availableArcAtMidR = midR * (sweepDeg * math.pi / 180.0);
-    final availableRadial = (rOut - rIn) - 14.0;
+    final availableRadial = (rOut - rIn) - 6.0;
     var scale = 1.0;
-    if (textPainter.height > availableArcAtMidR * 0.88) {
-      scale = math.min(scale, (availableArcAtMidR * 0.88) / textPainter.height);
+    if (textPainter.height > availableArcAtMidR * 0.94) {
+      scale = math.min(scale, (availableArcAtMidR * 0.94) / textPainter.height);
     }
     if (textPainter.width > availableRadial) {
       scale = math.min(scale, availableRadial / textPainter.width);
     }
-    scale = scale.clamp(0.65, 1.0);
+    scale = scale.clamp(0.75, 1.0);
 
     canvas.save();
     canvas.clipPath(capPath);

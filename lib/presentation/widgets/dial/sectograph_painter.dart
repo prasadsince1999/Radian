@@ -590,15 +590,15 @@ class SectographPainter extends CustomPainter {
           ..strokeWidth = l.isSelected ? 2.4 : 1.2;
         canvas.drawPath(l.pillPath, outlinePaint);
 
-        // Tactile grab handles at start and end cap boundaries
-        final midR = (l.rIn + l.rOut) / 2.0;
+        // Tactile grab handles at outer boundary corners (never overlaps internal time badges!)
+        final handleR = l.rOut;
 
         // 1. Start grab handle
         final startAngle = l.startDeg;
         final startRad = SectorMath.dialAngleToCanvasRadians(startAngle);
         final startPos = Offset(
-          center.dx + midR * math.cos(startRad),
-          center.dy + midR * math.sin(startRad),
+          center.dx + handleR * math.cos(startRad),
+          center.dy + handleR * math.sin(startRad),
         );
         final isDraggingStart =
             activeDraggingCap != null &&
@@ -615,8 +615,8 @@ class SectographPainter extends CustomPainter {
         final endAngle = l.startDeg + l.sweepDeg;
         final endRad = SectorMath.dialAngleToCanvasRadians(endAngle);
         final endPos = Offset(
-          center.dx + midR * math.cos(endRad),
-          center.dy + midR * math.sin(endRad),
+          center.dx + handleR * math.cos(endRad),
+          center.dy + handleR * math.sin(endRad),
         );
         final isDraggingEnd =
             activeDraggingCap != null &&

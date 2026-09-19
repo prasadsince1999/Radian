@@ -75,18 +75,19 @@ class SectographDial extends ConsumerWidget {
         final fallbackDimension = hasFiniteWidth
             ? constraints.maxWidth
             : (hasFiniteHeight ? constraints.maxHeight : 320.0);
+        final footerHeight =
+            (settings.is24HourMode ? 0.0 : 34.0) +
+            (relativeLabel != null ? 22.0 : 0.0) +
+            44.0;
         final availableDialHeight = hasFiniteHeight
-            ? math.max(
-                100.0,
-                constraints.maxHeight - AppLayoutConstants.dialSizeHeadroom,
-              )
+            ? math.max(100.0, constraints.maxHeight - footerHeight)
             : fallbackDimension;
         final availableDialWidth = hasFiniteWidth
             ? constraints.maxWidth
             : availableDialHeight;
         final dialSize = math.min(availableDialWidth, availableDialHeight);
         final center = Offset(dialSize / 2, dialSize / 2);
-        final maxRadius = dialSize / 2 * 0.985;
+        final maxRadius = dialSize / 2 * 0.995;
         const scallopAmp = AppLayoutConstants.scallopAmp;
         final baseRadius = maxRadius - scallopAmp;
         final innerRadius = baseRadius * AppLayoutConstants.innerRadiusRatio;
@@ -883,10 +884,10 @@ class SectographDial extends ConsumerWidget {
               ),
             ],
             if (!settings.is24HourMode) ...[
-              const SizedBox(height: 5),
+              const SizedBox(height: 3),
               _Dial12HourSegmentPill(viewingDay: viewingDay),
             ],
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             // Dedicated Connected Footer Control Bar (media_1788806983137.png)
             _DialFooterControlBar(
               settings: settings,
@@ -895,7 +896,7 @@ class SectographDial extends ConsumerWidget {
               currentTime: currentTime,
               isNotNow: isNotNow,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
           ],
         );
       },
@@ -1081,6 +1082,7 @@ class _DialFooterControlBar extends ConsumerWidget {
             BouncyPressable.standard(
               onTap: () {
                 if (isDialEditing) {
+                  ref.read(selectedEventProvider.notifier).state = null;
                   final wasModified = ref.read(
                     hasModifiedDialPositionsProvider,
                   );
@@ -1114,6 +1116,7 @@ class _DialFooterControlBar extends ConsumerWidget {
                     );
                   }
                 } else {
+                  ref.read(selectedEventProvider.notifier).state = null;
                   ref.read(isDialEditingProvider.notifier).state = true;
                   ref.read(hasModifiedDialPositionsProvider.notifier).state =
                       false;
