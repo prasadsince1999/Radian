@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../core/constants/app_layout_constants.dart';
 import '../../../core/constants/app_strings.dart';
@@ -36,6 +35,7 @@ class SectographDial extends ConsumerWidget {
     final scrubAngle = ref.watch(dialScrubAngleProvider);
     final settings = ref.watch(dialSettingsProvider);
     final isDialEditing = ref.watch(isDialEditingProvider);
+    final dialSegment = ref.watch(dial12HourSegmentProvider);
     final activeDraggingCap = ref.watch(activeDraggingCapProvider);
     final liveAdjustedEvent = ref.watch(liveAdjustedEventProvider);
     final liveAdjustedMap = ref.watch(liveAdjustedEventsMapProvider);
@@ -251,15 +251,75 @@ class SectographDial extends ConsumerWidget {
                       }
 
                       // In 24-hour mode, all 24 hours are distributed around 360° with zero wrap collisions.
-                      // In 12-hour mode (both watch mode and circle edit mode), enforce the 12-hour rolling horizon
-                      // around refTime so AM and PM blocks never wrap and overlap on the 12H dial face.
+                      // In 12-hour mode:
+                      // - When editing (isDialEditing): segmented into AM (00:00-12:00) and PM (12:00-24:00),
+                      //   displaying all existing blocks for that segment with zero AM/PM visual collisions.
+                      // - In normal watch mode: rolling 12-hour horizon around refTime.
                       final rawEvents = <SectorEvent>[];
-                      final shouldShowAllDayBlocks = settings.is24HourMode;
 
-                      for (final e in projectedDayEvents) {
-                        if (e.isAllDay) continue;
+                      if (isDialEditing) {
+                        final isAm = dialSegment == Dial12HourSegment.am;
+                        final segStart = DateTime(
+                          viewingDay.year,
+                          viewingDay.month,
+                          viewingDay.day,
+                          isAm ? 0 : 12,
+                          0,
+                        );
+                        final segEnd = isAm
+                            ? DateTime(
+                                viewingDay.year,
+                                viewingDay.month,
+                                viewingDay.day,
+                                12,
+                                0,
+                              )
+                            : DateTime(
+                                viewingDay.year,
+                                viewingDay.month,
+                                viewingDay.day + 1,
+                                0,
+                                0,
+                              );
 
-                        if (!shouldShowAllDayBlocks) {
+                        for (final e in projectedDayEvents) {
+                          if (e.isAllDay) continue;
+
+                          if (e.start.isBefore(segEnd) &&
+                              e.end.isAfter(segStart)) {
+                            final effStart = e.start.isBefore(segStart)
+                                ? segStart
+                                : e.start;
+                            final effEnd = e.end.isAfter(segEnd)
+                                ? segEnd
+                                : e.end;
+                            final duration = effEnd.difference(effStart);
+                            if (duration.inMinutes > 0) {
+                              final startAngle = SectorMath.timeToDialAngle(
+                                effStart,
+                                is24HourMode: false,
+                              );
+                              final sweepAngle =
+                                  SectorMath.durationToSweepAngle(
+                                    duration,
+                                    is24HourMode: false,
+                                  );
+
+                              rawEvents.add(
+                                e.copyWith(
+                                  topLevel: 0,
+                                  bottomLevel: 1000,
+                                  startAngle: startAngle,
+                                  sweepAngle: sweepAngle,
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      } else {
+                        for (final e in projectedDayEvents) {
+                          if (e.isAllDay) continue;
+
                           // Skip events that completed more than 15 minutes before refTime (unless active)
                           if (e.end.isBefore(
                                 refTime.subtract(const Duration(minutes: 15)),
@@ -272,27 +332,27 @@ class SectographDial extends ConsumerWidget {
                           if (e.start.difference(refTime).inMinutes >= 720) {
                             continue;
                           }
-                        }
 
-                        final duration = e.end.difference(e.start);
-                        if (duration.inMinutes > 0) {
-                          final startAngle = SectorMath.timeToDialAngle(
-                            e.start,
-                            is24HourMode: false,
-                          );
-                          final sweepAngle = SectorMath.durationToSweepAngle(
-                            duration,
-                            is24HourMode: false,
-                          );
+                          final duration = e.end.difference(e.start);
+                          if (duration.inMinutes > 0) {
+                            final startAngle = SectorMath.timeToDialAngle(
+                              e.start,
+                              is24HourMode: false,
+                            );
+                            final sweepAngle = SectorMath.durationToSweepAngle(
+                              duration,
+                              is24HourMode: false,
+                            );
 
-                          rawEvents.add(
-                            e.copyWith(
-                              topLevel: 0,
-                              bottomLevel: 1000,
-                              startAngle: startAngle,
-                              sweepAngle: sweepAngle,
-                            ),
-                          );
+                            rawEvents.add(
+                              e.copyWith(
+                                topLevel: 0,
+                                bottomLevel: 1000,
+                                startAngle: startAngle,
+                                sweepAngle: sweepAngle,
+                              ),
+                            );
+                          }
                         }
                       }
 
@@ -522,6 +582,12 @@ class SectographDial extends ConsumerWidget {
                           ref
                               .read(cloudSyncControllerProvider.notifier)
                               .syncNow();
+                          ref
+                                  .read(
+                                    hasModifiedDialPositionsProvider.notifier,
+                                  )
+                                  .state =
+                              true;
                           HapticFeedback.mediumImpact();
                         } else if (isDialEditing &&
                             activeCap != null &&
@@ -537,6 +603,12 @@ class SectographDial extends ConsumerWidget {
                           ref
                               .read(cloudSyncControllerProvider.notifier)
                               .syncNow();
+                          ref
+                                  .read(
+                                    hasModifiedDialPositionsProvider.notifier,
+                                  )
+                                  .state =
+                              true;
                           HapticFeedback.mediumImpact();
                         }
                         ref.read(activeDraggingCapProvider.notifier).state =
@@ -633,6 +705,7 @@ class SectographDial extends ConsumerWidget {
                               colorScheme: colorScheme,
                               lens: lens,
                               activeDraggingCap: activeDraggingCap,
+                              isDialEditing: isDialEditing,
                             ),
                           ),
                           ClipOval(
@@ -664,61 +737,33 @@ class SectographDial extends ConsumerWidget {
                                           scaleDownFactor: 0.88,
                                           onTap: () {
                                             HapticFeedback.mediumImpact();
-                                            final freeGaps =
-                                                DialTimeCapDragHandler.findFreeGaps(
-                                                  events: computedEvents,
-                                                  day: viewingDay,
-                                                );
-                                            DateTime newStart;
-                                            DateTime newEnd;
-                                            if (freeGaps.isNotEmpty) {
-                                              final firstGap = freeGaps.first;
-                                              newStart = firstGap.$1;
-                                              final gapMins = firstGap.$2
-                                                  .difference(firstGap.$1)
-                                                  .inMinutes;
-                                              final dur = math.min(60, gapMins);
-                                              newEnd = newStart.add(
-                                                Duration(minutes: dur),
+                                            final is24H = settings.is24HourMode;
+                                            final maxAllowed = is24H
+                                                ? AppLayoutConstants
+                                                      .maxBlocks24H
+                                                : AppLayoutConstants
+                                                      .maxBlocks12H;
+                                            if (projectedDayEvents.length >=
+                                                maxAllowed) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'Dial limit reached: maximum $maxAllowed blocks allowed in ${is24H ? "24H" : "12H"} mode to prevent dial clutter.',
+                                                  ),
+                                                  behavior:
+                                                      SnackBarBehavior.floating,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                  ),
+                                                ),
                                               );
-                                            } else {
-                                              newStart = DateTime(
-                                                viewingDay.year,
-                                                viewingDay.month,
-                                                viewingDay.day,
-                                                9,
-                                                0,
-                                              );
-                                              newEnd = newStart.add(
-                                                const Duration(hours: 1),
-                                              );
+                                              return;
                                             }
-                                            final newEvent = SectorEvent(
-                                              id: const Uuid().v4(),
-                                              title: 'New Block',
-                                              start: newStart,
-                                              end: newEnd,
-                                              colorHex: '#6366F1',
-                                            );
-                                            ref
-                                                .read(eventRepositoryProvider)
-                                                .addEvent(newEvent);
-                                            ref
-                                                    .read(
-                                                      selectedEventProvider
-                                                          .notifier,
-                                                    )
-                                                    .state =
-                                                newEvent;
-                                            ref
-                                                .read(cloudSyncServiceProvider)
-                                                .queueUpsert(newEvent);
-                                            ref
-                                                .read(
-                                                  cloudSyncControllerProvider
-                                                      .notifier,
-                                                )
-                                                .syncNow();
 
                                             showModalBottomSheet(
                                               context: context,
@@ -727,7 +772,7 @@ class SectographDial extends ConsumerWidget {
                                               backgroundColor:
                                                   Colors.transparent,
                                               builder: (_) => EventEditModal(
-                                                event: newEvent,
+                                                event: null,
                                                 initialDate: viewingDay,
                                               ),
                                             );
@@ -837,6 +882,10 @@ class SectographDial extends ConsumerWidget {
                 ),
               ),
             ],
+            if (!settings.is24HourMode) ...[
+              const SizedBox(height: 5),
+              _Dial12HourSegmentPill(viewingDay: viewingDay),
+            ],
             const SizedBox(height: 6),
             // Dedicated Connected Footer Control Bar (media_1788806983137.png)
             _DialFooterControlBar(
@@ -874,6 +923,7 @@ class _DialFooterControlBar extends ConsumerWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDialEditing = ref.watch(isDialEditingProvider);
+    final hasModified = ref.watch(hasModifiedDialPositionsProvider);
 
     final buttonBg = colorScheme.surfaceContainerHigh;
     final buttonBorder = colorScheme.outlineVariant;
@@ -902,6 +952,11 @@ class _DialFooterControlBar extends ConsumerWidget {
                   ref.read(dialScrubAngleProvider.notifier).state = null;
                   ref.read(customSelectedDayProvider.notifier).state = null;
                   ref.read(selectedEventProvider.notifier).state = null;
+                  ref
+                      .read(dial12HourSegmentProvider.notifier)
+                      .state = DateTime.now().hour < 12
+                      ? Dial12HourSegment.am
+                      : Dial12HourSegment.pm;
                 },
                 child: Container(
                   height: 36,
@@ -1022,14 +1077,52 @@ class _DialFooterControlBar extends ConsumerWidget {
               ),
             ),
 
-            // 3. Right: [ 🎛️ Edit ] / [ ✓ Done ] (Toggles dial block editing)
+            // 3. Right: [ 🎛️ Edit ] / [ ✓ Done ] / [ 💾 Save Position ]
             Positioned(
               right: 0,
               child: BouncyPressable.standard(
                 onTap: () {
-                  final current = ref.read(isDialEditingProvider);
-                  ref.read(isDialEditingProvider.notifier).state = !current;
-                  HapticFeedback.mediumImpact();
+                  if (isDialEditing) {
+                    if (hasModified) {
+                      ref
+                              .read(hasModifiedDialPositionsProvider.notifier)
+                              .state =
+                          false;
+                      ref.read(isDialEditingProvider.notifier).state = false;
+                      HapticFeedback.mediumImpact();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Row(
+                            children: [
+                              Icon(
+                                Icons.check_circle_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Block positions saved',
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                            ],
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    } else {
+                      ref.read(isDialEditingProvider.notifier).state = false;
+                      HapticFeedback.lightImpact();
+                    }
+                  } else {
+                    ref.read(isDialEditingProvider.notifier).state = true;
+                    ref.read(hasModifiedDialPositionsProvider.notifier).state =
+                        false;
+                    HapticFeedback.mediumImpact();
+                  }
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
@@ -1037,10 +1130,18 @@ class _DialFooterControlBar extends ConsumerWidget {
                   height: 36,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: isDialEditing ? colorScheme.primary : buttonBg,
+                    color: isDialEditing
+                        ? (hasModified
+                              ? const Color(0xFF10B981)
+                              : colorScheme.primary)
+                        : buttonBg,
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
-                      color: isDialEditing ? colorScheme.primary : buttonBorder,
+                      color: isDialEditing
+                          ? (hasModified
+                                ? const Color(0xFF10B981)
+                                : colorScheme.primary)
+                          : buttonBorder,
                       width: 1.2,
                     ),
                   ),
@@ -1049,28 +1150,167 @@ class _DialFooterControlBar extends ConsumerWidget {
                     children: [
                       Icon(
                         isDialEditing
-                            ? Icons.check_rounded
+                            ? (hasModified
+                                  ? Icons.save_rounded
+                                  : Icons.check_rounded)
                             : Icons.tune_rounded,
                         size: 15,
-                        color: isDialEditing
-                            ? colorScheme.onPrimary
-                            : primaryTextColor,
+                        color: isDialEditing ? Colors.white : primaryTextColor,
                       ),
                       const SizedBox(width: 5),
                       Text(
-                        isDialEditing ? 'Done' : 'Edit',
+                        isDialEditing
+                            ? (hasModified ? 'Save Position' : 'Done')
+                            : 'Edit',
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 12,
                           letterSpacing: 0.2,
                           color: isDialEditing
-                              ? colorScheme.onPrimary
+                              ? Colors.white
                               : primaryTextColor,
                         ),
                       ),
                     ],
                   ),
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Dial12HourSegmentPill extends ConsumerWidget {
+  final DateTime viewingDay;
+
+  const _Dial12HourSegmentPill({required this.viewingDay});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final activeSegment = ref.watch(dial12HourSegmentProvider);
+    final allEventsAsync = ref.watch(allEventsProvider);
+
+    final events = allEventsAsync.value ?? const [];
+    int amCount = 0;
+    int pmCount = 0;
+    final dayStart = DateTime(
+      viewingDay.year,
+      viewingDay.month,
+      viewingDay.day,
+      0,
+      0,
+    );
+    final noon = DateTime(
+      viewingDay.year,
+      viewingDay.month,
+      viewingDay.day,
+      12,
+      0,
+    );
+    final dayEnd = DateTime(
+      viewingDay.year,
+      viewingDay.month,
+      viewingDay.day + 1,
+      0,
+      0,
+    );
+
+    for (final e in events) {
+      if (e.isAllDay) continue;
+      if (e.start.isBefore(noon) && e.end.isAfter(dayStart)) {
+        amCount++;
+      }
+      if (e.start.isBefore(dayEnd) && e.end.isAfter(noon)) {
+        pmCount++;
+      }
+    }
+
+    final containerBg = colorScheme.surfaceContainerHigh;
+    final outlineBorder = colorScheme.outlineVariant;
+
+    return Center(
+      child: Container(
+        height: 30,
+        padding: const EdgeInsets.all(2.5),
+        decoration: BoxDecoration(
+          color: containerBg,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: outlineBorder, width: 1.0),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildSegmentOption(
+              context: context,
+              ref: ref,
+              segment: Dial12HourSegment.am,
+              isSelected: activeSegment == Dial12HourSegment.am,
+              icon: Icons.wb_sunny_rounded,
+              title: 'AM',
+              count: amCount,
+              colorScheme: colorScheme,
+            ),
+            const SizedBox(width: 4),
+            _buildSegmentOption(
+              context: context,
+              ref: ref,
+              segment: Dial12HourSegment.pm,
+              isSelected: activeSegment == Dial12HourSegment.pm,
+              icon: Icons.nightlight_round,
+              title: 'PM',
+              count: pmCount,
+              colorScheme: colorScheme,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSegmentOption({
+    required BuildContext context,
+    required WidgetRef ref,
+    required Dial12HourSegment segment,
+    required bool isSelected,
+    required IconData icon,
+    required String title,
+    required int count,
+    required ColorScheme colorScheme,
+  }) {
+    final activeBg = colorScheme.primary;
+    final activeFg = colorScheme.onPrimary;
+    final inactiveFg = colorScheme.onSurfaceVariant;
+
+    return BouncyPressable(
+      scaleDownFactor: 0.92,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        ref.read(dial12HourSegmentProvider.notifier).state = segment;
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeInOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        decoration: BoxDecoration(
+          color: isSelected ? activeBg : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: isSelected ? activeFg : inactiveFg),
+            const SizedBox(width: 4),
+            Text(
+              '$title ($count)',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+                color: isSelected ? activeFg : inactiveFg,
+                letterSpacing: 0.2,
               ),
             ),
           ],

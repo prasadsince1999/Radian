@@ -86,7 +86,11 @@ class LocalEventRepository implements EventRepository {
       _events.removeWhere(
         (e) =>
             e.id == '859ca18a-e5ff-40d6-9d94-026e309a7637' ||
-            e.title.contains('Focus Coding Build UI'),
+            e.title.contains('Focus Coding Build UI') ||
+            (e.title == 'New Block' &&
+                e.notes.isEmpty &&
+                e.subtasks.isEmpty &&
+                e.subtaskItems.isEmpty),
       );
       if (_events.length != initialCount) {
         hasEnriched = true;

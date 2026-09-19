@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/constants/app_layout_constants.dart';
 import '../../../core/constants/app_presets.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/models/sector_event.dart';
@@ -376,7 +377,7 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
     }
   }
 
-  void _save() {
+  Future<void> _save() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) return;
 
@@ -384,6 +385,30 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
     final startDt = _isAllDay
         ? DateTime(_startDate.year, _startDate.month, _startDate.day, 0, 0)
         : _combine(_startDate, _startTime);
+
+    if (widget.event == null) {
+      final dialSettings = ref.read(dialSettingsProvider);
+      final is24H = dialSettings.is24HourMode;
+      final maxAllowed = is24H
+          ? AppLayoutConstants.maxBlocks24H
+          : AppLayoutConstants.maxBlocks12H;
+      final existingEvents = await repo.getEventsForDay(startDt);
+      if (existingEvents.length >= maxAllowed) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Dial limit reached: maximum $maxAllowed blocks allowed in ${is24H ? "24H" : "12H"} mode to prevent visual clutter.',
+            ),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+        return;
+      }
+    }
 
     final isOvernight =
         _endTime.hour * 60 + _endTime.minute <=
@@ -448,6 +473,7 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
     ref.read(cloudSyncServiceProvider).queueUpsert(newEvent);
     ref.read(cloudSyncControllerProvider.notifier).syncNow();
 
+    if (!mounted) return;
     Navigator.of(context).pop();
   }
 

@@ -37,6 +37,8 @@ abstract final class AppLayoutConstants {
 
   // --- Dial Capacity & Time Badge Geometry ---
   static const int maxDialVisibleBlocks = 10;
+  static const int maxBlocks12H = 12;
+  static const int maxBlocks24H = 18;
   static const double standardCapSpanDeg24H = 5.6;
   static const double standardCapSpanDeg12H = 6.8;
   static const double minSweepForCaps24H = 8.0;

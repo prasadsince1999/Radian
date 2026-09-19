@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/device_settings_service.dart';
 import '../../../core/services/health_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/expressive_shapes.dart';
-import '../../../domain/models/health_models.dart';
 import '../../controllers/clock_controller.dart';
 import 'm3_activity_heatmap.dart';
 
@@ -17,43 +17,33 @@ class HealthInsightsSheet extends ConsumerWidget {
     final selectedDay = ref.watch(selectedDayProvider);
     final healthAsync = ref.watch(dailyHealthSummaryProvider(selectedDay));
     final allEventsAsync = ref.watch(allEventsProvider);
-    final syncStatus = ref.watch(healthSyncStatusProvider);
+    final hasHealthPerms =
+        ref.watch(healthPermissionsStatusProvider).value ?? false;
+    final lastHealthSync = ref.watch(lastHealthSyncTimeProvider);
     final allEvents = allEventsAsync.value ?? const [];
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    String syncLabel;
-    Color syncColor;
-    switch (syncStatus) {
-      case HealthSyncStatus.connected:
-        syncLabel = 'Google Health Connect Active';
-        syncColor = AppColors.statusSuccess;
-        break;
-      case HealthSyncStatus.syncing:
-        syncLabel = 'Health Connect Syncing...';
-        syncColor = Colors.orangeAccent;
-        break;
-      case HealthSyncStatus.permissionRequired:
-        syncLabel = 'Permissions Required';
-        syncColor = Colors.amber;
-        break;
-      case HealthSyncStatus.disconnected:
-        syncLabel = 'Health Connect Unavailable';
-        syncColor = Colors.grey;
-        break;
-      case HealthSyncStatus.error:
-        syncLabel = 'Sync Error';
-        syncColor = Colors.redAccent;
-        break;
-      case HealthSyncStatus.uninitialized:
-        syncLabel = 'Checking Health Connect...';
-        syncColor = Colors.blueGrey;
-        break;
+    final String syncLabel;
+    final Color syncColor;
+    if (!hasHealthPerms) {
+      syncLabel = 'Permission needed (tap to connect)';
+      syncColor = AppColors.statusError;
+    } else if (lastHealthSync == null) {
+      syncLabel = 'Connected · Sync pending';
+      syncColor = AppColors.statusWarning;
+    } else {
+      syncLabel = 'Connected · Synced';
+      syncColor = AppColors.statusSuccess;
     }
 
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.88,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Column(
@@ -134,9 +124,50 @@ class HealthInsightsSheet extends ConsumerWidget {
                   color: colorScheme.onSurfaceVariant,
                 ),
                 tooltip: 'Sync Health Data',
-                onPressed: () {
-                  ref.invalidate(dailyHealthSummaryProvider(selectedDay));
-                  ref.read(healthSyncStatusProvider.notifier).checkStatus();
+                onPressed: () async {
+                  HapticFeedback.lightImpact();
+                  if (!hasHealthPerms) {
+                    await DeviceSettingsService.openHealthConnectSettings();
+                    ref.invalidate(healthPermissionsStatusProvider);
+                    ref.read(healthSyncStatusProvider.notifier).checkStatus();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Opening Health Connect permissions for Radian...',
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  } else {
+                    final health = await ref.read(
+                      dailyHealthSummaryProvider(selectedDay).future,
+                    );
+                    final currentEvents =
+                        ref.read(dayEventsProvider).value ?? const [];
+                    final newSectors = await ref
+                        .read(syncHealthSessionsUseCaseProvider)
+                        .execute(health: health, existingEvents: currentEvents);
+                    ref.read(lastHealthSyncTimeProvider.notifier).state =
+                        DateTime.now();
+                    ref.invalidate(dailyHealthSummaryProvider(selectedDay));
+                    ref.read(healthSyncStatusProvider.notifier).checkStatus();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            newSectors.isNotEmpty
+                                ? 'Health Connect synced ${newSectors.length} biometric session(s)'
+                                : 'Health Connect: Up to date (0 new sessions)',
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  }
                 },
               ),
               IconButton(
@@ -151,13 +182,26 @@ class HealthInsightsSheet extends ConsumerWidget {
           const SizedBox(height: 18),
 
           // Permission banner if permission is needed
-          if (syncStatus == HealthSyncStatus.permissionRequired)
+          if (!hasHealthPerms)
             Padding(
               padding: const EdgeInsets.only(bottom: 14),
               child: InkWell(
                 onTap: () async {
+                  HapticFeedback.lightImpact();
                   await DeviceSettingsService.openHealthConnectSettings();
+                  ref.invalidate(healthPermissionsStatusProvider);
                   ref.read(healthSyncStatusProvider.notifier).checkStatus();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Opening Health Connect permissions for Radian...',
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  }
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
@@ -166,17 +210,17 @@ class HealthInsightsSheet extends ConsumerWidget {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.15),
+                    color: AppColors.statusError.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Colors.amber.withValues(alpha: 0.4),
+                      color: AppColors.statusError.withValues(alpha: 0.35),
                     ),
                   ),
                   child: Row(
                     children: [
                       const Icon(
                         Icons.security_update_warning_rounded,
-                        color: Colors.amber,
+                        color: AppColors.statusError,
                         size: 20,
                       ),
                       const SizedBox(width: 10),
@@ -193,7 +237,7 @@ class HealthInsightsSheet extends ConsumerWidget {
                       const Icon(
                         Icons.arrow_forward_ios_rounded,
                         size: 12,
-                        color: Colors.amber,
+                        color: AppColors.statusError,
                       ),
                     ],
                   ),

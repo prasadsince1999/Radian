@@ -250,6 +250,195 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
     );
   }
 
+  void _showParentBlockPicker(
+    BuildContext context,
+    List<SectorEvent> availableEvents,
+  ) {
+    HapticFeedback.lightImpact();
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final is24 = ref.read(dialSettingsProvider).is24HourMode;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: false,
+      shape: ExpressiveShapes.modalSheet,
+      constraints: const BoxConstraints(
+        maxWidth: AppLayoutConstants.modalMaxWidth,
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.70,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: ShapeDecoration(
+                        shape: ExpressiveShapes.squircle(12),
+                        color: colorScheme.primaryContainer,
+                      ),
+                      child: Icon(
+                        Icons.folder_rounded,
+                        size: 20,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Select Parent Block',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          Text(
+                            'Assign subtask to a scheduled time block',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: availableEvents.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final ev = availableEvents[index];
+                      final isSelected = ev.id == _selectedParentEventId;
+                      final timeStr =
+                          '${TimeFormatters.formatTime(ev.start, is24Hour: is24)} – ${TimeFormatters.formatTime(ev.end, is24Hour: is24)}';
+
+                      return BouncyPressable(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setState(() => _selectedParentEventId = ev.id);
+                          Navigator.of(ctx).pop();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? colorScheme.primaryContainer.withValues(
+                                    alpha: 0.35,
+                                  )
+                                : colorScheme.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isSelected
+                                  ? ev.color.withValues(alpha: 0.6)
+                                  : colorScheme.outlineVariant.withValues(
+                                      alpha: 0.5,
+                                    ),
+                              width: isSelected ? 1.5 : 1.0,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 34,
+                                height: 34,
+                                decoration: ShapeDecoration(
+                                  shape: ExpressiveShapes.squircle(10),
+                                  color: ev.color.withValues(alpha: 0.2),
+                                ),
+                                child: Icon(
+                                  ev.iconData,
+                                  size: 18,
+                                  color: ev.color,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      ev.title,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      timeStr,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: colorScheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isSelected)
+                                Icon(
+                                  Icons.check_circle_rounded,
+                                  color: ev.color,
+                                  size: 20,
+                                )
+                              else
+                                Icon(
+                                  Icons.circle_outlined,
+                                  color: colorScheme.outlineVariant,
+                                  size: 20,
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -454,75 +643,66 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
                         ),
                       )
                     else
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: colorScheme.outlineVariant),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value:
-                                availableEvents.any(
-                                  (e) => e.id == _selectedParentEventId,
-                                )
-                                ? _selectedParentEventId
-                                : availableEvents.first.id,
-                            isExpanded: true,
-                            icon: Icon(
-                              Icons.arrow_drop_down_rounded,
-                              color: parentColor,
+                      BouncyPressable(
+                        onTap: () =>
+                            _showParentBlockPicker(context, availableEvents),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: colorScheme.outlineVariant,
+                              width: 1.2,
                             ),
-                            items: availableEvents.map((ev) {
-                              final is24 = ref
-                                  .watch(dialSettingsProvider)
-                                  .is24HourMode;
-                              final timeStr =
-                                  '${TimeFormatters.formatTime(ev.start, is24Hour: is24)} – ${TimeFormatters.formatTime(ev.end, is24Hour: is24)}';
-                              return DropdownMenuItem<String>(
-                                value: ev.id,
-                                child: Row(
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 14,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  color: parentColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      width: 12,
-                                      height: 12,
-                                      decoration: BoxDecoration(
-                                        color: ev.color,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        ev.title,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 14,
-                                          color: colorScheme.onSurface,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
                                     Text(
-                                      timeStr,
+                                      activeParent?.title ??
+                                          'Select Parent Block',
                                       style: TextStyle(
-                                        fontSize: 12,
-                                        color: colorScheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                        color: colorScheme.onSurface,
                                       ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
+                                    if (activeParent != null) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${TimeFormatters.formatTime(activeParent.start, is24Hour: ref.watch(dialSettingsProvider).is24HourMode)} – ${TimeFormatters.formatTime(activeParent.end, is24Hour: ref.watch(dialSettingsProvider).is24HourMode)}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
-                              );
-                            }).toList(),
-                            onChanged: (val) {
-                              if (val != null) {
-                                setState(() => _selectedParentEventId = val);
-                              }
-                            },
+                              ),
+                              Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                color: colorScheme.onSurfaceVariant,
+                                size: 22,
+                              ),
+                            ],
                           ),
                         ),
                       ),

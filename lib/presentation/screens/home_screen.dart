@@ -334,7 +334,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 isScrollControlled: true,
                 useSafeArea: true,
                 sheetAnimationStyle: _kSheetAnimationStyle,
-                backgroundColor: Colors.transparent,
                 constraints: const BoxConstraints(
                   maxWidth: AppLayoutConstants.modalMaxWidth,
                 ),
@@ -1015,7 +1014,6 @@ class _SupportingInsightsPane extends ConsumerWidget {
                   isScrollControlled: true,
                   useSafeArea: true,
                   sheetAnimationStyle: _kSheetAnimationStyle,
-                  backgroundColor: Colors.transparent,
                   constraints: const BoxConstraints(
                     maxWidth: AppLayoutConstants.modalMaxWidth,
                   ),

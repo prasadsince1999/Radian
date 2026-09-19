@@ -33,6 +33,7 @@ class SectographPainter extends CustomPainter {
   final bool showNeedle;
   final FisheyeTimeLens? lens;
   final CapHitResult? activeDraggingCap;
+  final bool isDialEditing;
 
   SectographPainter({
     required this.events,
@@ -46,6 +47,7 @@ class SectographPainter extends CustomPainter {
     this.showNeedle = true,
     this.lens,
     this.activeDraggingCap,
+    this.isDialEditing = false,
   });
 
   static const int scallopLobes = AppLayoutConstants.scallopLobes;
@@ -576,6 +578,59 @@ class SectographPainter extends CustomPainter {
       }
     }
 
+    // Pass 4: Visual Schedule Edit Mode Boundary Outlines & Grab Handles
+    if (isDialEditing) {
+      for (final l in pillLayouts) {
+        // Outline the block: bright white for selected, luminous stroke for others
+        final outlinePaint = Paint()
+          ..color = l.isSelected
+              ? Colors.white
+              : Colors.white.withValues(alpha: 0.45)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = l.isSelected ? 2.4 : 1.2;
+        canvas.drawPath(l.pillPath, outlinePaint);
+
+        // Tactile grab handles at start and end cap boundaries
+        final midR = (l.rIn + l.rOut) / 2.0;
+
+        // 1. Start grab handle
+        final startAngle = l.startDeg;
+        final startRad = SectorMath.dialAngleToCanvasRadians(startAngle);
+        final startPos = Offset(
+          center.dx + midR * math.cos(startRad),
+          center.dy + midR * math.sin(startRad),
+        );
+        final isDraggingStart =
+            activeDraggingCap != null &&
+            l.event.id == activeDraggingCap!.event.id &&
+            (activeDraggingCap!.isStartCap || activeDraggingCap!.isEntireBlock);
+        _drawGrabHandle(
+          canvas: canvas,
+          position: startPos,
+          isDragging: isDraggingStart,
+          baseColor: l.event.color,
+        );
+
+        // 2. End grab handle
+        final endAngle = l.startDeg + l.sweepDeg;
+        final endRad = SectorMath.dialAngleToCanvasRadians(endAngle);
+        final endPos = Offset(
+          center.dx + midR * math.cos(endRad),
+          center.dy + midR * math.sin(endRad),
+        );
+        final isDraggingEnd =
+            activeDraggingCap != null &&
+            l.event.id == activeDraggingCap!.event.id &&
+            (activeDraggingCap!.isEndCap || activeDraggingCap!.isEntireBlock);
+        _drawGrabHandle(
+          canvas: canvas,
+          position: endPos,
+          isDragging: isDraggingEnd,
+          baseColor: l.event.color,
+        );
+      }
+    }
+
     // Determine which events display subtasks on the dial:
     // User rule: only show previous one, current one, and upcoming one (plus selectedEvent).
     final subtaskAllowedEventIds = <String>{};
@@ -885,6 +940,52 @@ class SectographPainter extends CustomPainter {
     }
   }
 
+  void _drawGrabHandle({
+    required Canvas canvas,
+    required Offset position,
+    required bool isDragging,
+    required Color baseColor,
+  }) {
+    final handleRadius = isDragging ? 5.8 : 4.4;
+    // Outer shadow / glow
+    canvas.drawCircle(
+      position,
+      handleRadius + 1.6,
+      Paint()
+        ..color = isDragging
+            ? colorScheme.primary.withValues(alpha: 0.65)
+            : Colors.black.withValues(alpha: 0.45)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0),
+    );
+    // Fill
+    canvas.drawCircle(
+      position,
+      handleRadius,
+      Paint()
+        ..color = isDragging
+            ? Colors.white
+            : Color.lerp(baseColor, Colors.white, 0.25)!
+        ..style = PaintingStyle.fill,
+    );
+    // Border ring
+    canvas.drawCircle(
+      position,
+      handleRadius,
+      Paint()
+        ..color = isDragging ? colorScheme.primary : Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = isDragging ? 2.2 : 1.5,
+    );
+    // Center grip dot
+    canvas.drawCircle(
+      position,
+      1.4,
+      Paint()
+        ..color = isDragging ? colorScheme.primary : Colors.black87
+        ..style = PaintingStyle.fill,
+    );
+  }
+
   @override
   bool shouldRepaint(covariant SectographPainter oldDelegate) {
     return oldDelegate.currentTime != currentTime ||
@@ -897,6 +998,7 @@ class SectographPainter extends CustomPainter {
         oldDelegate.showNeedle != showNeedle ||
         oldDelegate.showCenterClock != showCenterClock ||
         oldDelegate.lens != lens ||
-        oldDelegate.activeDraggingCap != activeDraggingCap;
+        oldDelegate.activeDraggingCap != activeDraggingCap ||
+        oldDelegate.isDialEditing != isDialEditing;
   }
 }

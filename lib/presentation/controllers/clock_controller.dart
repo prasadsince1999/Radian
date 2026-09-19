@@ -275,3 +275,14 @@ final liveAdjustedEventProvider = StateProvider<SectorEvent?>((ref) => null);
 final liveAdjustedEventsMapProvider = StateProvider<Map<String, SectorEvent>>(
   (ref) => const {},
 );
+
+/// Day/Night segment for 12-Hour dial mode (AM: 12 AM - 12 PM, PM: 12 PM - 12 AM).
+enum Dial12HourSegment { am, pm }
+
+/// Currently focused 12-hour segment on the 12H dial face.
+final dial12HourSegmentProvider = StateProvider<Dial12HourSegment>((ref) {
+  return DateTime.now().hour < 12 ? Dial12HourSegment.am : Dial12HourSegment.pm;
+});
+
+/// Tracks whether any block positions were dragged/modified during an edit session.
+final hasModifiedDialPositionsProvider = StateProvider<bool>((ref) => false);

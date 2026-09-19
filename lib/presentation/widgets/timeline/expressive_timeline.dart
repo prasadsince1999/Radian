@@ -180,7 +180,70 @@ class ExpressiveTimeline extends ConsumerWidget {
                       );
                       return false;
                     } else if (direction == DismissDirection.endToStart) {
-                      return true;
+                      HapticFeedback.lightImpact();
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          backgroundColor: colorScheme.surfaceContainerHigh,
+                          icon: Icon(
+                            Icons.delete_outline_rounded,
+                            color: colorScheme.error,
+                            size: 28,
+                          ),
+                          title: Text(
+                            'Delete "${ev.title}"?',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          content: Text(
+                            'Are you sure you want to delete this time block from your routine?',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          actionsAlignment: MainAxisAlignment.center,
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(false),
+                              child: Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: colorScheme.error,
+                                foregroundColor: colorScheme.onError,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () {
+                                HapticFeedback.mediumImpact();
+                                Navigator.of(ctx).pop(true);
+                              },
+                              child: const Text(
+                                'Delete',
+                                style: TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                      return confirmed ?? false;
                     }
                     return false;
                   },
