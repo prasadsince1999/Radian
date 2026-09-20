@@ -148,7 +148,7 @@ export default {
                 capabilities: { tools: { listChanged: false } },
                 serverInfo: {
                   name: 'Radian',
-                  version: '1.0.4',
+                  version: '1.0.5',
                   description: '360° AI-Native Circular Time Blocking & Schedule Planner',
                   icon: `${url.origin}/icon.png`,
                   iconUrl: `${url.origin}/icon.png`,
@@ -324,16 +324,16 @@ export default {
         JSON.stringify(
           {
             success: true,
-            tag: 'v1.0.4',
-            version: '1.0.4',
+            tag: 'v1.0.5',
+            version: '1.0.5',
             downloadUrl:
-              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.4/Radian-v1.0.4.apk',
-            apkName: 'Radian-v1.0.4.apk',
+              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.5/Radian-v1.0.5.apk',
+            apkName: 'Radian-v1.0.5.apk',
             sizeBytes: 75200000,
             releaseNotes:
-              '### Radian v1.0.4 - Center Circle Customization, Responsive Subtasks & MCP Architecture\n\n- **Center Circle Customization**: Added 6 distinct center dial display modes (Digital Clock, Analog Clock with ticking hands, Date & Time, Real-time Countdown, DOB Life Clock with exact age & day count, and Active Subtask focus).\n- **Responsive Subtask Timeline Slider**: Increased pill height (64dp track, 60dp pill) and introduced continuous shrink-responsive capsule physics—middle duration smoothly scales down and never vanishes, transitioning to compact 12dp grip bars when narrow.\n- **MCP Subtask Management**: Full lifecycle manage_subtask tool (add, update, toggle completion, delete) and /api/subtask REST endpoint.\n- **UI Smoothness & Fixes**: Safe-area status bar protection, standardized 280ms cubic sheet transitions, and scrub release bounce jump elimination.\n- **CI/CD Quality Gates**: Enforced automated static analysis (flutter analyze) and test suite verification (flutter test) before release APK packaging.',
+              '### Radian v1.0.5 - Refreshed Onboarding Carousel, Unified Keystore & OTA Automation\n\n- **Refreshed Onboarding Experience**: Brand-new modern onboarding carousel with official RadianLogo header, high-fidelity 360° circular vector dial preview on Slide 1, interactive subtask pill capsule with theme swatches and live Google Health Connect chips on Slide 2, and connected Model Context Protocol (MCP) ecosystem badge on Slide 3.\n- **Eliminated Duplicate & Outdated Logos**: Replaced generic radar squircle and duplicate clock circle with authentic Radian vector graphics.\n- **Permanent Keystore Parity**: Unified debug and release build types under radian-release.jks to permanently eliminate package signing conflicts.\n- **Over-The-Air (OTA) Delivery**: Fully automated CI/CD release workflow and Cloudflare Edge Worker distribution.',
             publishedAt: new Date().toISOString(),
-            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.4',
+            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.5',
           },
           null,
           2
@@ -355,7 +355,7 @@ export default {
         info: {
           title: 'Sectograph Cloudflare API',
           description: 'Cloudflare D1-backed time planning and circular dial automation API',
-          version: '1.0.4',
+          version: '1.0.5',
         },
         servers: [{ url: url.origin }],
         paths: {

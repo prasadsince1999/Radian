@@ -255,7 +255,7 @@ export class McpHandler {
               },
               serverInfo: {
                 name: 'Radian',
-                version: '1.0.4',
+                version: '1.0.5',
                 description: '360° AI-Native Circular Time Blocking & Schedule Planner',
                 icon: iconUrl,
                 iconUrl: iconUrl,
