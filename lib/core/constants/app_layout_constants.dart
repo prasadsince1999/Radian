@@ -51,6 +51,34 @@ abstract final class AppLayoutConstants {
   /// Minimum sweep angle in 12H mode so caps + icon + title keyword + duration fit with zero overlap.
   static const double minContentSweepDeg12H = 34.0;
 
+  /// Minimum sweep angle in 12H mode for an active or focused block with subtasks so river pebble chips fit with generous breathing room.
+  static const double minActiveSubtaskSweepDeg12H = 52.0;
+
+  /// Minimum sweep angle in 24H mode for an active or focused block with subtasks.
+  static const double minActiveSubtaskSweepDeg24H = 32.0;
+
+  /// Computes the target sweep angle in 12H mode for an active or focused block based on subtask count.
+  static double targetActiveSubtaskSweepDeg12H(int subtaskCount) {
+    if (subtaskCount <= 1) return minActiveSubtaskSweepDeg12H;
+    if (subtaskCount == 2) return 58.0;
+    if (subtaskCount == 3) return 64.0;
+    return (64.0 + (subtaskCount - 3) * 5.0).clamp(minActiveSubtaskSweepDeg12H, 74.0);
+  }
+
+  /// Computes the target sweep angle in 24H mode for an active or focused block based on subtask count.
+  static double targetActiveSubtaskSweepDeg24H(int subtaskCount) {
+    if (subtaskCount <= 1) return minActiveSubtaskSweepDeg24H;
+    if (subtaskCount == 2) return 36.0;
+    if (subtaskCount == 3) return 42.0;
+    return (42.0 + (subtaskCount - 3) * 4.0).clamp(minActiveSubtaskSweepDeg24H, 50.0);
+  }
+
+  /// Minimum effective sweep angle threshold to display subtask river pebble chips.
+  static const double minSubtaskPebbleSweepDeg12H = 22.0;
+
+  /// Minimum effective sweep angle threshold to display subtask river pebble chips in 24H mode.
+  static const double minSubtaskPebbleSweepDeg24H = 16.0;
+
   /// Minimum buffer preserved between distinct non-contiguous blocks on the dial face.
   static const double minInterBlockGapDeg = 3.5;
 }

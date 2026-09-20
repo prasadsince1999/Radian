@@ -146,5 +146,100 @@ void main() {
       expect(rA.sweepAngle, greaterThanOrEqualTo(18.0));
       expect(rB.sweepAngle, greaterThanOrEqualTo(18.0));
     });
+
+    test('active block with subtasks preserves startAngle at true clock time and expands forward', () {
+      // Workout: 15:30 - 16:30 (1 hour = 30° in 12H mode).
+      // Angle: 15:30 is 105.0°, 16:30 is 135.0°.
+      // Preceded by empty gap (Lunch ended at 13:00 = 30.0°, gap of 75°).
+      // Followed by 15-min gap before Read (16:45 = 142.5°, gap of 7.5°).
+      final workout = SectorEvent(
+        id: 'workout',
+        title: 'Workout',
+        start: DateTime(2026, 9, 20, 15, 30),
+        end: DateTime(2026, 9, 20, 16, 30),
+        startAngle: 105.0,
+        sweepAngle: 30.0,
+        subtasks: const ['Gym', 'Cardio', 'Stretch'],
+      );
+
+      final read = SectorEvent(
+        id: 'read',
+        title: 'Read 2h',
+        start: DateTime(2026, 9, 20, 16, 45),
+        end: DateTime(2026, 9, 20, 18, 45),
+        startAngle: 142.5,
+        sweepAngle: 60.0,
+        subtasks: const ['Math', 'ArXiv'],
+      );
+
+      final lunch = SectorEvent(
+        id: 'lunch',
+        title: 'Lunch',
+        start: DateTime(2026, 9, 20, 12, 0),
+        end: DateTime(2026, 9, 20, 13, 0),
+        startAngle: 0.0,
+        sweepAngle: 30.0,
+      );
+
+      final result = DialSectorLayoutStretcher.stretch(
+        [lunch, workout, read],
+        is24HourMode: false,
+        activeEventId: 'workout',
+        currentTime: DateTime(2026, 9, 20, 15, 45),
+      );
+
+      final stretchedWorkout = result.firstWhere((e) => e.id == 'workout');
+      final stretchedRead = result.firstWhere((e) => e.id == 'read');
+
+      // CRITICAL: Workout's startAngle must strictly remain anchored at 105.0° (3:30 PM).
+      // It must never borrow backward into preceding gaps, ensuring 3:30 PM is never drawn before 3 o'clock!
+      expect(stretchedWorkout.startAngle, 105.0);
+
+      // Buffer between Workout and Read must remain >= minInterBlockGap (3.5°)
+      final workoutEnd = SectorMath.normalizeDegrees(
+        stretchedWorkout.startAngle + stretchedWorkout.sweepAngle,
+      );
+      var gapToRead = (stretchedRead.startAngle - workoutEnd) % 360.0;
+      if (gapToRead < 0) gapToRead += 360.0;
+      expect(gapToRead, greaterThanOrEqualTo(3.5));
+    });
+
+    test('single event with subtasks scales sweep based on subtask count in 12H mode', () {
+      final single1 = SectorEvent(
+        id: 'solo1',
+        title: 'Solo Gym',
+        start: DateTime(2026, 9, 20, 15, 30),
+        end: DateTime(2026, 9, 20, 16, 30),
+        startAngle: 105.0,
+        sweepAngle: 30.0,
+        subtasks: const ['Gym'],
+      );
+
+      final stretched1 = DialSectorLayoutStretcher.stretch(
+        [single1],
+        is24HourMode: false,
+        activeEventId: 'solo1',
+      );
+      expect(stretched1.first.startAngle, 105.0);
+      expect(stretched1.first.sweepAngle, 52.0);
+
+      final single3 = SectorEvent(
+        id: 'solo3',
+        title: 'Solo Gym',
+        start: DateTime(2026, 9, 20, 15, 30),
+        end: DateTime(2026, 9, 20, 16, 30),
+        startAngle: 105.0,
+        sweepAngle: 30.0,
+        subtasks: const ['Gym', 'Cardio', 'Stretch'],
+      );
+
+      final stretched3 = DialSectorLayoutStretcher.stretch(
+        [single3],
+        is24HourMode: false,
+        activeEventId: 'solo3',
+      );
+      expect(stretched3.first.startAngle, 105.0);
+      expect(stretched3.first.sweepAngle, 64.0);
+    });
   });
 }

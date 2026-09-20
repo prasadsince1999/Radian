@@ -13,13 +13,17 @@ import 'sector_math.dart';
 class DialSectorLayoutStretcher {
   const DialSectorLayoutStretcher._();
 
-  /// Stretches sectors in [events] naturally to satisfy content readability floors.
+  /// Stretches sectors in [events] naturally to satisfy content readability floors
+  /// and ensure subtask river pebbles fit with generous breathing room.
   ///
   /// Returns a new list of [SectorEvent] instances in the same order as [events]
   /// with adjusted [startAngle] and [sweepAngle].
   static List<SectorEvent> stretch(
     List<SectorEvent> events, {
     required bool is24HourMode,
+    String? activeEventId,
+    String? selectedEventId,
+    DateTime? currentTime,
     double minSweep24H = AppLayoutConstants.minContentSweepDeg24H,
     double minSweep12H = AppLayoutConstants.minContentSweepDeg12H,
     double minInterBlockGap = AppLayoutConstants.minInterBlockGapDeg,
@@ -27,14 +31,32 @@ class DialSectorLayoutStretcher {
     if (events.isEmpty) return const [];
     if (events.length == 1) {
       final e = events.first;
-      final requiredSweep = is24HourMode ? minSweep24H : minSweep12H;
+      final isTargetActive =
+          (activeEventId != null && e.id == activeEventId) ||
+          (currentTime != null &&
+              !currentTime.isBefore(e.start) &&
+              currentTime.isBefore(e.end));
+      final isTargetSelected =
+          selectedEventId != null && e.id == selectedEventId;
+      final isHighPriority = isTargetActive || isTargetSelected;
+
+      double requiredSweep = is24HourMode ? minSweep24H : minSweep12H;
+      if (e.subtasks.isNotEmpty) {
+        final subtaskTarget = is24HourMode
+            ? AppLayoutConstants.targetActiveSubtaskSweepDeg24H(e.subtasks.length)
+            : AppLayoutConstants.targetActiveSubtaskSweepDeg12H(e.subtasks.length);
+        requiredSweep = math.max(requiredSweep, subtaskTarget);
+      } else if (isHighPriority) {
+        final priorityFloor = is24HourMode ? 30.0 : 42.0;
+        requiredSweep = math.max(requiredSweep, priorityFloor);
+      }
+
       if (e.sweepAngle >= requiredSweep) {
         return events;
       }
-      final diff = requiredSweep - e.sweepAngle;
       return [
         e.copyWith(
-          startAngle: SectorMath.normalizeDegrees(e.startAngle - diff / 2.0),
+          startAngle: e.startAngle,
           sweepAngle: requiredSweep,
         ),
       ];
@@ -80,16 +102,48 @@ class DialSectorLayoutStretcher {
 
     // 3. Compute target required sweep and deficit for each sector
     final deficits = List<double>.filled(n, 0.0);
+    final isPriority = List<bool>.filled(n, false);
+
     for (int i = 0; i < n; i++) {
+      final ev = sorted[i];
       final prevIdx = (i - 1 + n) % n;
       final hasStartCap = !isContiguousWithNext[prevIdx];
-      final double targetSweep = hasStartCap
+
+      final isTargetActive =
+          (activeEventId != null && ev.id == activeEventId) ||
+          (currentTime != null &&
+              !currentTime.isBefore(ev.start) &&
+              currentTime.isBefore(ev.end));
+      final isTargetSelected =
+          selectedEventId != null && ev.id == selectedEventId;
+      final isHighPriority = isTargetActive || isTargetSelected;
+      isPriority[i] = isHighPriority;
+
+      double baseTargetSweep = hasStartCap
           ? (is24HourMode ? minSweep24H : minSweep12H)
           : (is24HourMode ? 18.0 : 26.0);
 
-      final curSweep = sorted[i].sweepAngle;
-      if (curSweep < targetSweep) {
-        deficits[i] = targetSweep - curSweep;
+      // Subtask-aware breathing room:
+      if (ev.subtasks.isNotEmpty) {
+        final subtaskTarget = is24HourMode
+            ? AppLayoutConstants.targetActiveSubtaskSweepDeg24H(ev.subtasks.length)
+            : AppLayoutConstants.targetActiveSubtaskSweepDeg12H(ev.subtasks.length);
+        if (isHighPriority) {
+          // Active or selected block with subtasks gets full expansion target
+          baseTargetSweep = math.max(baseTargetSweep, subtaskTarget);
+        } else {
+          // Non-active block with subtasks: moderate expansion target if adjacent gaps allow
+          final subtaskPassiveTarget = is24HourMode ? 30.0 : 42.0;
+          baseTargetSweep = math.max(baseTargetSweep, subtaskPassiveTarget);
+        }
+      } else if (isHighPriority) {
+        final priorityFloor = is24HourMode ? 28.0 : 40.0;
+        baseTargetSweep = math.max(baseTargetSweep, priorityFloor);
+      }
+
+      final curSweep = ev.sweepAngle;
+      if (curSweep < baseTargetSweep) {
+        deficits[i] = baseTargetSweep - curSweep;
       }
     }
 
@@ -109,6 +163,8 @@ class DialSectorLayoutStretcher {
     final remainingUsable = List<double>.from(usableSpace);
 
     // 5. Pass 1: Compute preferred expansion requests (backward into prev gap, forward into next gap)
+    // CRITICAL: Active and selected blocks (isPriority) must NEVER borrow backward across clock time
+    // so their start caps (e.g. 3:30 PM) remain strictly anchored to their clock hour mark!
     final reqBwd = List<double>.filled(n, 0.0);
     final reqFwd = List<double>.filled(n, 0.0);
 
@@ -117,16 +173,33 @@ class DialSectorLayoutStretcher {
       if (d <= 0.0) continue;
 
       final prevIdx = (i - 1 + n) % n;
-      final canBwd = usableSpace[prevIdx] > 0.0;
-      final canFwd = usableSpace[i] > 0.0;
+      final prevAvail = usableSpace[prevIdx];
+      final fwdAvail = usableSpace[i];
+      final canBwd = prevAvail > 0.0 && !isPriority[i];
+      final canFwd = fwdAvail > 0.0;
 
       if (canBwd && canFwd) {
-        reqBwd[i] = d / 2.0;
-        reqFwd[i] = d / 2.0;
+        final totalAvail = prevAvail + fwdAvail;
+        if (totalAvail > 0.0) {
+          reqBwd[i] = math.min(d * (prevAvail / totalAvail), prevAvail);
+          reqFwd[i] = math.min(d - reqBwd[i], fwdAvail);
+          final rem = d - (reqBwd[i] + reqFwd[i]);
+          if (rem > 0.0) {
+            final addBwd = math.min(rem, prevAvail - reqBwd[i]);
+            reqBwd[i] += addBwd;
+            final rem2 = rem - addBwd;
+            if (rem2 > 0.0) {
+              reqFwd[i] += math.min(rem2, fwdAvail - reqFwd[i]);
+            }
+          }
+        } else {
+          reqBwd[i] = d / 2.0;
+          reqFwd[i] = d / 2.0;
+        }
       } else if (canBwd) {
-        reqBwd[i] = d;
+        reqBwd[i] = math.min(d, prevAvail);
       } else if (canFwd) {
-        reqFwd[i] = d;
+        reqFwd[i] = math.min(d, fwdAvail);
       }
     }
 
@@ -146,18 +219,31 @@ class DialSectorLayoutStretcher {
         grantedBwd[nextIdx] = reqBwd[nextIdx];
         remainingUsable[k] = avail - demand;
       } else {
-        final scale = avail / demand;
-        grantedFwd[k] = reqFwd[k] * scale;
-        grantedBwd[nextIdx] = reqBwd[nextIdx] * scale;
-        remainingUsable[k] = 0.0;
+        // Prioritize active or selected events if there's contention for the same gap
+        final kPrio = isPriority[k] ? 4.0 : 1.0;
+        final nextPrio = isPriority[nextIdx] ? 4.0 : 1.0;
+        final totalWeight = (reqFwd[k] * kPrio) + (reqBwd[nextIdx] * nextPrio);
+        if (totalWeight > 0.0) {
+          final fwdShare = (reqFwd[k] * kPrio) / totalWeight;
+          final fwdAlloc = math.min(reqFwd[k], avail * fwdShare);
+          final bwdAlloc = math.min(reqBwd[nextIdx], avail - fwdAlloc);
+          grantedFwd[k] = fwdAlloc;
+          grantedBwd[nextIdx] = bwdAlloc;
+          remainingUsable[k] = math.max(0.0, avail - (fwdAlloc + bwdAlloc));
+        } else {
+          final scale = avail / demand;
+          grantedFwd[k] = reqFwd[k] * scale;
+          grantedBwd[nextIdx] = reqBwd[nextIdx] * scale;
+          remainingUsable[k] = 0.0;
+        }
       }
     }
 
-    // 7. Pass 2: Scavenge unused gap space for any events still with unsatisfied deficit
-    for (int i = 0; i < n; i++) {
+    // 7. Pass 2: Scavenge unused forward gap space for any events still with unsatisfied deficit
+    void scavenge(int i) {
       final totalGranted = grantedBwd[i] + grantedFwd[i];
       var remainingDeficit = deficits[i] - totalGranted;
-      if (remainingDeficit <= 0.001) continue;
+      if (remainingDeficit <= 0.001) return;
 
       // Try taking remaining deficit from next gap first
       if (remainingUsable[i] > 0.0) {
@@ -167,14 +253,23 @@ class DialSectorLayoutStretcher {
         remainingDeficit -= extraFwd;
       }
 
-      // Try taking remaining deficit from prev gap
+      // Try taking remaining deficit from prev gap (only for non-priority events)
       final prevIdx = (i - 1 + n) % n;
-      if (remainingDeficit > 0.001 && remainingUsable[prevIdx] > 0.0) {
+      if (!isPriority[i] && remainingDeficit > 0.001 && remainingUsable[prevIdx] > 0.0) {
         final extraBwd = math.min(remainingDeficit, remainingUsable[prevIdx]);
         grantedBwd[i] += extraBwd;
         remainingUsable[prevIdx] -= extraBwd;
         remainingDeficit -= extraBwd;
       }
+    }
+
+    // Scavenge priority sectors first
+    for (int i = 0; i < n; i++) {
+      if (isPriority[i]) scavenge(i);
+    }
+    // Then scavenge standard sectors
+    for (int i = 0; i < n; i++) {
+      if (!isPriority[i]) scavenge(i);
     }
 
     // 8. Construct updated events with stretched start and sweep angles

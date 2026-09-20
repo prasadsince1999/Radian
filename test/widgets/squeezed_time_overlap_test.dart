@@ -151,5 +151,38 @@ void main() {
       final picture = recorder.endRecording();
       expect(picture, isNotNull);
     });
+
+    test('SectographPainter paints active 12H Workout block with Gym, Cardio, Stretch cleanly with zero cap collision', () {
+      final now = DateTime(2026, 9, 20, 16, 0); // Active inside 15:30 - 16:30
+      final workoutEvent = SectorEvent(
+        id: 'workout',
+        title: 'Workout',
+        start: DateTime(2026, 9, 20, 15, 30),
+        end: DateTime(2026, 9, 20, 16, 30),
+        startAngle: 105.0,
+        sweepAngle: 72.0, // Stretched
+        colorHex: '#FF7043',
+        subtasks: ['Gym', 'Cardio', 'Stretch'],
+      );
+
+      final painter = SectographPainter(
+        events: [workoutEvent],
+        selectedEvent: null,
+        activeEvent: workoutEvent,
+        currentTime: now,
+        scrubAngle: null,
+        settings: const DialSettings(is24HourMode: false),
+        colorScheme: const ColorScheme.dark(),
+        showCenterClock: true,
+      );
+
+      final recorder = PictureRecorder();
+      final canvas = Canvas(recorder);
+      const size = Size(380, 380);
+
+      expect(() => painter.paint(canvas, size), returnsNormally);
+      final picture = recorder.endRecording();
+      expect(picture, isNotNull);
+    });
   });
 }

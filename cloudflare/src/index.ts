@@ -148,7 +148,7 @@ export default {
                 capabilities: { tools: { listChanged: false } },
                 serverInfo: {
                   name: 'Radian',
-                  version: '1.0.5',
+                  version: '1.0.6',
                   description: '360° AI-Native Circular Time Blocking & Schedule Planner',
                   icon: `${url.origin}/icon.png`,
                   iconUrl: `${url.origin}/icon.png`,
@@ -324,16 +324,16 @@ export default {
         JSON.stringify(
           {
             success: true,
-            tag: 'v1.0.5',
-            version: '1.0.5',
+            tag: 'v1.0.6',
+            version: '1.0.6',
             downloadUrl:
-              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.5/Radian-v1.0.5.apk',
-            apkName: 'Radian-v1.0.5.apk',
+              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.6/Radian-v1.0.6.apk',
+            apkName: 'Radian-v1.0.6.apk',
             sizeBytes: 75200000,
             releaseNotes:
-              '### Radian v1.0.5 - Refreshed Onboarding Carousel, Unified Keystore & OTA Automation\n\n- **Refreshed Onboarding Experience**: Brand-new modern onboarding carousel with official RadianLogo header, high-fidelity 360° circular vector dial preview on Slide 1, interactive subtask pill capsule with theme swatches and live Google Health Connect chips on Slide 2, and connected Model Context Protocol (MCP) ecosystem badge on Slide 3.\n- **Eliminated Duplicate & Outdated Logos**: Replaced generic radar squircle and duplicate clock circle with authentic Radian vector graphics.\n- **Permanent Keystore Parity**: Unified debug and release build types under radian-release.jks to permanently eliminate package signing conflicts.\n- **Over-The-Air (OTA) Delivery**: Fully automated CI/CD release workflow and Cloudflare Edge Worker distribution.',
+              '### Radian v1.0.6 - Circle Time Synchronization & Enlarged River Pebble Subtask Chips\n\n- **Clock Face Dial Synchronization**: Anchored all event start caps strictly to clock dial hours, eliminating backward drift and keeping rim numerals and block timestamps in 100% mathematical harmony.\n- **Enlarged Subtask Pebble Pills**: 35% larger subtask pills with extra bold typography (w800), increased padding, and crisp high-contrast borders for immediate at-a-glance legibility.\n- **Lens-Coordinated Auto-Stretch**: Smooth radial time-dilation under the Fisheye Lens guarantees the active routine sector automatically expands with full dial-face coherence.',
             publishedAt: new Date().toISOString(),
-            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.5',
+            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.6',
           },
           null,
           2

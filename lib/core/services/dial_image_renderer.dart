@@ -74,8 +74,9 @@ abstract final class DialImageRenderer {
         if (e.start.difference(currentTime).inMinutes >= 720) {
           continue;
         }
-        // Skip events that completed more than 12 hours ago
-        if (currentTime.difference(e.end).inMinutes >= 720) {
+        // Skip events that completed more than 15 minutes before currentTime (unless active)
+        if (e.end.isBefore(currentTime.subtract(const Duration(minutes: 15))) &&
+            !(!currentTime.isBefore(e.start) && currentTime.isBefore(e.end))) {
           continue;
         }
 
@@ -132,6 +133,14 @@ abstract final class DialImageRenderer {
     if (horizonResult?.activeEvent != null) {
       resolvedActive = horizonResult!.activeEvent;
     }
+    if (resolvedActive == null) {
+      for (final e in positionedEvents) {
+        if (!currentTime.isBefore(e.start) && currentTime.isBefore(e.end)) {
+          resolvedActive = e;
+          break;
+        }
+      }
+    }
 
     // Fisheye Time Lens focus center
     final focusEvent = selectedEvent ?? resolvedActive;
@@ -151,9 +160,11 @@ abstract final class DialImageRenderer {
       );
     }
 
-    final activeMagnification = selectedEvent != null
-        ? math.max(settings.lensMagnification, 1.85)
-        : settings.lensMagnification;
+    final activeMagnification = (focusEvent != null && focusEvent.subtasks.isNotEmpty)
+        ? math.max(settings.lensMagnification, 2.05)
+        : (selectedEvent != null
+            ? math.max(settings.lensMagnification, 1.85)
+            : settings.lensMagnification);
 
     final lens = settings.isFocusLensEnabled
         ? FisheyeTimeLens(
@@ -176,6 +187,9 @@ abstract final class DialImageRenderer {
     final finalDisplayEvents = DialSectorLayoutStretcher.stretch(
       warpedEvents,
       is24HourMode: settings.is24HourMode,
+      activeEventId: resolvedActive?.id,
+      selectedEventId: selectedEvent?.id,
+      currentTime: currentTime,
     );
 
     final painter = SectographPainter(

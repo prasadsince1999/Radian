@@ -430,6 +430,15 @@ class SectographDial extends ConsumerWidget {
                     if (horizonResult?.activeEvent != null) {
                       effectiveActive = horizonResult!.activeEvent;
                     }
+                    if (effectiveActive == null) {
+                      for (final e in computedEvents) {
+                        if (!effectiveTime.isBefore(e.start) &&
+                            effectiveTime.isBefore(e.end)) {
+                          effectiveActive = e;
+                          break;
+                        }
+                      }
+                    }
 
                     // Fisheye Time Lens focus center: prioritize user-tapped block to expand it
                     final focusEvent = selectedEvent ?? effectiveActive;
@@ -449,10 +458,12 @@ class SectographDial extends ConsumerWidget {
                       );
                     }
 
-                    // When a block is explicitly tapped/selected, provide punchy expansion magnification
-                    final activeMagnification = selectedEvent != null
-                        ? math.max(settings.lensMagnification, 1.85)
-                        : settings.lensMagnification;
+                    // When a block is explicitly tapped/selected or has subtasks, provide punchy expansion magnification
+                    final activeMagnification = (focusEvent != null && focusEvent.subtasks.isNotEmpty)
+                        ? math.max(settings.lensMagnification, 2.05)
+                        : (selectedEvent != null
+                            ? math.max(settings.lensMagnification, 1.85)
+                            : settings.lensMagnification);
 
                     final lens = settings.isFocusLensEnabled
                         ? FisheyeTimeLens(
@@ -477,6 +488,9 @@ class SectographDial extends ConsumerWidget {
                     final displayEvents = DialSectorLayoutStretcher.stretch(
                       warpedEvents,
                       is24HourMode: settings.is24HourMode,
+                      activeEventId: effectiveActive?.id,
+                      selectedEventId: selectedEvent?.id,
+                      currentTime: effectiveTime,
                     );
 
                     SectorEvent? effectiveSelected = selectedEvent;

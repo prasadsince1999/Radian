@@ -212,8 +212,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   void _syncAndroidWidget() {
     final events =
-        ref.read(allEventsProvider).value ??
         ref.read(dayEventsProvider).value ??
+        ref.read(allEventsProvider).value ??
         const [];
     final activeEvent = ref.read(currentActiveEventProvider);
     final currentTime = ref.read(currentTimeProvider).value ?? DateTime.now();

@@ -488,116 +488,6 @@ class SectographPainter extends CustomPainter {
       }
     }
 
-    // Pass 2: Draw 3D Overlapping End Caps with drop shadows ON TOP of successor blocks!
-    for (final l in pillLayouts) {
-      if (l.showEndCap) {
-        final isDraggingEnd =
-            activeDraggingCap != null &&
-            l.event.id == activeDraggingCap!.event.id &&
-            (!activeDraggingCap!.isStartCap ||
-                activeDraggingCap!.isEntireBlock);
-
-        SectorPillRenderer.drawIntegratedCap(
-          canvas: canvas,
-          center: center,
-          rIn: l.rIn,
-          rOut: l.rOut,
-          startDeg: l.endCapStartDeg,
-          sweepDeg: l.endCapSpan,
-          time: l.event.end,
-          eventColor: l.event.color,
-          isStartCap: false,
-          is24HourMode: is24,
-          cornerRadius: l.cornerRadius,
-          roundStart: false,
-          roundEnd: true,
-          isContiguous: l.isContiguous,
-          overlapDeg: l.isContiguous ? overlapDeg : 0.0,
-          isDragging: isDraggingEnd,
-        );
-
-        if (isDraggingEnd) {
-          final highlightPath = SectorPillRenderer.buildPillPath(
-            center: center,
-            rIn: l.rIn - 2.0,
-            rOut: l.rOut + 2.0,
-            startDeg: l.endCapStartDeg,
-            sweepDeg: l.endCapSpan,
-            cornerRadius: l.cornerRadius,
-            roundStart: false,
-            roundEnd: true,
-          );
-          canvas.drawPath(
-            highlightPath,
-            Paint()
-              ..color = Colors.white
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 2.0,
-          );
-        }
-      }
-    }
-
-    // Pass 3: Draw Start Caps for isolated events
-    for (final l in pillLayouts) {
-      if (l.showStartCap) {
-        final isDraggingStart =
-            activeDraggingCap != null &&
-            l.event.id == activeDraggingCap!.event.id &&
-            (activeDraggingCap!.isStartCap || activeDraggingCap!.isEntireBlock);
-
-        SectorPillRenderer.drawIntegratedCap(
-          canvas: canvas,
-          center: center,
-          rIn: l.rIn,
-          rOut: l.rOut,
-          startDeg: l.startDeg,
-          sweepDeg: l.startCapSpan,
-          time: l.event.start,
-          eventColor: l.event.color,
-          isStartCap: true,
-          is24HourMode: is24,
-          cornerRadius: l.cornerRadius,
-          roundStart: true,
-          roundEnd: false,
-          isDragging: isDraggingStart,
-        );
-
-        if (isDraggingStart) {
-          final highlightPath = SectorPillRenderer.buildPillPath(
-            center: center,
-            rIn: l.rIn - 2.0,
-            rOut: l.rOut + 2.0,
-            startDeg: l.startDeg,
-            sweepDeg: l.startCapSpan,
-            cornerRadius: l.cornerRadius,
-            roundStart: true,
-            roundEnd: false,
-          );
-          canvas.drawPath(
-            highlightPath,
-            Paint()
-              ..color = Colors.white
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 2.0,
-          );
-        }
-      }
-    }
-
-    // Pass 3.5: Draw edit mode outlines when editing (clean boundary outline, no dot-circles!)
-    if (isDialEditing) {
-      for (final l in pillLayouts) {
-        final outlinePaint = Paint()
-          ..color = l.isSelected
-              ? Colors.white
-              : Colors.white.withValues(alpha: 0.40)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = l.isSelected ? 2.4 : 1.2;
-        canvas.drawPath(l.pillPath, outlinePaint);
-      }
-    }
-
     // Determine which events display subtasks on the dial:
     // User rule: only show previous one, current one, and upcoming one (plus selectedEvent).
     final subtaskAllowedEventIds = <String>{};
@@ -667,7 +557,8 @@ class SectographPainter extends CustomPainter {
       }
     }
 
-    // Pass 4: Draw Sector Content (icon, title, duration hours only!)
+    // Pass 2: Draw Sector Content (icon, title, duration, river pebble subtasks)
+    // Clipped strictly to the uncapped body so it never bleeds into boundary caps!
     final drawnContentAngles = <double>[];
     for (int i = 0; i < pillLayouts.length; i++) {
       final l = pillLayouts[i];
@@ -698,6 +589,116 @@ class SectographPainter extends CustomPainter {
           endCapSpanDeg: l.endCapSpan,
           showSubtasks: subtaskAllowedEventIds.contains(l.event.id),
         );
+      }
+    }
+
+    // Pass 3: Draw 3D Overlapping End Caps with drop shadows ON TOP of successor blocks!
+    for (final l in pillLayouts) {
+      if (l.showEndCap) {
+        final isDraggingEnd =
+            activeDraggingCap != null &&
+            l.event.id == activeDraggingCap!.event.id &&
+            (!activeDraggingCap!.isStartCap ||
+                activeDraggingCap!.isEntireBlock);
+
+        SectorPillRenderer.drawIntegratedCap(
+          canvas: canvas,
+          center: center,
+          rIn: l.rIn,
+          rOut: l.rOut,
+          startDeg: l.endCapStartDeg,
+          sweepDeg: l.endCapSpan,
+          time: l.event.end,
+          eventColor: l.event.color,
+          isStartCap: false,
+          is24HourMode: is24,
+          cornerRadius: l.cornerRadius,
+          roundStart: false,
+          roundEnd: true,
+          isContiguous: l.isContiguous,
+          overlapDeg: l.isContiguous ? overlapDeg : 0.0,
+          isDragging: isDraggingEnd,
+        );
+
+        if (isDraggingEnd) {
+          final highlightPath = SectorPillRenderer.buildPillPath(
+            center: center,
+            rIn: l.rIn - 2.0,
+            rOut: l.rOut + 2.0,
+            startDeg: l.endCapStartDeg,
+            sweepDeg: l.endCapSpan,
+            cornerRadius: l.cornerRadius,
+            roundStart: false,
+            roundEnd: true,
+          );
+          canvas.drawPath(
+            highlightPath,
+            Paint()
+              ..color = Colors.white
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2.0,
+          );
+        }
+      }
+    }
+
+    // Pass 4: Draw Start Caps for isolated events ON TOP of sector bodies
+    for (final l in pillLayouts) {
+      if (l.showStartCap) {
+        final isDraggingStart =
+            activeDraggingCap != null &&
+            l.event.id == activeDraggingCap!.event.id &&
+            (activeDraggingCap!.isStartCap || activeDraggingCap!.isEntireBlock);
+
+        SectorPillRenderer.drawIntegratedCap(
+          canvas: canvas,
+          center: center,
+          rIn: l.rIn,
+          rOut: l.rOut,
+          startDeg: l.startDeg,
+          sweepDeg: l.startCapSpan,
+          time: l.event.start,
+          eventColor: l.event.color,
+          isStartCap: true,
+          is24HourMode: is24,
+          cornerRadius: l.cornerRadius,
+          roundStart: true,
+          roundEnd: false,
+          isDragging: isDraggingStart,
+        );
+
+        if (isDraggingStart) {
+          final highlightPath = SectorPillRenderer.buildPillPath(
+            center: center,
+            rIn: l.rIn - 2.0,
+            rOut: l.rOut + 2.0,
+            startDeg: l.startDeg,
+            sweepDeg: l.startCapSpan,
+            cornerRadius: l.cornerRadius,
+            roundStart: true,
+            roundEnd: false,
+          );
+          canvas.drawPath(
+            highlightPath,
+            Paint()
+              ..color = Colors.white
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2.0,
+          );
+        }
+      }
+    }
+
+    // Pass 5: Draw edit mode outlines when editing (clean boundary outline, no dot-circles!)
+    if (isDialEditing) {
+      for (final l in pillLayouts) {
+        final outlinePaint = Paint()
+          ..color = l.isSelected
+              ? Colors.white
+              : Colors.white.withValues(alpha: 0.40)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = l.isSelected ? 2.4 : 1.2;
+        canvas.drawPath(l.pillPath, outlinePaint);
       }
     }
   }
