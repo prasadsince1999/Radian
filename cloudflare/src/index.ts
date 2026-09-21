@@ -147,8 +147,8 @@ export default {
                 protocolVersion: '2024-11-05',
                 capabilities: { tools: { listChanged: false } },
                 serverInfo: {
-                  name: 'Radian',
-                  version: '1.0.6',
+                  name: 'radian-mcp',
+                  version: '1.0.7',
                   description: '360° AI-Native Circular Time Blocking & Schedule Planner',
                   icon: `${url.origin}/icon.png`,
                   iconUrl: `${url.origin}/icon.png`,
@@ -324,16 +324,16 @@ export default {
         JSON.stringify(
           {
             success: true,
-            tag: 'v1.0.6',
-            version: '1.0.6',
+            tag: 'v1.0.14',
+            version: '1.0.14',
             downloadUrl:
-              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.6/Radian-v1.0.6.apk',
-            apkName: 'Radian-v1.0.6.apk',
-            sizeBytes: 75200000,
+              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.14/Radian-v1.0.14.apk',
+            apkName: 'Radian-v1.0.14.apk',
+            sizeBytes: 76500000,
             releaseNotes:
-              '### Radian v1.0.6 - Circle Time Synchronization & Enlarged River Pebble Subtask Chips\n\n- **Clock Face Dial Synchronization**: Anchored all event start caps strictly to clock dial hours, eliminating backward drift and keeping rim numerals and block timestamps in 100% mathematical harmony.\n- **Enlarged Subtask Pebble Pills**: 35% larger subtask pills with extra bold typography (w800), increased padding, and crisp high-contrast borders for immediate at-a-glance legibility.\n- **Lens-Coordinated Auto-Stretch**: Smooth radial time-dilation under the Fisheye Lens guarantees the active routine sector automatically expands with full dial-face coherence.',
+              '### Radian v1.0.14 - Natural Subtask River Pebbles, Chronological Bay Allocation & Strict Idle Horizon Suppression\n\n- **Preserved Multi-Word Subtask Phrases**: Intact keyword extraction for compound tasks like "Meal Prep", "Mock Prep", and "Math Notes" without truncation.\n- **Chronological Upstream & Downstream Placement**: Early subtasks placed naturally at sector start (left bay), later subtasks downstream (right bay), with dedicated center category icons.\n- **Strict Idle-Gap Subtask Horizon**: Exact time containment prevents future blocks from leaking subtask pills ahead of the immediate upcoming block.\n- **Natural Air Gap & Zero Overlap**: Disjoint angular spacing and minimum arc thresholds guarantee clear separation between titles, boundary caps, and subtask pills.\n- **Configurable Past & Future Block Horizons**: Full user control over visible previous and future blocks on both dial and widget.',
             publishedAt: new Date().toISOString(),
-            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.6',
+            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.14',
           },
           null,
           2

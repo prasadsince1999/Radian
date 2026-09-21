@@ -79,7 +79,8 @@ class CloudSyncService {
     }
 
     if (key == null || key.trim().isEmpty) {
-      key = prefs?.getString(_syncKeyStorageKey) ??
+      key =
+          prefs?.getString(_syncKeyStorageKey) ??
           prefs?.getString('cloud_sync_key');
     }
 

@@ -20,7 +20,10 @@ abstract class EventRepository {
   Future<void> addEvent(SectorEvent event);
   Future<void> updateEvent(SectorEvent event);
   Future<void> deleteEvent(String id, {bool notifyMutation = true});
-  Future<void> bulkAddEvents(List<SectorEvent> events, {bool notifyMutations = false});
+  Future<void> bulkAddEvents(
+    List<SectorEvent> events, {
+    bool notifyMutations = false,
+  });
   Future<void> replaceDayEvents(DateTime day, List<SectorEvent> events);
   Future<void> clearEventsForDay(DateTime day);
   Future<void> clearAllEvents();

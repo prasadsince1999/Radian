@@ -1,7 +1,7 @@
 {
-  "name": "sectograph-mcp-server",
-  "version": "1.0.5",
-  "description": "Cloudflare D1-backed remote MCP server for Sectograph, compatible with ChatGPT and Claude",
+  "name": "radian-mcp-cloudflare",
+  "version": "1.0.14",
+  "description": "24/7 Hosted Model Context Protocol (MCP) Server for Radian with Server-Sent Events (SSE) & Streamlined Client-Side SQLite/D1 Hybrid Storage.",
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev",

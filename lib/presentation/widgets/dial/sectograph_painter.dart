@@ -492,63 +492,69 @@ class SectographPainter extends CustomPainter {
     // User rule: only show previous one, current one, and upcoming one (plus selectedEvent).
     final subtaskAllowedEventIds = <String>{};
     if (events.isNotEmpty) {
-      SectorEvent? current = activeEvent;
-      if (current == null) {
+      SectorEvent? activeCurrent;
+      if (activeEvent != null &&
+          !currentTime.isBefore(activeEvent!.start) &&
+          currentTime.isBefore(activeEvent!.end)) {
+        activeCurrent = activeEvent;
+      } else {
         for (final e in events) {
           if (!currentTime.isBefore(e.start) && currentTime.isBefore(e.end)) {
-            current = e;
+            activeCurrent = e;
             break;
           }
         }
       }
-      current ??= selectedEvent;
-      if (current == null) {
-        for (final e in events) {
-          if (e.start.isAfter(currentTime)) {
-            if (current == null || e.start.isBefore(current.start)) {
-              current = e;
-            }
-          }
-        }
-      }
 
-      if (current != null) {
-        subtaskAllowedEventIds.add(current.id);
+      if (activeCurrent != null) {
+        // Needle is inside an active event:
+        subtaskAllowedEventIds.add(activeCurrent.id);
 
-        // Find immediate previous event (prev1) ending closest to current.start
-        SectorEvent? prev1;
-        Duration minPrevDiff = const Duration(days: 999);
-        for (final e in events) {
-          if (e.id == current.id) continue;
-          if (e.end.isBefore(current.start) ||
-              e.end.isAtSameMomentAs(current.start)) {
-            final diff = current.start.difference(e.end);
-            if (diff < minPrevDiff) {
-              minPrevDiff = diff;
-              prev1 = e;
-            }
-          }
-        }
-        if (prev1 != null) {
-          subtaskAllowedEventIds.add(prev1.id);
+        // Previous event ending before/at activeCurrent.start, sorted newest first
+        final pastEvents = events.where((e) {
+          if (e.id == activeCurrent!.id) return false;
+          return e.end.isBefore(activeCurrent.start) ||
+              e.end.isAtSameMomentAs(activeCurrent.start);
+        }).toList()..sort((a, b) => b.end.compareTo(a.end));
+
+        final prevCount = math.max(1, settings.previousBlocksCount);
+        for (int p = 0; p < math.min(prevCount, pastEvents.length); p++) {
+          subtaskAllowedEventIds.add(pastEvents[p].id);
         }
 
-        // Find immediate upcoming event (next1) starting closest after current.end
-        SectorEvent? next1;
-        Duration minNextDiff = const Duration(days: 999);
-        for (final e in events) {
-          if (e.id == current.id) continue;
-          if (e.start.isAfter(current.end) ||
-              e.start.isAtSameMomentAs(current.end)) {
-            final diff = e.start.difference(current.end);
-            if (diff < minNextDiff) {
-              minNextDiff = diff;
-              next1 = e;
-            }
-          }
+        // Immediate upcoming event starting after/at activeCurrent.end, sorted earliest first
+        final futureEvents = events.where((e) {
+          if (e.id == activeCurrent!.id) return false;
+          return e.start.isAfter(activeCurrent.end) ||
+              e.start.isAtSameMomentAs(activeCurrent.end);
+        }).toList()..sort((a, b) => a.start.compareTo(b.start));
+
+        final nextCount = math.min(1, settings.futureBlocksCount);
+        for (int f = 0; f < math.min(nextCount, futureEvents.length); f++) {
+          subtaskAllowedEventIds.add(futureEvents[f].id);
         }
-        if (next1 != null) {
-          subtaskAllowedEventIds.add(next1.id);
+      } else {
+        // Needle is in an idle gap between events (e.g. 6:57 PM between Read and Dinner):
+        // 1 most recent past event ending before currentTime
+        final pastEvents = events.where((e) {
+          return e.end.isBefore(currentTime) ||
+              e.end.isAtSameMomentAs(currentTime);
+        }).toList()..sort((a, b) => b.end.compareTo(a.end));
+
+        if (pastEvents.isNotEmpty) {
+          subtaskAllowedEventIds.add(pastEvents.first.id);
+        }
+
+        // 1 immediate upcoming event starting after currentTime (the closest block ahead of needle!)
+        final futureEvents = events.where((e) {
+          return e.start.isAfter(currentTime) ||
+              e.start.isAtSameMomentAs(currentTime);
+        }).toList()..sort((a, b) => a.start.compareTo(b.start));
+
+        if (futureEvents.isNotEmpty) {
+          // Strictly add ONLY the closest upcoming event so blocks further in the future
+          // (like Flexible Hours) do not show subtasks ahead of the immediate next block (Dinner)
+          subtaskAllowedEventIds.add(futureEvents.first.id);
         }
       }
 

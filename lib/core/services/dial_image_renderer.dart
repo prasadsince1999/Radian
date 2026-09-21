@@ -74,10 +74,23 @@ abstract final class DialImageRenderer {
         if (e.start.difference(currentTime).inMinutes >= 720) {
           continue;
         }
-        // Skip events that completed more than 15 minutes before currentTime (unless active)
-        if (e.end.isBefore(currentTime.subtract(const Duration(minutes: 15))) &&
-            !(!currentTime.isBefore(e.start) && currentTime.isBefore(e.end))) {
-          continue;
+        final isFocusedBlock =
+            settings.pastHoursStyle == PastHoursStyle.focusedBlock;
+        if (isFocusedBlock) {
+          // In focused block mode, allow past events within 12 hours so FocusedBlockLayoutResolver
+          // can select the configured previousBlocksCount (0..3).
+          if (currentTime.difference(e.end).inMinutes >= 720) {
+            continue;
+          }
+        } else {
+          // Skip events that completed more than 15 minutes before currentTime (unless active)
+          if (e.end.isBefore(
+                currentTime.subtract(const Duration(minutes: 15)),
+              ) &&
+              !(!currentTime.isBefore(e.start) &&
+                  currentTime.isBefore(e.end))) {
+            continue;
+          }
         }
 
         final duration = e.end.difference(e.start);
@@ -162,11 +175,12 @@ abstract final class DialImageRenderer {
       );
     }
 
-    final activeMagnification = (focusEvent != null && focusEvent.subtasks.isNotEmpty)
+    final activeMagnification =
+        (focusEvent != null && focusEvent.subtasks.isNotEmpty)
         ? math.max(settings.lensMagnification, 2.05)
         : (selectedEvent != null
-            ? math.max(settings.lensMagnification, 1.85)
-            : settings.lensMagnification);
+              ? math.max(settings.lensMagnification, 1.85)
+              : settings.lensMagnification);
 
     // For the Android home screen widget (showNeedle == false), use linear projection so the
     // native minute needle strictly aligns with block start/end timestamps and dial bezel numerals.

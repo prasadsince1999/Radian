@@ -344,7 +344,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: ShapeDecoration(
                     shape: ExpressiveShapes.squircle(6),
                     color: Colors.white.withValues(alpha: 0.14),
@@ -361,7 +364,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 4,
+                      horizontal: 6,
+                    ),
                     decoration: ShapeDecoration(
                       shape: ExpressiveShapes.squircle(8),
                       color: const Color(0xFF6366F1).withValues(alpha: 0.25),
@@ -394,7 +400,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: ShapeDecoration(
                     shape: ExpressiveShapes.squircle(6),
                     color: Colors.white.withValues(alpha: 0.14),
@@ -679,10 +688,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           Container(
             width: 6,
             height: 6,
-            decoration: BoxDecoration(
-              color: dotColor,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
           ),
           const SizedBox(width: 4),
           Text(
@@ -815,7 +821,9 @@ class _OnboardingDialPainter extends CustomPainter {
       final isCardinal = (i % 3 == 0);
       final tickLength = isCardinal ? 8.0 : 4.5;
       tickPaint.strokeWidth = isCardinal ? 2.0 : 1.2;
-      tickPaint.color = isCardinal ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+      tickPaint.color = isCardinal
+          ? const Color(0xFF94A3B8)
+          : const Color(0xFF475569);
 
       final startR = radius - 6;
       final endR = startR - tickLength;
@@ -840,7 +848,13 @@ class _OnboardingDialPainter extends CustomPainter {
 
     // Sector 1: Deep Focus (Indigo) 09:00 - 11:30 (approx -90° to -15°)
     sectorPaint.color = const Color(0xFF6366F1);
-    canvas.drawArc(sectorRect, -math.pi * 0.5, math.pi * 0.42, false, sectorPaint);
+    canvas.drawArc(
+      sectorRect,
+      -math.pi * 0.5,
+      math.pi * 0.42,
+      false,
+      sectorPaint,
+    );
 
     // Sector 2: Team Sync (Emerald) 11:30 - 13:00 (approx 0° to 45°)
     sectorPaint.color = const Color(0xFF10B981);
@@ -848,11 +862,23 @@ class _OnboardingDialPainter extends CustomPainter {
 
     // Sector 3: Design Sprint (Amber) 14:00 - 15:30 (approx 60° to 105°)
     sectorPaint.color = const Color(0xFFF59E0B);
-    canvas.drawArc(sectorRect, math.pi * 0.35, math.pi * 0.26, false, sectorPaint);
+    canvas.drawArc(
+      sectorRect,
+      math.pi * 0.35,
+      math.pi * 0.26,
+      false,
+      sectorPaint,
+    );
 
     // Sector 4: Workout (Sky Cyan) 16:30 - 17:45 (approx 135° to 175°)
     sectorPaint.color = const Color(0xFF38BDF8);
-    canvas.drawArc(sectorRect, math.pi * 0.75, math.pi * 0.22, false, sectorPaint);
+    canvas.drawArc(
+      sectorRect,
+      math.pi * 0.75,
+      math.pi * 0.22,
+      false,
+      sectorPaint,
+    );
 
     // 4. Center Knockout Circle (The Dial Hub)
     const centerRadius = 38.0;
@@ -898,15 +924,13 @@ class _OnboardingDialPainter extends CustomPainter {
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    subTp.paint(
-      canvas,
-      Offset(center.dx - subTp.width / 2, center.dy + 7),
-    );
+    subTp.paint(canvas, Offset(center.dx - subTp.width / 2, center.dy + 7));
 
     // 5. Active Crimson Needle (Pointing at ~10:15 = -52.5° = -0.916 rad)
     const needleAngle = -52.5 * math.pi / 180.0;
     final needlePaint = Paint()
-      ..color = const Color(0xFFF43F5E) // Crimson / Coral
+      ..color =
+          const Color(0xFFF43F5E) // Crimson / Coral
       ..strokeCap = StrokeCap.round
       ..strokeWidth = 2.4;
 

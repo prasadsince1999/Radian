@@ -62,7 +62,10 @@ abstract final class AppLayoutConstants {
     if (subtaskCount <= 1) return minActiveSubtaskSweepDeg12H;
     if (subtaskCount == 2) return 58.0;
     if (subtaskCount == 3) return 64.0;
-    return (64.0 + (subtaskCount - 3) * 5.0).clamp(minActiveSubtaskSweepDeg12H, 74.0);
+    return (64.0 + (subtaskCount - 3) * 5.0).clamp(
+      minActiveSubtaskSweepDeg12H,
+      74.0,
+    );
   }
 
   /// Computes the target sweep angle in 24H mode for an active or focused block based on subtask count.
@@ -70,14 +73,17 @@ abstract final class AppLayoutConstants {
     if (subtaskCount <= 1) return minActiveSubtaskSweepDeg24H;
     if (subtaskCount == 2) return 36.0;
     if (subtaskCount == 3) return 42.0;
-    return (42.0 + (subtaskCount - 3) * 4.0).clamp(minActiveSubtaskSweepDeg24H, 50.0);
+    return (42.0 + (subtaskCount - 3) * 4.0).clamp(
+      minActiveSubtaskSweepDeg24H,
+      50.0,
+    );
   }
 
   /// Minimum effective sweep angle threshold to display subtask river pebble chips.
-  static const double minSubtaskPebbleSweepDeg12H = 22.0;
+  static const double minSubtaskPebbleSweepDeg12H = 14.0;
 
   /// Minimum effective sweep angle threshold to display subtask river pebble chips in 24H mode.
-  static const double minSubtaskPebbleSweepDeg24H = 16.0;
+  static const double minSubtaskPebbleSweepDeg24H = 10.0;
 
   /// Minimum buffer preserved between distinct non-contiguous blocks on the dial face.
   static const double minInterBlockGapDeg = 3.5;

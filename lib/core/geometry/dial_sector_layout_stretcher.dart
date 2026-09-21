@@ -43,8 +43,12 @@ class DialSectorLayoutStretcher {
       double requiredSweep = is24HourMode ? minSweep24H : minSweep12H;
       if (e.subtasks.isNotEmpty) {
         final subtaskTarget = is24HourMode
-            ? AppLayoutConstants.targetActiveSubtaskSweepDeg24H(e.subtasks.length)
-            : AppLayoutConstants.targetActiveSubtaskSweepDeg12H(e.subtasks.length);
+            ? AppLayoutConstants.targetActiveSubtaskSweepDeg24H(
+                e.subtasks.length,
+              )
+            : AppLayoutConstants.targetActiveSubtaskSweepDeg12H(
+                e.subtasks.length,
+              );
         requiredSweep = math.max(requiredSweep, subtaskTarget);
       } else if (isHighPriority) {
         final priorityFloor = is24HourMode ? 30.0 : 42.0;
@@ -54,12 +58,7 @@ class DialSectorLayoutStretcher {
       if (e.sweepAngle >= requiredSweep) {
         return events;
       }
-      return [
-        e.copyWith(
-          startAngle: e.startAngle,
-          sweepAngle: requiredSweep,
-        ),
-      ];
+      return [e.copyWith(startAngle: e.startAngle, sweepAngle: requiredSweep)];
     }
 
     final n = events.length;
@@ -126,8 +125,12 @@ class DialSectorLayoutStretcher {
       // Subtask-aware breathing room:
       if (ev.subtasks.isNotEmpty) {
         final subtaskTarget = is24HourMode
-            ? AppLayoutConstants.targetActiveSubtaskSweepDeg24H(ev.subtasks.length)
-            : AppLayoutConstants.targetActiveSubtaskSweepDeg12H(ev.subtasks.length);
+            ? AppLayoutConstants.targetActiveSubtaskSweepDeg24H(
+                ev.subtasks.length,
+              )
+            : AppLayoutConstants.targetActiveSubtaskSweepDeg12H(
+                ev.subtasks.length,
+              );
         if (isHighPriority) {
           // Active or selected block with subtasks gets full expansion target
           baseTargetSweep = math.max(baseTargetSweep, subtaskTarget);
@@ -255,7 +258,9 @@ class DialSectorLayoutStretcher {
 
       // Try taking remaining deficit from prev gap (only for non-priority events)
       final prevIdx = (i - 1 + n) % n;
-      if (!isPriority[i] && remainingDeficit > 0.001 && remainingUsable[prevIdx] > 0.0) {
+      if (!isPriority[i] &&
+          remainingDeficit > 0.001 &&
+          remainingUsable[prevIdx] > 0.0) {
         final extraBwd = math.min(remainingDeficit, remainingUsable[prevIdx]);
         grantedBwd[i] += extraBwd;
         remainingUsable[prevIdx] -= extraBwd;

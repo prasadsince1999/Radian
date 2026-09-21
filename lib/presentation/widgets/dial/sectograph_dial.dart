@@ -333,13 +333,24 @@ class SectographDial extends ConsumerWidget {
                         for (final e in projectedDayEvents) {
                           if (e.isAllDay) continue;
 
-                          // Skip events that completed more than 15 minutes before refTime (unless active)
-                          if (e.end.isBefore(
-                                refTime.subtract(const Duration(minutes: 15)),
-                              ) &&
-                              !(!refTime.isBefore(e.start) &&
-                                  refTime.isBefore(e.end))) {
-                            continue;
+                          final isFocusedBlock =
+                              settings.pastHoursStyle ==
+                              PastHoursStyle.focusedBlock;
+                          if (isFocusedBlock) {
+                            // In focused block mode, allow past events within 12 hours so FocusedBlockLayoutResolver
+                            // can select the configured previousBlocksCount (0..3).
+                            if (refTime.difference(e.end).inMinutes >= 720) {
+                              continue;
+                            }
+                          } else {
+                            // Skip events that completed more than 15 minutes before refTime (unless active)
+                            if (e.end.isBefore(
+                                  refTime.subtract(const Duration(minutes: 15)),
+                                ) &&
+                                !(!refTime.isBefore(e.start) &&
+                                    refTime.isBefore(e.end))) {
+                              continue;
+                            }
                           }
                           // Skip events that start 12 hours (720 min) or more ahead in 12H mode
                           if (e.start.difference(refTime).inMinutes >= 720) {
@@ -461,11 +472,12 @@ class SectographDial extends ConsumerWidget {
                     }
 
                     // When a block is explicitly tapped/selected or has subtasks, provide punchy expansion magnification
-                    final activeMagnification = (focusEvent != null && focusEvent.subtasks.isNotEmpty)
+                    final activeMagnification =
+                        (focusEvent != null && focusEvent.subtasks.isNotEmpty)
                         ? math.max(settings.lensMagnification, 2.05)
                         : (selectedEvent != null
-                            ? math.max(settings.lensMagnification, 1.85)
-                            : settings.lensMagnification);
+                              ? math.max(settings.lensMagnification, 1.85)
+                              : settings.lensMagnification);
 
                     final lens = settings.isFocusLensEnabled
                         ? FisheyeTimeLens(

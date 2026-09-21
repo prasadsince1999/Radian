@@ -37,9 +37,14 @@ class SectorContentRenderer {
     if (lower.contains('flexible')) return 'Flex';
     if (lower.contains('lunch')) return 'Lunch';
     if (lower.contains('nap')) return 'Nap';
+    if (lower.contains('study')) return 'Study';
 
-    // Universal clean single-word extraction for arbitrary user titles
+    // Universal clean phrase or keyword extraction for arbitrary user titles & subtasks
     final sanitized = clean.replaceAll(RegExp(r'[\+\-\:\|\(\)]+'), ' ').trim();
+    if (sanitized.length <= 10) {
+      return sanitized;
+    }
+
     final words = sanitized
         .split(RegExp(r'\s+'))
         .where((w) => w.isNotEmpty)
@@ -105,14 +110,17 @@ class SectorContentRenderer {
     // harmoniously proportioned so open water bays have ample space for river pebble chips.
     final hasSubtasks = showSubtasks && event.subtasks.isNotEmpty;
     final dynamicTypeSize = hasSubtasks
-        ? (availableInnerArc * 0.17).clamp(8.0, 11.5)
+        ? (availableInnerArc * 0.15).clamp(8.0, 11.0)
         : (availableInnerArc * 0.22).clamp(8.0, 13.5);
-    final iconFontSize = (dynamicTypeSize * 1.15).clamp(10.0, 15.0);
+    final iconFontSize = (dynamicTypeSize * 1.12).clamp(9.5, 14.0);
     final titleFontSize = dynamicTypeSize;
-    final metaFontSize = (dynamicTypeSize * 0.85).clamp(8.0, 11.0);
+    final metaFontSize = (dynamicTypeSize * 0.85).clamp(7.5, 10.5);
     final pebbleFontSize = hasSubtasks
-        ? (dynamicTypeSize * 0.92).clamp(9.5, 12.5)
-        : (dynamicTypeSize * 0.85).clamp(8.5, 11.0);
+        ? (dynamicTypeSize * 0.90).clamp(
+            is24HourMode || effectiveSweepDeg < 45.0 ? 8.0 : 9.5,
+            12.0,
+          )
+        : (dynamicTypeSize * 0.85).clamp(8.0, 11.0);
 
     final iconData = _getEventIcon(event);
     final iconPainter = TextPainter(
@@ -132,6 +140,7 @@ class SectorContentRenderer {
     final wordLines = _splitTitleWords(
       event.title,
       effectiveSweepDeg: effectiveSweepDeg,
+      hasSubtasks: hasSubtasks,
     );
 
     final titleStyle = TextStyle(
@@ -216,14 +225,25 @@ class SectorContentRenderer {
     );
 
     // 3 Content Tiers:
-    // Small sweep (< 14° in 24H, < 20° in 12H) or tight fit -> Tier 1: Icon only
-    // Medium sweep (< 30° in 24H, < 45° in 12H) or moderate fit -> Tier 2: Icon + One Word
-    // Large sweep (>= 30° in 24H, >= 45° in 12H) with comfortable scale -> Tier 3: Full Title + Duration
-    final isLargeSector = effectiveSweepDeg >= (is24HourMode ? 28.0 : 42.0);
-    final isMediumSector = effectiveSweepDeg >= (is24HourMode ? 14.0 : 20.0);
+    // Small sweep (< 7° in 24H, < 11° in 12H) or tight fit -> Tier 1: Icon only
+    // Medium sweep (< 24° in 24H, < 36° in 12H) or moderate fit -> Tier 2: Icon + One Word
+    // Large sweep (>= 24° in 24H, >= 36° in 12H) with comfortable scale -> Tier 3: Full Title + Duration
+    final isLargeSector = effectiveSweepDeg >= (is24HourMode ? 24.0 : 36.0);
+    final isMediumSector = effectiveSweepDeg >= (is24HourMode ? 7.0 : 11.0);
 
-    final bool showFull = isLargeSector && scaleA >= 0.85;
-    final bool showKeyword = !showFull && isMediumSector && scaleB >= 0.80;
+    // If sector has subtasks, reserve full multi-line title only for large sectors (>= 50° in 12H, >= 32° in 24H)
+    // so that moderate sectors like Dinner (1h 15m) stay compact and let river pebbles breathe!
+    final bool canShowFull = hasSubtasks
+        ? (effectiveSweepDeg >= (is24HourMode ? 32.0 : 50.0) && scaleA >= 0.88)
+        : (isLargeSector && scaleA >= 0.85);
+
+    final bool showFull = canShowFull;
+    final bool showKeyword =
+        !showFull &&
+        (hasSubtasks
+            ? effectiveSweepDeg >= (is24HourMode ? 32.0 : 50.0)
+            : isMediumSector) &&
+        scaleB >= 0.65;
     final bool showIconOnly = !showFull && !showKeyword;
 
     // Select which painters to draw based on adaptive tier
@@ -367,6 +387,7 @@ class SectorContentRenderer {
         isDarkSector: isDarkSector,
         pebbleFontSize: pebbleFontSize,
         centerTitleWidth: finalContentWidth * scale,
+        centerKeyword: showKeyword ? keyword : '',
         is24HourMode: is24HourMode,
       );
     }
@@ -391,14 +412,23 @@ class SectorContentRenderer {
     required bool isDarkSector,
     required double pebbleFontSize,
     required double centerTitleWidth,
+    String centerKeyword = '',
     required bool is24HourMode,
   }) {
     // Take up to 4 subtasks to scatter like smooth river pebbles
-    final pebbles = subtasks
+    final rawPebbles = subtasks
         .take(4)
         .map((s) => distillShortKeyword(s))
         .where((s) => s.isNotEmpty)
         .toList();
+
+    if (rawPebbles.isEmpty) return;
+
+    // Filter out duplicate keyword matching center title so distinctive subtasks shine:
+    final cleanCenter = centerKeyword.trim().toLowerCase();
+    final pebbles = (rawPebbles.length > 1 && cleanCenter.isNotEmpty)
+        ? rawPebbles.where((p) => p.toLowerCase() != cleanCenter).toList()
+        : rawPebbles;
 
     if (pebbles.isEmpty) return;
 
@@ -438,10 +468,12 @@ class SectorContentRenderer {
         textAlign: TextAlign.center,
       )..layout();
 
-      final w = tp.width +
-          (is24HourMode ? 6.5 : (effectiveSweepDeg < 38.0 ? 8.0 : 10.5));
-      final h = tp.height +
-          (is24HourMode ? 3.5 : (effectiveSweepDeg < 38.0 ? 4.5 : 6.0));
+      final w =
+          tp.width +
+          (is24HourMode ? 4.0 : (effectiveSweepDeg < 38.0 ? 4.5 : 7.0));
+      final h =
+          tp.height +
+          (is24HourMode ? 2.0 : (effectiveSweepDeg < 38.0 ? 2.5 : 4.0));
       final halfDeg = (w / 2.0) / (midR * math.pi / 180.0);
 
       textPainters.add(tp);
@@ -450,11 +482,18 @@ class SectorContentRenderer {
 
     final halfSweep = effectiveSweepDeg / 2.0;
 
-    // Safety margins to prevent touching block boundaries or center title
-    final boundaryBufferDeg =
-        is24HourMode ? 1.5 : (effectiveSweepDeg < 38.0 ? 1.8 : 2.5);
-    final titleBufferDeg =
-        is24HourMode ? 1.8 : (effectiveSweepDeg < 38.0 ? 2.0 : 3.0);
+    // Safety margins to prevent touching block boundaries or center title,
+    // guaranteeing natural breathing room around caps and titles
+    final boundaryBufferDeg = is24HourMode
+        ? 0.8
+        : (effectiveSweepDeg < 35.0
+              ? 0.5
+              : (effectiveSweepDeg < 60.0 ? 1.5 : 2.2));
+    final titleBufferDeg = is24HourMode
+        ? 0.8
+        : (effectiveSweepDeg < 35.0
+              ? 0.6
+              : (effectiveSweepDeg < 60.0 ? 1.5 : 2.5));
 
     // 1. Upstream (Left) Water Bay: between start boundary cap and center title.
     // Note: effectiveSweepDeg already subtracts startCapSpanDeg and endCapSpanDeg,
@@ -469,19 +508,26 @@ class SectorContentRenderer {
     final rightBayEndDeg = halfSweep - boundaryBufferDeg;
     final rightBayWidth = rightBayEndDeg - rightBayStartDeg;
 
-    if (leftBayWidth <= 3.5 && rightBayWidth <= 3.5) return;
-
-    // Helper to calculate minimum bay width required to safely fit 2 pebbles
-    double requiredForTwo(int i1, int i2) {
-      final d1 = pebbleDimensions[i1];
-      final d2 = pebbleDimensions[i2];
-      final minSep = math.max(3.5, (d1.halfDeg + d2.halfDeg) * 0.40);
-      return d1.halfDeg + minSep + d2.halfDeg;
+    if (leftBayWidth <= 1.0 && rightBayWidth <= 1.0) {
+      return;
     }
 
-    // Helper to check if a single pebble can fit
+    // Helper to calculate minimum bay width required to safely fit 2 pebbles with natural air gap
+    double requiredForTwo(int i1, int i2) {
+      final fullW1 = pebbleDimensions[i1].halfDeg * 2.0;
+      final fullW2 = pebbleDimensions[i2].halfDeg * 2.0;
+      final minAirGapDeg = is24HourMode
+          ? 2.0
+          : (effectiveSweepDeg < 50.0 ? 2.8 : 3.5);
+      final unscaledRequired = fullW1 + minAirGapDeg + fullW2;
+      return unscaledRequired * 0.65 + 1.5;
+    }
+
+    // Helper to check if a single pebble can fit comfortably with natural margins
     bool canFitSingle(int idx, double bayWidth) {
-      return bayWidth >= pebbleDimensions[idx].halfDeg * 1.6;
+      if (bayWidth <= 2.0) return false;
+      final fullDeg = pebbleDimensions[idx].halfDeg * 2.0;
+      return bayWidth >= (fullDeg * 0.60 + 0.6);
     }
 
     // Assign pebbles into Left Bay and Right Bay based on verified geometric capacity:
@@ -490,55 +536,94 @@ class SectorContentRenderer {
 
     final int count = pebbles.length;
     if (count == 1) {
-      if (rightBayWidth >= leftBayWidth && canFitSingle(0, rightBayWidth)) {
-        rightPebbleIndices.add(0);
-      } else if (canFitSingle(0, leftBayWidth)) {
+      if (canFitSingle(0, leftBayWidth)) {
         leftPebbleIndices.add(0);
+      } else if (canFitSingle(0, rightBayWidth)) {
+        rightPebbleIndices.add(0);
       }
     } else if (count == 2) {
       if (canFitSingle(0, leftBayWidth) && canFitSingle(1, rightBayWidth)) {
         leftPebbleIndices.add(0);
         rightPebbleIndices.add(1);
-      } else if (rightBayWidth >= requiredForTwo(0, 1)) {
-        rightPebbleIndices.add(0);
-        rightPebbleIndices.add(1);
-      } else if (leftBayWidth >= requiredForTwo(0, 1)) {
-        leftPebbleIndices.add(0);
-        leftPebbleIndices.add(1);
-      } else if (canFitSingle(0, rightBayWidth)) {
-        rightPebbleIndices.add(0);
-      } else if (canFitSingle(0, leftBayWidth)) {
-        leftPebbleIndices.add(0);
+      } else if (leftBayWidth >= rightBayWidth) {
+        if (leftBayWidth >= requiredForTwo(0, 1)) {
+          leftPebbleIndices.add(0);
+          leftPebbleIndices.add(1);
+        } else if (rightBayWidth >= requiredForTwo(0, 1)) {
+          rightPebbleIndices.add(0);
+          rightPebbleIndices.add(1);
+        } else if (canFitSingle(0, leftBayWidth)) {
+          leftPebbleIndices.add(0);
+        } else if (canFitSingle(0, rightBayWidth)) {
+          rightPebbleIndices.add(0);
+        }
+      } else {
+        if (rightBayWidth >= requiredForTwo(0, 1)) {
+          rightPebbleIndices.add(0);
+          rightPebbleIndices.add(1);
+        } else if (leftBayWidth >= requiredForTwo(0, 1)) {
+          leftPebbleIndices.add(0);
+          leftPebbleIndices.add(1);
+        } else if (canFitSingle(0, rightBayWidth)) {
+          rightPebbleIndices.add(0);
+        } else if (canFitSingle(0, leftBayWidth)) {
+          leftPebbleIndices.add(0);
+        }
       }
     } else if (count == 3) {
-      // 3 pebbles (e.g. Gym, Cardio, Stretch)
+      // 3 pebbles (e.g. Gym, Cardio, Stretch or LeetCode, Mock, PyTorch)
+      final canLeftFit2 = leftBayWidth >= requiredForTwo(0, 1);
       final canRightFit2 = rightBayWidth >= requiredForTwo(1, 2);
       final canLeftFit1 = canFitSingle(0, leftBayWidth);
-      final canLeftFit2 = leftBayWidth >= requiredForTwo(0, 1);
       final canRightFit1 = canFitSingle(2, rightBayWidth);
 
-      if (canRightFit2 && canLeftFit1) {
-        leftPebbleIndices.add(0);
-        rightPebbleIndices.add(1);
-        rightPebbleIndices.add(2);
-      } else if (canLeftFit2 && canRightFit1) {
-        leftPebbleIndices.add(0);
-        leftPebbleIndices.add(1);
-        rightPebbleIndices.add(2);
-      } else if (canLeftFit1 && canFitSingle(1, rightBayWidth)) {
-        // Safe fallback: each bay gets 1 pebble so no bay overflows
-        leftPebbleIndices.add(0);
-        rightPebbleIndices.add(1);
-      } else if (canRightFit2) {
-        rightPebbleIndices.add(0);
-        rightPebbleIndices.add(1);
-      } else if (canLeftFit2) {
-        leftPebbleIndices.add(0);
-        leftPebbleIndices.add(1);
-      } else if (canLeftFit1) {
-        leftPebbleIndices.add(0);
-      } else if (canFitSingle(0, rightBayWidth)) {
-        rightPebbleIndices.add(0);
+      // Prioritize putting 2 pebbles into the larger bay so they have maximum natural space:
+      if (leftBayWidth >= rightBayWidth) {
+        if (canLeftFit2 && canRightFit1) {
+          leftPebbleIndices.add(0);
+          leftPebbleIndices.add(1);
+          rightPebbleIndices.add(2);
+        } else if (canRightFit2 && canLeftFit1) {
+          leftPebbleIndices.add(0);
+          rightPebbleIndices.add(1);
+          rightPebbleIndices.add(2);
+        } else if (canLeftFit1 && canRightFit1) {
+          leftPebbleIndices.add(0);
+          rightPebbleIndices.add(1);
+        } else if (canLeftFit2) {
+          leftPebbleIndices.add(0);
+          leftPebbleIndices.add(1);
+        } else if (canRightFit2) {
+          rightPebbleIndices.add(0);
+          rightPebbleIndices.add(1);
+        } else if (canLeftFit1) {
+          leftPebbleIndices.add(0);
+        } else if (canRightFit1) {
+          rightPebbleIndices.add(0);
+        }
+      } else {
+        if (canRightFit2 && canLeftFit1) {
+          leftPebbleIndices.add(0);
+          rightPebbleIndices.add(1);
+          rightPebbleIndices.add(2);
+        } else if (canLeftFit2 && canRightFit1) {
+          leftPebbleIndices.add(0);
+          leftPebbleIndices.add(1);
+          rightPebbleIndices.add(2);
+        } else if (canLeftFit1 && canRightFit1) {
+          leftPebbleIndices.add(0);
+          rightPebbleIndices.add(1);
+        } else if (canRightFit2) {
+          rightPebbleIndices.add(0);
+          rightPebbleIndices.add(1);
+        } else if (canLeftFit2) {
+          leftPebbleIndices.add(0);
+          leftPebbleIndices.add(1);
+        } else if (canRightFit1) {
+          rightPebbleIndices.add(0);
+        } else if (canLeftFit1) {
+          leftPebbleIndices.add(0);
+        }
       }
     } else {
       // 4 pebbles
@@ -552,17 +637,32 @@ class SectorContentRenderer {
         leftPebbleIndices.add(1);
         rightPebbleIndices.add(2);
         rightPebbleIndices.add(3);
-      } else if (canRightFit2 && canLeftFit1) {
-        leftPebbleIndices.add(0);
-        rightPebbleIndices.add(1);
-        rightPebbleIndices.add(2);
-      } else if (canLeftFit2 && canRightFit1) {
-        leftPebbleIndices.add(0);
-        leftPebbleIndices.add(1);
-        rightPebbleIndices.add(2);
-      } else if (canLeftFit1 && canRightFit1) {
-        leftPebbleIndices.add(0);
-        rightPebbleIndices.add(1);
+      } else if (leftBayWidth >= rightBayWidth) {
+        if (canLeftFit2 && canRightFit1) {
+          leftPebbleIndices.add(0);
+          leftPebbleIndices.add(1);
+          rightPebbleIndices.add(2);
+        } else if (canRightFit2 && canLeftFit1) {
+          leftPebbleIndices.add(0);
+          rightPebbleIndices.add(1);
+          rightPebbleIndices.add(2);
+        } else if (canLeftFit1 && canRightFit1) {
+          leftPebbleIndices.add(0);
+          rightPebbleIndices.add(1);
+        }
+      } else {
+        if (canRightFit2 && canLeftFit1) {
+          leftPebbleIndices.add(0);
+          rightPebbleIndices.add(1);
+          rightPebbleIndices.add(2);
+        } else if (canLeftFit2 && canRightFit1) {
+          leftPebbleIndices.add(0);
+          leftPebbleIndices.add(1);
+          rightPebbleIndices.add(2);
+        } else if (canLeftFit1 && canRightFit1) {
+          leftPebbleIndices.add(0);
+          rightPebbleIndices.add(1);
+        }
       }
     }
 
@@ -572,25 +672,22 @@ class SectorContentRenderer {
       required double bayEnd,
       required double bayWidth,
     }) {
-      if (indices.isEmpty) return;
+      if (indices.isEmpty || bayWidth <= 0.0) return;
 
       if (indices.length == 1) {
         final idx = indices[0];
         final dim = pebbleDimensions[idx];
-        if (bayWidth < dim.halfDeg * 1.5) {
-          final scaleFactor = (bayWidth / (dim.halfDeg * 2.0)).clamp(0.65, 1.0);
-          if (scaleFactor < 0.70) return;
-        }
+        final fullW = dim.halfDeg * 2.0;
+        final scaleFactor = (bayWidth / fullW).clamp(0.55, 1.0);
+        final scaledH = dim.h * scaleFactor;
 
-        final minA = math.min(bayStart + dim.halfDeg, bayEnd - dim.halfDeg);
-        final maxA = math.max(bayStart + dim.halfDeg, bayEnd - dim.halfDeg);
-        var targetAngle = ((bayStart + bayEnd) / 2.0).clamp(minA, maxA);
+        final targetAngle = (bayStart + bayEnd) / 2.0;
 
         final pDeg = midDeg + targetAngle;
         final pRad = SectorMath.dialAngleToCanvasRadians(pDeg);
         final pR = midR.clamp(
-          rIn + dim.h / 2.0 + 2.0,
-          rOut - dim.h / 2.0 - 2.0,
+          rIn + scaledH / 2.0 + 2.0,
+          rOut - scaledH / 2.0 - 2.0,
         );
 
         _renderSinglePebble(
@@ -601,6 +698,7 @@ class SectorContentRenderer {
           pRad: pRad,
           pR: pR,
           tilt: tilts[idx % tilts.length],
+          scaleFactor: scaleFactor,
           pebbleBgPaint: pebbleBgPaint,
           pebbleBorderPaint: pebbleBorderPaint,
         );
@@ -609,51 +707,62 @@ class SectorContentRenderer {
         final idx2 = indices[1];
         final dim1 = pebbleDimensions[idx1];
         final dim2 = pebbleDimensions[idx2];
+        final fullW1 = dim1.halfDeg * 2.0;
+        final fullW2 = dim2.halfDeg * 2.0;
 
-        final minSep = math.max(3.5, (dim1.halfDeg + dim2.halfDeg) * 0.40);
-        final minRequiredWidth = dim1.halfDeg + minSep + dim2.halfDeg;
+        final minAirGapDeg = is24HourMode
+            ? 2.0
+            : (effectiveSweepDeg < 45.0 ? 2.8 : 4.0);
+        final unscaledRequired = fullW1 + minAirGapDeg + fullW2;
+        final scaleFactor = (bayWidth / unscaledRequired).clamp(0.60, 1.0);
 
-        if (bayWidth < minRequiredWidth ||
-            (bayStart + dim1.halfDeg >= bayEnd - dim2.halfDeg - minSep)) {
-          // Guaranteed safe fallback to 1 pebble centered:
-          final minA = math.min(bayStart + dim1.halfDeg, bayEnd - dim1.halfDeg);
-          final maxA = math.max(bayStart + dim1.halfDeg, bayEnd - dim1.halfDeg);
-          var targetAngle = ((bayStart + bayEnd) / 2.0).clamp(minA, maxA);
+        final scaledW1 = fullW1 * scaleFactor;
+        final scaledHalf1 = dim1.halfDeg * scaleFactor;
+        final scaledW2 = fullW2 * scaleFactor;
+        final scaledHalf2 = dim2.halfDeg * scaleFactor;
+        final scaledAirGap = minAirGapDeg * scaleFactor;
+        final minRequiredWidth = scaledW1 + scaledAirGap + scaledW2;
+
+        if (bayWidth < minRequiredWidth) {
+          // Safe fallback to 1 pebble centered:
+          final singleScale = (bayWidth / fullW1).clamp(0.55, 1.0);
+          final sHalf = dim1.halfDeg * singleScale;
+          final sH = dim1.h * singleScale;
+
+          final targetAngle = ((bayStart + bayEnd) / 2.0).clamp(
+            math.min(bayStart + sHalf, bayEnd - sHalf),
+            math.max(bayStart + sHalf, bayEnd - sHalf),
+          );
           _renderSinglePebble(
             canvas: canvas,
             center: center,
             tp: textPainters[idx1],
             dim: dim1,
             pRad: SectorMath.dialAngleToCanvasRadians(midDeg + targetAngle),
-            pR: midR.clamp(
-              rIn + dim1.h / 2.0 + 2.0,
-              rOut - dim1.h / 2.0 - 2.0,
-            ),
+            pR: midR.clamp(rIn + sH / 2.0 + 2.0, rOut - sH / 2.0 - 2.0),
             tilt: tilts[idx1 % tilts.length],
+            scaleFactor: singleScale,
             pebbleBgPaint: pebbleBgPaint,
             pebbleBorderPaint: pebbleBorderPaint,
           );
           return;
         }
 
-        // Both pebbles fit without ANY boundary overflow:
+        // Both pebbles fit with guaranteed disjoint intervals & natural spacing:
         final slack = math.max(0.0, bayWidth - minRequiredWidth);
-        final minP1 = math.min(bayStart + dim1.halfDeg, bayEnd - dim2.halfDeg - minSep);
-        final maxP1 = math.max(bayStart + dim1.halfDeg, bayEnd - dim2.halfDeg - minSep);
-        final p1Angle = (bayStart + dim1.halfDeg + slack * 0.25).clamp(minP1, maxP1);
+        final margin = slack / 3.0;
+        final betweenGap = scaledAirGap + margin;
 
-        final minP2 = math.min(p1Angle + minSep, bayEnd - dim2.halfDeg);
-        final maxP2 = math.max(p1Angle + minSep, bayEnd - dim2.halfDeg);
-        final p2Angle = (bayEnd - dim2.halfDeg - slack * 0.25).clamp(minP2, maxP2);
+        final p1Angle = bayStart + margin + scaledHalf1;
+        final p2Angle = p1Angle + scaledHalf1 + betweenGap + scaledHalf2;
 
-        final rStagger = (trackThickness * 0.14).clamp(4.0, 7.5);
-        final p1R = (midR - rStagger).clamp(
-          rIn + dim1.h / 2.0 + 2.0,
-          rOut - dim1.h / 2.0 - 2.0,
+        final p1R = midR.clamp(
+          rIn + (dim1.h * scaleFactor) / 2.0 + 2.0,
+          rOut - (dim1.h * scaleFactor) / 2.0 - 2.0,
         );
-        final p2R = (midR + rStagger).clamp(
-          rIn + dim2.h / 2.0 + 2.0,
-          rOut - dim2.h / 2.0 - 2.0,
+        final p2R = midR.clamp(
+          rIn + (dim2.h * scaleFactor) / 2.0 + 2.0,
+          rOut - (dim2.h * scaleFactor) / 2.0 - 2.0,
         );
 
         _renderSinglePebble(
@@ -664,6 +773,7 @@ class SectorContentRenderer {
           pRad: SectorMath.dialAngleToCanvasRadians(midDeg + p1Angle),
           pR: p1R,
           tilt: tilts[idx1 % tilts.length],
+          scaleFactor: scaleFactor,
           pebbleBgPaint: pebbleBgPaint,
           pebbleBorderPaint: pebbleBorderPaint,
         );
@@ -676,6 +786,7 @@ class SectorContentRenderer {
           pRad: SectorMath.dialAngleToCanvasRadians(midDeg + p2Angle),
           pR: p2R,
           tilt: tilts[idx2 % tilts.length],
+          scaleFactor: scaleFactor,
           pebbleBgPaint: pebbleBgPaint,
           pebbleBorderPaint: pebbleBorderPaint,
         );
@@ -705,6 +816,7 @@ class SectorContentRenderer {
     required double pRad,
     required double pR,
     required double tilt,
+    double scaleFactor = 1.0,
     required Paint pebbleBgPaint,
     required Paint pebbleBorderPaint,
   }) {
@@ -722,6 +834,9 @@ class SectorContentRenderer {
     }
     pTangent += tilt;
     canvas.rotate(pTangent);
+    if (scaleFactor != 1.0) {
+      canvas.scale(scaleFactor, scaleFactor);
+    }
 
     // River stone smooth rounded pill capsule
     final pebbleRect = Rect.fromCenter(
@@ -742,17 +857,18 @@ class SectorContentRenderer {
   }
 
   /// Splits event title into stacked lines, with smart single-keyword compaction
-  /// for narrow sectors (< 35°) so text never crowds or collides with caps.
+  /// for narrow sectors (< 35°) or sectors with subtasks (< 50°) so text never crowds or collides with caps.
   static List<String> _splitTitleWords(
     String title, {
     required double effectiveSweepDeg,
+    bool hasSubtasks = false,
   }) {
     final clean = title.trim();
     if (clean.isEmpty) return const [];
 
-    // Narrow sector (< 35°): compact into a single punchy keyword to guarantee
-    // high font size and zero vertical squeezing
-    if (effectiveSweepDeg < 35.0) {
+    // Narrow sector (< 35°) or sector with subtasks (< 50°): compact into a single punchy keyword
+    // to guarantee high font size, zero vertical squeezing, and ample bay room for pebbles!
+    if (effectiveSweepDeg < (hasSubtasks ? 50.0 : 35.0)) {
       return [distillShortKeyword(clean)];
     }
 

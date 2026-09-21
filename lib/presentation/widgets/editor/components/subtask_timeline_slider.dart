@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -226,8 +227,14 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                           _initialEndOffset = endOffset;
 
                           final halfPill = pillWidth / 2.0;
-                          final startHitRange = math.min(capWidth + 12.0, halfPill);
-                          final endHitRange = math.min(capWidth + 12.0, halfPill);
+                          final startHitRange = math.min(
+                            capWidth + 12.0,
+                            halfPill,
+                          );
+                          final endHitRange = math.min(
+                            capWidth + 12.0,
+                            halfPill,
+                          );
 
                           // Hit detection prioritizing edge caps then pill body
                           if ((localX - pillLeft).abs() <= 20 ||
@@ -415,10 +422,12 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                                                       child: Text(
                                                         startCapStr,
                                                         style: TextStyle(
-                                                          fontSize: isStartDragging
+                                                          fontSize:
+                                                              isStartDragging
                                                               ? 11.0
                                                               : 10.0,
-                                                          fontWeight: FontWeight.w900,
+                                                          fontWeight:
+                                                              FontWeight.w900,
                                                           letterSpacing: -0.2,
                                                           fontFeatures: const [
                                                             FontFeature.tabularFigures(),
@@ -435,9 +444,13 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                                                     height: 22,
                                                     decoration: BoxDecoration(
                                                       color: Colors.white
-                                                          .withValues(alpha: 0.85),
+                                                          .withValues(
+                                                            alpha: 0.85,
+                                                          ),
                                                       borderRadius:
-                                                          BorderRadius.circular(1.5),
+                                                          BorderRadius.circular(
+                                                            1.5,
+                                                          ),
                                                     ),
                                                   ),
                                           ),
@@ -510,10 +523,12 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                                                       child: Text(
                                                         endCapStr,
                                                         style: TextStyle(
-                                                          fontSize: isEndDragging
+                                                          fontSize:
+                                                              isEndDragging
                                                               ? 11.0
                                                               : 10.0,
-                                                          fontWeight: FontWeight.w900,
+                                                          fontWeight:
+                                                              FontWeight.w900,
                                                           letterSpacing: -0.2,
                                                           fontFeatures: const [
                                                             FontFeature.tabularFigures(),
@@ -530,9 +545,13 @@ class _SubtaskTimelineSliderState extends State<SubtaskTimelineSlider> {
                                                     height: 22,
                                                     decoration: BoxDecoration(
                                                       color: Colors.white
-                                                          .withValues(alpha: 0.85),
+                                                          .withValues(
+                                                            alpha: 0.85,
+                                                          ),
                                                       borderRadius:
-                                                          BorderRadius.circular(1.5),
+                                                          BorderRadius.circular(
+                                                            1.5,
+                                                          ),
                                                     ),
                                                   ),
                                           ),

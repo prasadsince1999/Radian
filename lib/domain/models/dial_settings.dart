@@ -102,8 +102,12 @@ class DialSettings {
       isFocusLensEnabled: isFocusLensEnabled ?? this.isFocusLensEnabled,
       lensMagnification: lensMagnification ?? this.lensMagnification,
       dateOfBirth: clearDateOfBirth ? null : (dateOfBirth ?? this.dateOfBirth),
-      previousBlocksCount: (previousBlocksCount ?? this.previousBlocksCount).clamp(0, 3),
-      futureBlocksCount: (futureBlocksCount ?? this.futureBlocksCount).clamp(0, 3),
+      previousBlocksCount: (previousBlocksCount ?? this.previousBlocksCount)
+          .clamp(0, 3),
+      futureBlocksCount: (futureBlocksCount ?? this.futureBlocksCount).clamp(
+        0,
+        3,
+      ),
     );
   }
 

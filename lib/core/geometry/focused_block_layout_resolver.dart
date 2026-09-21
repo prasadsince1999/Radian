@@ -302,24 +302,32 @@ class FocusedBlockLayoutResolver {
     // Priority 2: Current active block
     tryAdd(active);
 
-    // Priority 3: Upcoming blocks based on futureBlocksCount (0 to 3)
+    // Priority 3: Immediate previous block (Tier 1 focus)
+    if (previousBlocksCount >= 1) {
+      tryAdd(prev1);
+    }
+
+    // Priority 4: Immediate upcoming block (Tier 1 focus)
     if (futureBlocksCount >= 1) {
       tryAdd(next1);
     }
+
+    // Priority 5: Secondary upcoming block
     if (futureBlocksCount >= 2) {
       tryAdd(next2);
     }
+
+    // Priority 6: Secondary previous block
+    if (previousBlocksCount >= 2) {
+      tryAdd(prev2);
+    }
+
+    // Priority 7: Tertiary upcoming block
     if (futureBlocksCount >= 3) {
       tryAdd(next3);
     }
 
-    // Priority 4: Previous blocks based on previousBlocksCount (0 to 3)
-    if (previousBlocksCount >= 1) {
-      tryAdd(prev1);
-    }
-    if (previousBlocksCount >= 2) {
-      tryAdd(prev2);
-    }
+    // Priority 8: Tertiary previous block
     if (previousBlocksCount >= 3) {
       tryAdd(prev3);
     }

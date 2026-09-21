@@ -276,11 +276,7 @@ class DialTimeFormatSection extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Icon(
-                    Icons.timelapse_rounded,
-                    size: 16,
-                    color: accentColor,
-                  ),
+                  Icon(Icons.timelapse_rounded, size: 16, color: accentColor),
                   const SizedBox(width: 8),
                   Text(
                     'VISIBLE BLOCK HORIZON (DIAL & WIDGET)',
@@ -296,7 +292,10 @@ class DialTimeFormatSection extends ConsumerWidget {
               const SizedBox(height: 4),
               Text(
                 'Limits visible slices to prevent circular overcrowding. Edit Mode still reveals all day blocks.',
-                style: TextStyle(fontSize: 11, color: secondaryText.withValues(alpha: 0.8)),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: secondaryText.withValues(alpha: 0.8),
+                ),
               ),
               const SizedBox(height: 12),
 
@@ -324,7 +323,9 @@ class DialTimeFormatSection extends ConsumerWidget {
                   _buildSegmentSelector(
                     current: settings.previousBlocksCount,
                     onSelected: (val) {
-                      ref.read(dialSettingsProvider.notifier).setPreviousBlocksCount(val);
+                      ref
+                          .read(dialSettingsProvider.notifier)
+                          .setPreviousBlocksCount(val);
                     },
                     accentColor: accentColor,
                     accentBg: accentBg,
@@ -360,7 +361,9 @@ class DialTimeFormatSection extends ConsumerWidget {
                   _buildSegmentSelector(
                     current: settings.futureBlocksCount,
                     onSelected: (val) {
-                      ref.read(dialSettingsProvider.notifier).setFutureBlocksCount(val);
+                      ref
+                          .read(dialSettingsProvider.notifier)
+                          .setFutureBlocksCount(val);
                     },
                     accentColor: accentColor,
                     accentBg: accentBg,
@@ -409,7 +412,9 @@ class DialTimeFormatSection extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
-                  color: isSelected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+                  color: isSelected
+                      ? colorScheme.onPrimary
+                      : colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
