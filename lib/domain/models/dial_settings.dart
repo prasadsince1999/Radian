@@ -36,6 +36,8 @@ class DialSettings {
   final bool isFocusLensEnabled;
   final double lensMagnification;
   final DateTime? dateOfBirth;
+  final int previousBlocksCount;
+  final int futureBlocksCount;
 
   const DialSettings({
     this.is24HourMode = false,
@@ -52,6 +54,8 @@ class DialSettings {
     this.isFocusLensEnabled = true,
     this.lensMagnification = 1.75,
     this.dateOfBirth,
+    this.previousBlocksCount = 1,
+    this.futureBlocksCount = 2,
   });
 
   Color get seedColor {
@@ -80,6 +84,8 @@ class DialSettings {
     double? lensMagnification,
     DateTime? dateOfBirth,
     bool clearDateOfBirth = false,
+    int? previousBlocksCount,
+    int? futureBlocksCount,
   }) {
     return DialSettings(
       is24HourMode: is24HourMode ?? this.is24HourMode,
@@ -96,6 +102,8 @@ class DialSettings {
       isFocusLensEnabled: isFocusLensEnabled ?? this.isFocusLensEnabled,
       lensMagnification: lensMagnification ?? this.lensMagnification,
       dateOfBirth: clearDateOfBirth ? null : (dateOfBirth ?? this.dateOfBirth),
+      previousBlocksCount: (previousBlocksCount ?? this.previousBlocksCount).clamp(0, 3),
+      futureBlocksCount: (futureBlocksCount ?? this.futureBlocksCount).clamp(0, 3),
     );
   }
 
@@ -114,6 +122,8 @@ class DialSettings {
     'isFocusLensEnabled': isFocusLensEnabled,
     'lensMagnification': lensMagnification,
     'dateOfBirth': dateOfBirth?.toIso8601String(),
+    'previousBlocksCount': previousBlocksCount,
+    'futureBlocksCount': futureBlocksCount,
   };
 
   factory DialSettings.fromJson(Map<String, dynamic> json) {
@@ -156,6 +166,10 @@ class DialSettings {
       dateOfBirth: json['dateOfBirth'] != null
           ? DateTime.tryParse(json['dateOfBirth'] as String)
           : null,
+      previousBlocksCount:
+          (json['previousBlocksCount'] as num?)?.toInt().clamp(0, 3) ?? 1,
+      futureBlocksCount:
+          (json['futureBlocksCount'] as num?)?.toInt().clamp(0, 3) ?? 2,
     );
   }
 }

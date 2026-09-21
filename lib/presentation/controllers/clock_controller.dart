@@ -229,6 +229,14 @@ class DialSettingsNotifier extends StateNotifier<DialSettings> {
     );
   }
 
+  void setPreviousBlocksCount(int count) {
+    updateSettings(state.copyWith(previousBlocksCount: count.clamp(0, 3)));
+  }
+
+  void setFutureBlocksCount(int count) {
+    updateSettings(state.copyWith(futureBlocksCount: count.clamp(0, 3)));
+  }
+
   void cycleCenterClockDisplay() {
     final current = state.centerClockDisplay;
     final next = switch (current) {

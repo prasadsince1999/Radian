@@ -18,7 +18,7 @@ void main() {
     }
 
     test(
-      'extracts exact 3 previous + 1 active + 3 upcoming from 10 events',
+      'extracts exact 3 previous + 1 active + 3 upcoming from 10 events when limits are 3',
       () {
         final events = [
           makeEvent('e0', 0, 2), // Older past (should be excluded)
@@ -40,6 +40,8 @@ void main() {
           events: events,
           effectiveTime: effectiveTime,
           is24HourMode: true,
+          previousBlocksCount: 3,
+          futureBlocksCount: 3,
         );
 
         expect(result.activeEvent?.id, 'e4');
@@ -76,6 +78,51 @@ void main() {
         expect(result.visibleEvents.any((e) => e.id == 'e9'), isFalse);
       },
     );
+
+    test('extracts default 1 previous + 1 active + 2 upcoming from 10 events', () {
+      final events = [
+        makeEvent('e0', 0, 2),
+        makeEvent('e1', 2, 4),
+        makeEvent('e2', 4, 6),
+        makeEvent('e3', 6, 8), // Prev 1
+        makeEvent('e4', 8, 11), // Active
+        makeEvent('e5', 11, 13), // Next 1
+        makeEvent('e6', 13, 15), // Next 2
+        makeEvent('e7', 15, 17),
+        makeEvent('e8', 17, 19),
+      ];
+
+      final effectiveTime = baseDate.add(const Duration(hours: 9));
+      final result = FocusedBlockLayoutResolver.resolve(
+        events: events,
+        effectiveTime: effectiveTime,
+        is24HourMode: true,
+      );
+
+      // Default should have at most 4 blocks: prev1 (e3), active (e4), next1 (e5), next2 (e6)
+      expect(result.visibleEvents.length, 4);
+      expect(result.visibleEvents.map((e) => e.id).toList(), ['e3', 'e4', 'e5', 'e6']);
+    });
+
+    test('respects zero previous and future block counts', () {
+      final events = [
+        makeEvent('e1', 6, 8),
+        makeEvent('e2', 8, 10),
+        makeEvent('e3', 10, 12),
+      ];
+
+      final effectiveTime = baseDate.add(const Duration(hours: 9));
+      final result = FocusedBlockLayoutResolver.resolve(
+        events: events,
+        effectiveTime: effectiveTime,
+        previousBlocksCount: 0,
+        futureBlocksCount: 0,
+      );
+
+      // Only active block visible!
+      expect(result.visibleEvents.length, 1);
+      expect(result.visibleEvents.first.id, 'e2');
+    });
 
     test(
       'suppresses angular collisions on 12-hour dial for inner ring blocks',

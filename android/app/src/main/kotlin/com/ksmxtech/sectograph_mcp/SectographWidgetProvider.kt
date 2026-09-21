@@ -38,8 +38,12 @@ class SectographWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        updateAll(context)
-        scheduleNextMinuteAlarm(context)
+        try {
+            updateAll(context)
+        } catch (_: Exception) {}
+        finally {
+            scheduleNextMinuteAlarm(context)
+        }
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -54,16 +58,24 @@ class SectographWidgetProvider : AppWidgetProvider() {
             Intent.ACTION_MY_PACKAGE_REPLACED,
             Intent.ACTION_USER_PRESENT,
             Intent.ACTION_SCREEN_ON -> {
-                updateAll(context)
-                scheduleNextMinuteAlarm(context)
+                try {
+                    updateAll(context)
+                } catch (_: Exception) {}
+                finally {
+                    scheduleNextMinuteAlarm(context)
+                }
             }
         }
     }
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
-        updateAll(context)
-        scheduleNextMinuteAlarm(context)
+        try {
+            updateAll(context)
+        } catch (_: Exception) {}
+        finally {
+            scheduleNextMinuteAlarm(context)
+        }
     }
 
     companion object {
@@ -232,12 +244,14 @@ class SectographWidgetProvider : AppWidgetProvider() {
             val hour12 = cal.get(Calendar.HOUR)
             val hour24 = cal.get(Calendar.HOUR_OF_DAY)
             val minute = cal.get(Calendar.MINUTE)
+            val second = cal.get(Calendar.SECOND)
 
             // 12 o'clock corresponds to -90 degrees from positive X axis
+            val minuteFraction = (minute + second / 60f) / 60f
             val angleDeg = if (is24HourMode) {
-                ((hour24 + minute / 60f) / 24f) * 360f - 90f
+                ((hour24 + minuteFraction) / 24f) * 360f - 90f
             } else {
-                ((hour12 + minute / 60f) / 12f) * 360f - 90f
+                ((hour12 + minuteFraction) / 12f) * 360f - 90f
             }
             val angleRad = Math.toRadians(angleDeg.toDouble())
             val cosA = Math.cos(angleRad).toFloat()

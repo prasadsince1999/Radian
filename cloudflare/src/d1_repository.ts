@@ -64,7 +64,7 @@ export class D1Repository {
         is_all_day, icon_name, reminder_minutes, repeat_days, 
         recurrence_end_date, subtasks, sync_key, updated_at, deleted_at
       ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, NULL)
-      ON CONFLICT(id) DO UPDATE SET
+      ON CONFLICT(id, sync_key) DO UPDATE SET
         title = excluded.title,
         start = excluded.start,
         end = excluded.end,
@@ -79,7 +79,11 @@ export class D1Repository {
         subtasks = excluded.subtasks,
         sync_key = excluded.sync_key,
         updated_at = excluded.updated_at,
-        deleted_at = NULL
+        deleted_at = CASE 
+          WHEN events.deleted_at IS NULL THEN NULL 
+          WHEN excluded.updated_at > events.deleted_at THEN NULL 
+          ELSE events.deleted_at 
+        END
     `;
 
     const now = new Date().toISOString();
@@ -104,10 +108,17 @@ export class D1Repository {
 
   async softDeleteEvent(id: string, syncKey: string = 'default'): Promise<void> {
     const now = new Date().toISOString();
-    await this.db
-      .prepare('UPDATE events SET deleted_at = ?1, updated_at = ?1 WHERE id = ?2 AND sync_key = ?3')
-      .bind(now, id, syncKey)
-      .run();
+    const query = `
+      INSERT INTO events (
+        id, title, start, end, category, color_hex, notes,
+        is_all_day, icon_name, reminder_minutes, repeat_days,
+        recurrence_end_date, subtasks, sync_key, updated_at, deleted_at
+      ) VALUES (?1, 'Deleted', ?2, ?2, 'General', '#64748B', '', 0, NULL, NULL, NULL, NULL, NULL, ?3, ?2, ?2)
+      ON CONFLICT(id, sync_key) DO UPDATE SET
+        deleted_at = excluded.deleted_at,
+        updated_at = excluded.updated_at
+    `;
+    await this.db.prepare(query).bind(id, now, syncKey).run();
   }
 
   async getEventById(id: string, syncKey: string = 'default'): Promise<SectorEventRecord | null> {
@@ -136,7 +147,7 @@ export class D1Repository {
         is_all_day, icon_name, reminder_minutes, repeat_days, 
         recurrence_end_date, subtasks, sync_key, updated_at, deleted_at
       ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, NULL)
-      ON CONFLICT(id) DO UPDATE SET
+      ON CONFLICT(id, sync_key) DO UPDATE SET
         title = excluded.title,
         start = excluded.start,
         end = excluded.end,
@@ -151,7 +162,11 @@ export class D1Repository {
         subtasks = excluded.subtasks,
         sync_key = excluded.sync_key,
         updated_at = excluded.updated_at,
-        deleted_at = NULL
+        deleted_at = CASE 
+          WHEN events.deleted_at IS NULL THEN NULL 
+          WHEN excluded.updated_at > events.deleted_at THEN NULL 
+          ELSE events.deleted_at 
+        END
     `;
 
     const statements = events.map(event => {

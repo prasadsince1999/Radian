@@ -38,6 +38,7 @@ void main() async {
   final syncParam = queryParams['sync']?.trim();
   if (syncParam != null && syncParam.isNotEmpty) {
     await prefs.setString('cloud_sync_key', syncParam);
+    await prefs.setString('radian_sync_key', syncParam);
     await prefs.setBool('cloud_sync_enabled', true);
   }
 

@@ -122,6 +122,8 @@ abstract final class DialImageRenderer {
             effectiveTime: currentTime,
             selectedEvent: selectedEvent,
             is24HourMode: settings.is24HourMode,
+            previousBlocksCount: settings.previousBlocksCount,
+            futureBlocksCount: settings.futureBlocksCount,
           )
         : null;
 
@@ -166,7 +168,11 @@ abstract final class DialImageRenderer {
             ? math.max(settings.lensMagnification, 1.85)
             : settings.lensMagnification);
 
-    final lens = settings.isFocusLensEnabled
+    // For the Android home screen widget (showNeedle == false), use linear projection so the
+    // native minute needle strictly aligns with block start/end timestamps and dial bezel numerals.
+    // In-app interactive dial uses dynamic fisheye lens when enabled.
+    final useFisheye = settings.isFocusLensEnabled && showNeedle;
+    final lens = useFisheye
         ? FisheyeTimeLens(
             focusAngle: focusAngle,
             magnification: activeMagnification,
@@ -184,13 +190,17 @@ abstract final class DialImageRenderer {
       );
     }).toList();
 
-    final finalDisplayEvents = DialSectorLayoutStretcher.stretch(
-      warpedEvents,
-      is24HourMode: settings.is24HourMode,
-      activeEventId: resolvedActive?.id,
-      selectedEventId: selectedEvent?.id,
-      currentTime: currentTime,
-    );
+    // For home screen widget (showNeedle == false), strictly avoid artificial stretching
+    // so block caps and needle maintain 100% mathematical alignment with real clock time.
+    final finalDisplayEvents = showNeedle
+        ? DialSectorLayoutStretcher.stretch(
+            warpedEvents,
+            is24HourMode: settings.is24HourMode,
+            activeEventId: resolvedActive?.id,
+            selectedEventId: selectedEvent?.id,
+            currentTime: currentTime,
+          )
+        : warpedEvents;
 
     final painter = SectographPainter(
       events: finalDisplayEvents,

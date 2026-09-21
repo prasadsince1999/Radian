@@ -79,19 +79,35 @@ class CloudSyncService {
     }
 
     if (key == null || key.trim().isEmpty) {
-      key = prefs?.getString(_syncKeyStorageKey);
+      key = prefs?.getString(_syncKeyStorageKey) ??
+          prefs?.getString('cloud_sync_key');
     }
 
     if (key == null || key.trim().isEmpty) {
       key = generateUniqueSyncKey();
       prefs?.setString(_syncKeyStorageKey, key);
+      prefs?.setString('cloud_sync_key', key);
     } else {
       key = key.trim().toUpperCase();
       prefs?.setString(_syncKeyStorageKey, key);
+      prefs?.setString('cloud_sync_key', key);
     }
     _syncKey = key;
 
-    // 2. Initialize server URL and last sync time for this key
+    // 2. Restore persistent pending mutations if previously queued
+    final savedMutations = prefs?.getString('radian_pending_mutations');
+    if (savedMutations != null && savedMutations.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(savedMutations) as List<dynamic>;
+        for (final item in decoded) {
+          if (item is Map<String, dynamic>) {
+            _pendingMutations.add(item);
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 3. Initialize server URL and last sync time for this key
     if (prefs != null) {
       _serverUrl =
           prefs!.getString(_serverUrlKey) ?? _serverUrl ?? defaultServerUrl;
@@ -101,7 +117,7 @@ class CloudSyncService {
       }
     }
 
-    // 3. Listen to repository mutations automatically: any block add/edit/delete
+    // 4. Listen to repository mutations automatically: any block add/edit/delete
     // anywhere in the application automatically queues sync without missing.
     _mutationSubscription = repository.mutations.listen((mutation) {
       if (mutation.action == 'upsert' && mutation.event != null) {
@@ -111,6 +127,15 @@ class CloudSyncService {
       }
       _scheduleDebouncedSync();
     });
+  }
+
+  void _savePendingMutations() {
+    if (prefs != null) {
+      prefs!.setString(
+        'radian_pending_mutations',
+        jsonEncode(_pendingMutations),
+      );
+    }
   }
 
   void _scheduleDebouncedSync() {
@@ -125,13 +150,20 @@ class CloudSyncService {
     if (clean.isEmpty || clean == _syncKey) return;
 
     _syncKey = clean;
+    _pendingMutations.clear();
+    _savePendingMutations();
+
     if (prefs != null) {
       await prefs!.setString(_syncKeyStorageKey, _syncKey);
+      await prefs!.setString('cloud_sync_key', _syncKey);
       final lastStr = prefs!.getString('$_lastSyncKeyPrefix$_syncKey');
       _lastSyncTime = lastStr != null ? DateTime.tryParse(lastStr) : null;
     } else {
       _lastSyncTime = null;
     }
+
+    // Cleanly reset local repository so previous vault's events do not leak into the new vault
+    await repository.clearAllEvents();
 
     // Force full sync with the new vault
     await syncNow();
@@ -183,6 +215,7 @@ class CloudSyncService {
         'sync_key': _syncKey,
       },
     });
+    _savePendingMutations();
   }
 
   void queueDelete(String id) {
@@ -190,6 +223,7 @@ class CloudSyncService {
       (m) => m['event']?['id'] == id || m['id'] == id,
     );
     _pendingMutations.add({'action': 'delete', 'id': id});
+    _savePendingMutations();
   }
 
   /// Performs a delta synchronization pass with the Cloudflare D1 server.
@@ -221,6 +255,7 @@ class CloudSyncService {
 
       if (response.statusCode == 200) {
         _pendingMutations.removeWhere((m) => mutationsToSend.contains(m));
+        _savePendingMutations();
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final List<dynamic>? delta = data['delta'] as List<dynamic>?;
 
@@ -229,7 +264,10 @@ class CloudSyncService {
           for (final raw in delta) {
             final map = raw as Map<String, dynamic>;
             if (map['deleted_at'] != null) {
-              await repository.deleteEvent(map['id'] as String);
+              await repository.deleteEvent(
+                map['id'] as String,
+                notifyMutation: false,
+              );
             } else {
               List<int>? repeatDays;
               if (map['repeat_days'] != null) {
@@ -309,7 +347,10 @@ class CloudSyncService {
           }
 
           if (incomingEvents.isNotEmpty) {
-            await repository.bulkAddEvents(incomingEvents);
+            await repository.bulkAddEvents(
+              incomingEvents,
+              notifyMutations: false,
+            );
           }
         }
 

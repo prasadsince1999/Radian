@@ -1,6 +1,6 @@
 -- Cloudflare D1 SQLite Schema for Sectograph
 CREATE TABLE IF NOT EXISTS events (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL,
     title TEXT NOT NULL,
     start TEXT NOT NULL,
     end TEXT NOT NULL,
@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS events (
     subtasks TEXT, -- JSON array string e.g. '["subtask 1","subtask 2"]'
     sync_key TEXT NOT NULL DEFAULT 'default',
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-    deleted_at TEXT
+    deleted_at TEXT,
+    PRIMARY KEY (id, sync_key)
 );
 
 CREATE INDEX IF NOT EXISTS idx_events_start ON events(start);

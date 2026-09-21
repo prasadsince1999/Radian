@@ -37,7 +37,8 @@ class WidgetSyncHelper(private val context: Context) {
                     fos.write(dialBytes)
                     fos.flush()
                 }
-                tempFile.renameTo(targetFile)
+                tempFile.copyTo(targetFile, overwrite = true)
+                tempFile.delete()
                 // Also write to fallback widget_dial.png for backward compatibility
                 targetFile.copyTo(File(context.filesDir, "widget_dial.png"), overwrite = true)
             } catch (_: Exception) {}

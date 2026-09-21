@@ -64,9 +64,12 @@ class LocalEventRepository implements EventRepository {
           urlMode == '24h' ||
           (prefs?.getBool('setting_is24h') ?? false);
 
-      // Only seed default/demo schedule if repository is completely empty (first clean install).
-      // NEVER wipe or reset existing user events on day rollover or web refresh.
-      if (_events.isEmpty) {
+      // Only seed default/demo schedule if repository is completely empty on true first install.
+      // NEVER re-seed if the user previously deleted events.
+      final hasSeeded =
+          prefs?.getBool('sectograph_initial_schedule_seeded_v1') ?? false;
+      if (_events.isEmpty && !hasSeeded) {
+        prefs?.setBool('sectograph_initial_schedule_seeded_v1', true);
         if (kIsWeb) {
           if (is24) {
             _events.addAll(
@@ -342,11 +345,13 @@ class LocalEventRepository implements EventRepository {
   }
 
   @override
-  Future<void> deleteEvent(String id) async {
+  Future<void> deleteEvent(String id, {bool notifyMutation = true}) async {
     _events.removeWhere((e) => e.id == id);
     await _saveToDisk();
     _notify();
-    _mutationController.add(EventMutation.delete(id));
+    if (notifyMutation) {
+      _mutationController.add(EventMutation.delete(id));
+    }
     unawaited(ReminderNotificationService.cancelReminder(id));
   }
 
@@ -355,7 +360,10 @@ class LocalEventRepository implements EventRepository {
   }
 
   @override
-  Future<void> bulkAddEvents(List<SectorEvent> events) async {
+  Future<void> bulkAddEvents(
+    List<SectorEvent> events, {
+    bool notifyMutations = false,
+  }) async {
     for (final event in events) {
       final idx = _events.indexWhere((e) => e.id == event.id);
       if (idx != -1) {
@@ -363,7 +371,9 @@ class LocalEventRepository implements EventRepository {
       } else {
         _events.add(event);
       }
-      _mutationController.add(EventMutation.upsert(event));
+      if (notifyMutations) {
+        _mutationController.add(EventMutation.upsert(event));
+      }
     }
     await _saveToDisk();
     _notify();
@@ -397,6 +407,13 @@ class LocalEventRepository implements EventRepository {
       _mutationController.add(EventMutation.delete(e.id));
       unawaited(ReminderNotificationService.cancelReminder(e.id));
     }
+    await _saveToDisk();
+    _notify();
+  }
+
+  @override
+  Future<void> clearAllEvents() async {
+    _events.clear();
     await _saveToDisk();
     _notify();
   }

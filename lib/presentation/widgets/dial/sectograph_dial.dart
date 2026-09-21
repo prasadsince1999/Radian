@@ -422,6 +422,8 @@ class SectographDial extends ConsumerWidget {
                             effectiveTime: effectiveTime,
                             selectedEvent: selectedEvent,
                             is24HourMode: settings.is24HourMode,
+                            previousBlocksCount: settings.previousBlocksCount,
+                            futureBlocksCount: settings.futureBlocksCount,
                           )
                         : null;
                     final baseDisplayEvents = horizonResult != null
@@ -484,14 +486,17 @@ class SectographDial extends ConsumerWidget {
                       );
                     }).toList();
 
-                    // Naturally stretch compressed/tight sectors into adjacent gaps so content fits cleanly
-                    final displayEvents = DialSectorLayoutStretcher.stretch(
-                      warpedEvents,
-                      is24HourMode: settings.is24HourMode,
-                      activeEventId: effectiveActive?.id,
-                      selectedEventId: selectedEvent?.id,
-                      currentTime: effectiveTime,
-                    );
+                    // In Edit Mode, display all sectors with true un-stretched geometry for accurate dragging.
+                    // In View Mode, stretch tight sectors into adjacent gaps so subtask pills fit cleanly.
+                    final displayEvents = isDialEditing
+                        ? warpedEvents
+                        : DialSectorLayoutStretcher.stretch(
+                            warpedEvents,
+                            is24HourMode: settings.is24HourMode,
+                            activeEventId: effectiveActive?.id,
+                            selectedEventId: selectedEvent?.id,
+                            currentTime: effectiveTime,
+                          );
 
                     SectorEvent? effectiveSelected = selectedEvent;
                     if (selectedEvent != null) {

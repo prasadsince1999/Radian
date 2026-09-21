@@ -168,7 +168,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       syncNotifier.startPolling();
       ref.invalidate(healthPermissionsStatusProvider);
       ref.invalidate(batteryOptimizationStatusProvider);
-    } else if (state == AppLifecycleState.paused) {
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _syncAndroidWidget();
       ref.read(cloudSyncControllerProvider.notifier).stopPolling();
     }
   }
@@ -211,12 +214,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _syncAndroidWidget() {
+    // Prioritize allEventsProvider so widget always has today's real events around DateTime.now()
+    // regardless of whether the user is browsing another date in the calendar view.
     final events =
-        ref.read(dayEventsProvider).value ??
         ref.read(allEventsProvider).value ??
+        ref.read(dayEventsProvider).value ??
         const [];
     final activeEvent = ref.read(currentActiveEventProvider);
-    final currentTime = ref.read(currentTimeProvider).value ?? DateTime.now();
+    final currentTime = DateTime.now();
     final settings = ref.read(dialSettingsProvider);
     final theme = Theme.of(context);
 

@@ -137,16 +137,23 @@ class FakeEventRepository implements EventRepository {
   }
 
   @override
-  Future<void> deleteEvent(String id) async {
+  Future<void> deleteEvent(String id, {bool notifyMutation = true}) async {
     _events.removeWhere((e) => e.id == id);
-    _mutationController.add(EventMutation.delete(id));
+    if (notifyMutation) {
+      _mutationController.add(EventMutation.delete(id));
+    }
     _notify();
   }
 
   @override
-  Future<void> bulkAddEvents(List<SectorEvent> events) async {
-    for (final e in events) {
-      _mutationController.add(EventMutation.upsert(e));
+  Future<void> bulkAddEvents(
+    List<SectorEvent> events, {
+    bool notifyMutations = false,
+  }) async {
+    if (notifyMutations) {
+      for (final e in events) {
+        _mutationController.add(EventMutation.upsert(e));
+      }
     }
     _events.addAll(events);
     _notify();
@@ -180,6 +187,12 @@ class FakeEventRepository implements EventRepository {
     _events.removeWhere(
       (e) => e.start.isBefore(endOfDay) && e.end.isAfter(startOfDay),
     );
+    _notify();
+  }
+
+  @override
+  Future<void> clearAllEvents() async {
+    _events.clear();
     _notify();
   }
 

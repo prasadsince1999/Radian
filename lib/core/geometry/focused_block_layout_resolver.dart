@@ -73,6 +73,8 @@ class FocusedBlockLayoutResolver {
     required DateTime effectiveTime,
     SectorEvent? selectedEvent,
     bool is24HourMode = false,
+    int previousBlocksCount = 1,
+    int futureBlocksCount = 2,
   }) {
     if (events.isEmpty) {
       return const FocusedHorizonResult(
@@ -299,16 +301,28 @@ class FocusedBlockLayoutResolver {
     }
     // Priority 2: Current active block
     tryAdd(active);
-    // Priority 3: Immediate upcoming block
-    tryAdd(next1);
-    // Priority 4: Immediate previous block
-    tryAdd(prev1);
-    // Priority 5: Additional upcoming blocks
-    tryAdd(next2);
-    tryAdd(next3);
-    // Priority 6: Past secondary blocks (only if zero collision with any visible block)
-    tryAdd(prev2);
-    tryAdd(prev3);
+
+    // Priority 3: Upcoming blocks based on futureBlocksCount (0 to 3)
+    if (futureBlocksCount >= 1) {
+      tryAdd(next1);
+    }
+    if (futureBlocksCount >= 2) {
+      tryAdd(next2);
+    }
+    if (futureBlocksCount >= 3) {
+      tryAdd(next3);
+    }
+
+    // Priority 4: Previous blocks based on previousBlocksCount (0 to 3)
+    if (previousBlocksCount >= 1) {
+      tryAdd(prev1);
+    }
+    if (previousBlocksCount >= 2) {
+      tryAdd(prev2);
+    }
+    if (previousBlocksCount >= 3) {
+      tryAdd(prev3);
+    }
 
     // Maintain clean chronological ordering of visible events on the dial
     visibleEvents.sort((a, b) => a.start.compareTo(b.start));

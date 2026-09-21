@@ -261,7 +261,161 @@ class DialTimeFormatSection extends ConsumerWidget {
             ],
           ),
         ),
+        const SizedBox(height: 12),
+
+        // 3. Smart Block Horizon (Density Control)
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: cardBorder, width: 1.2),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.timelapse_rounded,
+                    size: 16,
+                    color: accentColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'VISIBLE BLOCK HORIZON (DIAL & WIDGET)',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                      color: secondaryText,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Limits visible slices to prevent circular overcrowding. Edit Mode still reveals all day blocks.',
+                style: TextStyle(fontSize: 11, color: secondaryText.withValues(alpha: 0.8)),
+              ),
+              const SizedBox(height: 12),
+
+              // Previous Blocks selector (max limit 3)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Previous Blocks',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: primaryText,
+                        ),
+                      ),
+                      Text(
+                        'Completed tasks (0–3, default 1)',
+                        style: TextStyle(fontSize: 10.5, color: secondaryText),
+                      ),
+                    ],
+                  ),
+                  _buildSegmentSelector(
+                    current: settings.previousBlocksCount,
+                    onSelected: (val) {
+                      ref.read(dialSettingsProvider.notifier).setPreviousBlocksCount(val);
+                    },
+                    accentColor: accentColor,
+                    accentBg: accentBg,
+                    colorScheme: colorScheme,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Divider(height: 1, color: cardBorder.withValues(alpha: 0.5)),
+              const SizedBox(height: 12),
+
+              // Future Blocks selector (max limit 3)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Future Blocks',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: primaryText,
+                        ),
+                      ),
+                      Text(
+                        'Upcoming tasks (0–3, default 2)',
+                        style: TextStyle(fontSize: 10.5, color: secondaryText),
+                      ),
+                    ],
+                  ),
+                  _buildSegmentSelector(
+                    current: settings.futureBlocksCount,
+                    onSelected: (val) {
+                      ref.read(dialSettingsProvider.notifier).setFutureBlocksCount(val);
+                    },
+                    accentColor: accentColor,
+                    accentBg: accentBg,
+                    colorScheme: colorScheme,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildSegmentSelector({
+    required int current,
+    required ValueChanged<int> onSelected,
+    required Color accentColor,
+    required Color accentBg,
+    required ColorScheme colorScheme,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1.0),
+      ),
+      padding: const EdgeInsets.all(2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(4, (i) {
+          final isSelected = current == i;
+          return BouncyPressable(
+            scaleDownFactor: 0.90,
+            onTap: () => onSelected(i),
+            child: Container(
+              width: 32,
+              height: 30,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isSelected ? accentColor : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '$i',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+                  color: isSelected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
     );
   }
 }
