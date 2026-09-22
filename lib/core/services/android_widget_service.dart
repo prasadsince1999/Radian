@@ -144,6 +144,7 @@ class AndroidWidgetService {
               'start': e.start.millisecondsSinceEpoch,
               'end': e.end.millisecondsSinceEpoch,
               'color': e.color.toARGB32(),
+              'subtasks': e.subtasks,
             },
           )
           .toList();
@@ -159,6 +160,7 @@ class AndroidWidgetService {
         'is24HourMode': is24,
         'dialBgColor': dialBgColor,
         'eventsJson': eventsJson,
+        'timestamp': currentTime.millisecondsSinceEpoch,
       });
     } catch (e, st) {
       debugPrint('syncWidget error: $e\n$st');

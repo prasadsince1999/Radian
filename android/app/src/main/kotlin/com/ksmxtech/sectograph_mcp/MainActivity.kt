@@ -121,6 +121,7 @@ class MainActivity : FlutterActivity() {
                         val is24HourMode = call.argument<Boolean>("is24HourMode") ?: false
                         val dialBgColor = (call.argument<Number>("dialBgColor"))?.toInt() ?: 0
                         val eventsJson = call.argument<String>("eventsJson")
+                        val timestamp = (call.argument<Number>("timestamp"))?.toLong() ?: System.currentTimeMillis()
                         result.success(
                             widgetSyncHelper.updateWidget(
                                 title,
@@ -130,7 +131,8 @@ class MainActivity : FlutterActivity() {
                                 dialBytes,
                                 is24HourMode,
                                 dialBgColor,
-                                eventsJson
+                                eventsJson,
+                                timestamp
                             )
                         )
                     }

@@ -324,16 +324,16 @@ export default {
         JSON.stringify(
           {
             success: true,
-            tag: 'v1.0.14',
-            version: '1.0.14',
+            tag: 'v1.0.15',
+            version: '1.0.15',
             downloadUrl:
-              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.14/Radian-v1.0.14.apk',
-            apkName: 'Radian-v1.0.14.apk',
+              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.15/Radian-v1.0.15.apk',
+            apkName: 'Radian-v1.0.15.apk',
             sizeBytes: 76500000,
             releaseNotes:
-              '### Radian v1.0.14 - Natural Subtask River Pebbles, Chronological Bay Allocation & Strict Idle Horizon Suppression\n\n- **Preserved Multi-Word Subtask Phrases**: Intact keyword extraction for compound tasks like "Meal Prep", "Mock Prep", and "Math Notes" without truncation.\n- **Chronological Upstream & Downstream Placement**: Early subtasks placed naturally at sector start (left bay), later subtasks downstream (right bay), with dedicated center category icons.\n- **Strict Idle-Gap Subtask Horizon**: Exact time containment prevents future blocks from leaking subtask pills ahead of the immediate upcoming block.\n- **Natural Air Gap & Zero Overlap**: Disjoint angular spacing and minimum arc thresholds guarantee clear separation between titles, boundary caps, and subtask pills.\n- **Configurable Past & Future Block Horizons**: Full user control over visible previous and future blocks on both dial and widget.',
+              '### Radian v1.0.15 - Dual-Tier Hybrid Widget Engine & Real-Time Background Synchronization\n\n- **Dual-Tier Hybrid Architecture**: Ultra-crisp Flutter pre-rendered dial when the app is active, backed by a sub-3ms native Android Kotlin Canvas sector engine when the app is suspended or overnight.\n- **Zero Stale Background Display**: Dynamic staleness detection (>45min or date rollover) automatically redraws rolling 12-hour sectors directly from persistent schedule data without needing Flutter root UI isolate.\n- **Native Sector Arcs & Subtask Typography**: Direct Kotlin Canvas arc rendering with adaptive text contrast, short keyword distillation, and subtask pill rendering.\n- **Real-Time Minute Needle & Hub Parity**: Crimson minute needle, celestial sun/moon pip, and digital center clock face stay in 100% mathematical sync around the clock.',
             publishedAt: new Date().toISOString(),
-            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.14',
+            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.15',
           },
           null,
           2

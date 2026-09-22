@@ -11,6 +11,9 @@ import android.os.PowerManager
 import android.provider.Settings
 import java.io.File
 import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Encapsulates AppWidget bitmap persistence, preference updates, widget pinning,
@@ -26,7 +29,8 @@ class WidgetSyncHelper(private val context: Context) {
         dialBytes: ByteArray?,
         is24HourMode: Boolean = false,
         dialBgColor: Int = 0,
-        eventsJson: String? = null
+        eventsJson: String? = null,
+        timestamp: Long = System.currentTimeMillis()
     ): Boolean {
         // Save base dial image atomically if present
         if (dialBytes != null && dialBytes.isNotEmpty()) {
@@ -46,6 +50,7 @@ class WidgetSyncHelper(private val context: Context) {
 
         // Save prefs
         val prefs = context.getSharedPreferences(SectographWidgetProvider.PREFS_NAME, Context.MODE_PRIVATE)
+        val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(timestamp))
         val editor = prefs.edit()
             .putString(SectographWidgetProvider.KEY_TITLE, title)
             .putString(SectographWidgetProvider.KEY_TIME, time)
@@ -53,6 +58,8 @@ class WidgetSyncHelper(private val context: Context) {
             .putString(SectographWidgetProvider.KEY_DATE, date)
             .putBoolean(SectographWidgetProvider.KEY_IS_24_HOUR, is24HourMode)
             .putInt(SectographWidgetProvider.KEY_DIAL_BG_COLOR, dialBgColor)
+            .putLong(SectographWidgetProvider.KEY_BASE_TIMESTAMP, timestamp)
+            .putString(SectographWidgetProvider.KEY_BASE_DATE, todayStr)
 
         if (eventsJson != null) {
             editor.putString(SectographWidgetProvider.KEY_EVENTS_JSON, eventsJson)
