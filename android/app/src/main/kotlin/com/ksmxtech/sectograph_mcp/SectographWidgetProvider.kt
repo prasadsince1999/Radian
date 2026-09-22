@@ -10,9 +10,12 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.PointF
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.net.Uri
@@ -238,7 +241,7 @@ class SectographWidgetProvider : AppWidgetProvider() {
             if (baseBitmap != null) {
                 canvas.drawBitmap(baseBitmap, 0f, 0f, null)
             } else {
-                drawDynamicSectors(canvas, centerX, centerY, baseRadius, innerRadius, scale, nowMs, is24HourMode, dialBgColor, prefs)
+                drawDynamicSectors(context, canvas, centerX, centerY, baseRadius, innerRadius, scale, nowMs, is24HourMode, dialBgColor, prefs)
             }
 
             // 1. Clear / Refresh Center Hub Circle
@@ -499,7 +502,352 @@ class SectographWidgetProvider : AppWidgetProvider() {
             return age > MAX_BASE_BITMAP_AGE_MS || age < 0L
         }
 
+        private var cachedKalamTypeface: Typeface? = null
+
+        private fun getKalamTypeface(context: Context): Typeface {
+            if (cachedKalamTypeface != null) return cachedKalamTypeface!!
+            return try {
+                val tf = Typeface.createFromAsset(context.assets, "flutter_assets/assets/fonts/Kalam-Bold.ttf")
+                cachedKalamTypeface = tf
+                tf
+            } catch (_: Exception) {
+                try {
+                    val tf = Typeface.createFromAsset(context.assets, "assets/fonts/Kalam-Bold.ttf")
+                    cachedKalamTypeface = tf
+                    tf
+                } catch (_: Exception) {
+                    Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                }
+            }
+        }
+
+        private fun darkenColor(color: Int, factor: Float = 0.36f): Int {
+            val a = Color.alpha(color)
+            val r = (Color.red(color) * (1f - factor)).toInt().coerceIn(0, 255)
+            val g = (Color.green(color) * (1f - factor)).toInt().coerceIn(0, 255)
+            val b = (Color.blue(color) * (1f - factor)).toInt().coerceIn(0, 255)
+            return Color.argb(a, r, g, b)
+        }
+
+        private fun getEventIconEmoji(title: String): String {
+            val lower = title.lowercase(Locale.getDefault())
+            return when {
+                lower.contains("workout") || lower.contains("gym") || lower.contains("fitness") ||
+                lower.contains("run") || lower.contains("walk") || lower.contains("exercise") -> "🏋️"
+                lower.contains("cook") || lower.contains("dinner") || lower.contains("lunch") ||
+                lower.contains("eat") || lower.contains("meal") -> "🍽"
+                lower.contains("read") || lower.contains("book") || lower.contains("arxiv") -> "📖"
+                lower.contains("break") || lower.contains("coffee") || lower.contains("tea") -> "☕"
+                lower.contains("sleep") || lower.contains("bed") || lower.contains("nap") ||
+                lower.contains("rest") -> "🛏️"
+                lower.contains("code") || lower.contains("work") || lower.contains("study") ||
+                lower.contains("focus") || lower.contains("dev") || lower.contains("project") -> "💻"
+                else -> "⏱"
+            }
+        }
+
+        private fun buildPillPath(
+            centerX: Float,
+            centerY: Float,
+            rIn: Float,
+            rOut: Float,
+            startDialDeg: Float,
+            sweepDeg: Float,
+            cornerRadius: Float = 6f,
+            roundStart: Boolean = true,
+            roundEnd: Boolean = true
+        ): Path {
+            val path = Path()
+            if (sweepDeg <= 0.05f) return path
+
+            val endDialDeg = startDialDeg + sweepDeg
+            val radialThickness = rOut - rIn
+            val maxCornerFromSweep = (rIn * sweepDeg * Math.PI / 180.0).toFloat() / 2.2f
+            val actualCornerR = minOf(cornerRadius, minOf(radialThickness * 0.45f, maxCornerFromSweep))
+                .coerceIn(1f, 12f)
+
+            val dThOut = (actualCornerR / rOut) * (180f / Math.PI.toFloat())
+            val dThIn = (actualCornerR / rIn) * (180f / Math.PI.toFloat())
+
+            fun pt(r: Float, dialDeg: Float): PointF {
+                val rad = Math.toRadians((dialDeg - 90.0).toDouble())
+                return PointF(
+                    centerX + r * Math.cos(rad).toFloat(),
+                    centerY + r * Math.sin(rad).toFloat()
+                )
+            }
+
+            // 1. Start point
+            val startOuterDeg = if (roundStart) startDialDeg + dThOut else startDialDeg
+            val p0 = pt(rOut, startOuterDeg)
+            path.moveTo(p0.x, p0.y)
+
+            // 2. Outer arc
+            val sweepOutEnd = if (roundEnd) endDialDeg - dThOut else endDialDeg
+            val sweepOut = sweepOutEnd - startOuterDeg
+            if (sweepOut > 0f) {
+                val outerRect = RectF(centerX - rOut, centerY - rOut, centerX + rOut, centerY + rOut)
+                path.arcTo(outerRect, startOuterDeg - 90f, sweepOut, false)
+            }
+
+            // 3. Corner 1 (End-Outer)
+            if (roundEnd) {
+                val corner1Vertex = pt(rOut, endDialDeg)
+                val p1 = pt(rOut - actualCornerR, endDialDeg)
+                path.quadTo(corner1Vertex.x, corner1Vertex.y, p1.x, p1.y)
+
+                // 4. End edge to inner corner
+                val p2 = pt(rIn + actualCornerR, endDialDeg)
+                path.lineTo(p2.x, p2.y)
+
+                // 5. Corner 2 (End-Inner)
+                val corner2Vertex = pt(rIn, endDialDeg)
+                val p3 = pt(rIn, endDialDeg - dThIn)
+                path.quadTo(corner2Vertex.x, corner2Vertex.y, p3.x, p3.y)
+            } else {
+                val pEndInner = pt(rIn, endDialDeg)
+                path.lineTo(pEndInner.x, pEndInner.y)
+            }
+
+            // 6. Inner arc (drawn counter-clockwise)
+            val sweepInStart = if (roundEnd) endDialDeg - dThIn else endDialDeg
+            val sweepInEnd = if (roundStart) startDialDeg + dThIn else startDialDeg
+            val sweepIn = sweepInStart - sweepInEnd
+            if (sweepIn > 0.05f) {
+                val innerRect = RectF(centerX - rIn, centerY - rIn, centerX + rIn, centerY + rIn)
+                path.arcTo(innerRect, sweepInStart - 90f, -sweepIn, false)
+            } else {
+                val pEnd = pt(rIn, sweepInEnd)
+                path.lineTo(pEnd.x, pEnd.y)
+            }
+
+            // 7. Corner 3 (Start-Inner)
+            if (roundStart) {
+                val corner3Vertex = pt(rIn, startDialDeg)
+                val p4 = pt(rIn + actualCornerR, startDialDeg)
+                path.quadTo(corner3Vertex.x, corner3Vertex.y, p4.x, p4.y)
+
+                // 8. Start edge to outer corner
+                val p5 = pt(rOut - actualCornerR, startDialDeg)
+                path.lineTo(p5.x, p5.y)
+
+                // 9. Corner 4 (Start-Outer)
+                val corner4Vertex = pt(rOut, startDialDeg)
+                path.quadTo(corner4Vertex.x, corner4Vertex.y, p0.x, p0.y)
+            } else {
+                path.close()
+            }
+
+            path.close()
+            return path
+        }
+
+        private fun drawIntegratedCap(
+            canvas: Canvas,
+            centerX: Float,
+            centerY: Float,
+            rIn: Float,
+            rOut: Float,
+            startDeg: Float,
+            sweepDeg: Float,
+            timeMs: Long,
+            eventColor: Int,
+            isStartCap: Boolean,
+            is24HourMode: Boolean,
+            scale: Float,
+            cornerRadius: Float = 6f,
+            roundStart: Boolean = false,
+            roundEnd: Boolean = true,
+            isContiguous: Boolean = false,
+            overlapDeg: Float = 0f
+        ) {
+            if (sweepDeg <= 0.5f) return
+
+            val capPath = buildPillPath(
+                centerX, centerY, rIn, rOut,
+                startDeg, sweepDeg,
+                cornerRadius = cornerRadius,
+                roundStart = roundStart,
+                roundEnd = roundEnd
+            )
+
+            // 3D Overlap drop shadow for contiguous boundary caps
+            if (isContiguous && overlapDeg > 0f) {
+                val boundaryDeg = (startDeg + sweepDeg) - overlapDeg
+                canvas.save()
+                val shadowClip = buildPillPath(
+                    centerX, centerY, rIn - 8f * scale, rOut + 8f * scale,
+                    boundaryDeg, 45f,
+                    cornerRadius = 0f,
+                    roundStart = false,
+                    roundEnd = false
+                )
+                canvas.clipPath(shadowClip)
+                val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.argb(100, 0, 0, 0)
+                    maskFilter = BlurMaskFilter(2.8f * scale, BlurMaskFilter.Blur.NORMAL)
+                }
+                canvas.drawPath(capPath, shadowPaint)
+                canvas.restore()
+            }
+
+            // Darkened badge fill color: Color.lerp(eventColor, Color.BLACK, 0.36f)
+            val badgeColor = darkenColor(eventColor, 0.36f)
+            val capPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = badgeColor
+                style = Paint.Style.FILL
+            }
+            canvas.drawPath(capPath, capPaint)
+
+            // Timestamp text (e.g. 9:00 AM, 12:00 PM, 3:30 PM)
+            val cal = Calendar.getInstance().apply { timeInMillis = timeMs }
+            val timeFormat = if (is24HourMode) {
+                SimpleDateFormat("HH:mm", Locale.US)
+            } else {
+                SimpleDateFormat("h:mm a", Locale.US)
+            }
+            val timeStr = timeFormat.format(cal.time)
+
+            val midAngleDeg = startDeg + (sweepDeg / 2f)
+            val midRad = Math.toRadians((midAngleDeg - 90.0).toDouble())
+            val midR = (rIn + rOut) / 2f
+            val textCenterX = centerX + midR * Math.cos(midRad).toFloat()
+            val textCenterY = centerY + midR * Math.sin(midRad).toFloat()
+
+            val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textSize = (if (is24HourMode) 8.6f else 9.6f) * scale
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textAlign = Paint.Align.CENTER
+            }
+
+            canvas.save()
+            canvas.clipPath(capPath)
+            canvas.translate(textCenterX, textCenterY)
+
+            var rotation = midRad
+            if (Math.cos(midRad) < -0.05) {
+                rotation += Math.PI
+            }
+            canvas.rotate(Math.toDegrees(rotation).toFloat())
+
+            val textY = -((textPaint.descent() + textPaint.ascent()) / 2f)
+            canvas.drawText(timeStr, 0f, textY, textPaint)
+            canvas.restore()
+        }
+
+        private fun drawRiverPebbles(
+            canvas: Canvas,
+            centerX: Float,
+            centerY: Float,
+            rIn: Float,
+            rOut: Float,
+            startDeg: Float,
+            sweepDeg: Float,
+            subtasks: List<String>,
+            centerTitleHalfDeg: Float,
+            startCapSpan: Float,
+            endCapSpan: Float,
+            textColor: Int,
+            scale: Float,
+            kalamTypeface: Typeface,
+            isDarkSector: Boolean
+        ) {
+            if (subtasks.isEmpty() || sweepDeg < 26f) return
+
+            val rawPebbles = subtasks.take(4).map { distillShortKeyword(it) }.filter { it.isNotEmpty() }
+            if (rawPebbles.isEmpty()) return
+
+            val midDeg = startDeg + sweepDeg / 2f
+            val midR = (rIn + rOut) / 2f
+
+            val pebbleFontSize = 9.2f * scale
+            val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = textColor
+                textSize = pebbleFontSize
+                typeface = kalamTypeface
+                textAlign = Paint.Align.CENTER
+            }
+
+            val pebbleBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = if (isDarkSector) Color.argb(76, Color.red(textColor), Color.green(textColor), Color.blue(textColor))
+                        else Color.argb(56, Color.red(textColor), Color.green(textColor), Color.blue(textColor))
+                style = Paint.Style.FILL
+            }
+            val pebbleBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = if (isDarkSector) Color.argb(165, Color.red(textColor), Color.green(textColor), Color.blue(textColor))
+                        else Color.argb(115, Color.red(textColor), Color.green(textColor), Color.blue(textColor))
+                style = Paint.Style.STROKE
+                strokeWidth = 1.3f * scale
+            }
+
+            data class PebbleDim(val text: String, val w: Float, val h: Float, val halfDeg: Float)
+
+            val pebbleDims = rawPebbles.map { text ->
+                val tw = textPaint.measureText(text)
+                val th = textPaint.descent() - textPaint.ascent()
+                val w = tw + 9f * scale
+                val h = th + 5f * scale
+                val halfDeg = (w / 2f) / (midR * Math.PI.toFloat() / 180f)
+                PebbleDim(text, w, h, halfDeg)
+            }
+
+            val leftBayStart = startDeg + startCapSpan + 1.5f
+            val leftBayEnd = midDeg - centerTitleHalfDeg - 1.5f
+            val leftBayWidth = leftBayEnd - leftBayStart
+
+            val rightBayStart = midDeg + centerTitleHalfDeg + 1.5f
+            val rightBayEnd = (startDeg + sweepDeg) - endCapSpan - 1.5f
+            val rightBayWidth = rightBayEnd - rightBayStart
+
+            val tilts = floatArrayOf(-0.04f, 0.05f, -0.05f, 0.04f)
+
+            fun renderPebble(dim: PebbleDim, angleDeg: Float, tilt: Float) {
+                val rad = Math.toRadians((angleDeg - 90.0).toDouble())
+                val px = centerX + midR * Math.cos(rad).toFloat()
+                val py = centerY + midR * Math.sin(rad).toFloat()
+
+                canvas.save()
+                canvas.translate(px, py)
+                var tangentRad = rad + Math.PI / 2.0
+                if (Math.cos(tangentRad) < 0.05) {
+                    tangentRad += Math.PI
+                }
+                tangentRad += tilt
+                canvas.rotate(Math.toDegrees(tangentRad).toFloat())
+
+                val rect = RectF(-dim.w / 2f, -dim.h / 2f, dim.w / 2f, dim.h / 2f)
+                val cornerRadius = dim.h / 2f
+                canvas.drawRoundRect(rect, cornerRadius, cornerRadius, pebbleBgPaint)
+                canvas.drawRoundRect(rect, cornerRadius, cornerRadius, pebbleBorderPaint)
+
+                val textY = -((textPaint.descent() + textPaint.ascent()) / 2f)
+                canvas.drawText(dim.text, 0f, textY, textPaint)
+                canvas.restore()
+            }
+
+            if (pebbleDims.size == 1) {
+                val p = pebbleDims[0]
+                if (leftBayWidth >= p.halfDeg * 2f + 1f) {
+                    renderPebble(p, (leftBayStart + leftBayEnd) / 2f, tilts[0])
+                } else if (rightBayWidth >= p.halfDeg * 2f + 1f) {
+                    renderPebble(p, (rightBayStart + rightBayEnd) / 2f, tilts[0])
+                }
+            } else if (pebbleDims.size >= 2) {
+                val p1 = pebbleDims[0]
+                val p2 = pebbleDims[1]
+
+                if (leftBayWidth >= p1.halfDeg * 1.5f) {
+                    renderPebble(p1, (leftBayStart + leftBayEnd) / 2f, tilts[0])
+                }
+                if (rightBayWidth >= p2.halfDeg * 1.5f) {
+                    renderPebble(p2, (rightBayStart + rightBayEnd) / 2f, tilts[1])
+                }
+            }
+        }
+
         private fun drawDynamicSectors(
+            context: Context,
             canvas: Canvas,
             centerX: Float,
             centerY: Float,
@@ -511,6 +859,8 @@ class SectographWidgetProvider : AppWidgetProvider() {
             dialBgColor: Int,
             prefs: SharedPreferences
         ) {
+            val kalamTypeface = getKalamTypeface(context)
+
             // 1. Dial Background Chassis
             val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = if (dialBgColor != 0) dialBgColor else Color.parseColor("#0B0F19")
@@ -566,121 +916,268 @@ class SectographWidgetProvider : AppWidgetProvider() {
             // 3. Rolling Horizon Selection (1 past block, 1 active block, upcoming blocks within 12 hours)
             val horizonEvents = mutableListOf<NativeSectorEvent>()
             val activeEvent = allEvents.firstOrNull { nowMs in it.start until it.end }
-            val pastEvents = allEvents.filter { it.end <= nowMs && (nowMs - it.end) <= 3 * 3600 * 1000L }
+            val pastEvents = allEvents.filter { it.end <= nowMs && (nowMs - it.end) <= 4 * 3600 * 1000L }
                 .sortedByDescending { it.end }
             val upcomingEvents = allEvents.filter { it.start >= nowMs && (it.start - nowMs) <= 12 * 3600 * 1000L }
                 .sortedBy { it.start }
 
-            if (pastEvents.isNotEmpty()) {
-                horizonEvents.add(pastEvents.first())
+            pastEvents.firstOrNull()?.let { horizonEvents.add(it) }
+            activeEvent?.let { if (!horizonEvents.any { h -> h.id == it.id }) horizonEvents.add(it) }
+            for (up in upcomingEvents.take(3)) {
+                if (!horizonEvents.any { h -> h.id == up.id }) {
+                    horizonEvents.add(up)
+                }
             }
-            if (activeEvent != null) {
-                horizonEvents.add(activeEvent)
-            }
-            horizonEvents.addAll(upcomingEvents.take(3))
 
-            // 4. Draw Sector Arcs, Dividers, and Labels
+            // Sort by start time for consistent clockwise layout
+            horizonEvents.sortBy { it.start }
+
             val rIn = innerRadius + 2f * scale
             val rOut = baseRadius - 6f * scale
-            val strokeW = rOut - rIn
-            val midR = (rIn + rOut) / 2f
-            val sectorRect = RectF(centerX - midR, centerY - midR, centerX + midR, centerY + midR)
-
             val rate = if (is24HourMode) 0.25f else 0.5f
 
-            for (event in horizonEvents) {
+            data class SectorLayout(
+                val event: NativeSectorEvent,
+                val startDeg: Float,
+                val sweepDeg: Float,
+                val pillPath: Path,
+                val showStartCap: Boolean,
+                val startCapSpan: Float,
+                val showEndCap: Boolean,
+                val endCapSpan: Float,
+                val isContiguousWithNext: Boolean,
+                val isContiguousWithPrev: Boolean
+            )
+
+            val layouts = mutableListOf<SectorLayout>()
+
+            for (i in 0 until horizonEvents.size) {
+                val event = horizonEvents[i]
                 val cal = Calendar.getInstance().apply { timeInMillis = event.start }
-                val h = if (is24HourMode) cal.get(Calendar.HOUR_OF_DAY) else cal.get(Calendar.HOUR)
+                val h = if (is24HourMode) cal.get(Calendar.HOUR_OF_DAY) else (cal.get(Calendar.HOUR) % 12)
                 val m = cal.get(Calendar.MINUTE)
                 val s = cal.get(Calendar.SECOND)
                 val dialDeg = ((h * 60 + m + s / 60f) * rate) % 360f
-                val canvasStartDeg = dialDeg - 90f
 
                 val durMin = (event.end - event.start) / (60f * 1000f)
-                val sweepDeg = (durMin * rate).coerceAtLeast(4.0f).coerceAtMost(360f)
+                val sweepDeg = (durMin * rate).coerceIn(4f, 360f)
 
-                val arcPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = event.color
-                    style = Paint.Style.STROKE
-                    strokeWidth = strokeW
-                    strokeCap = Paint.Cap.BUTT
-                }
-                canvas.drawArc(sectorRect, canvasStartDeg, sweepDeg, false, arcPaint)
+                val prevEvent = if (i > 0) horizonEvents[i - 1] else null
+                val nextEvent = if (i < horizonEvents.size - 1) horizonEvents[i + 1] else null
 
-                // Draw sector boundary divider gaps
-                val divPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = if (dialBgColor != 0) dialBgColor else Color.parseColor("#0B0F19")
-                    strokeWidth = 2.0f * scale
-                    style = Paint.Style.STROKE
-                }
-                val sRad = Math.toRadians(canvasStartDeg.toDouble())
-                canvas.drawLine(
-                    centerX + rIn * Math.cos(sRad).toFloat(),
-                    centerY + rIn * Math.sin(sRad).toFloat(),
-                    centerX + rOut * Math.cos(sRad).toFloat(),
-                    centerY + rOut * Math.sin(sRad).toFloat(),
-                    divPaint
-                )
-                val eRad = Math.toRadians((canvasStartDeg + sweepDeg).toDouble())
-                canvas.drawLine(
-                    centerX + rIn * Math.cos(eRad).toFloat(),
-                    centerY + rIn * Math.sin(eRad).toFloat(),
-                    centerX + rOut * Math.cos(eRad).toFloat(),
-                    centerY + rOut * Math.sin(eRad).toFloat(),
-                    divPaint
+                val isContiguousWithPrev = prevEvent != null && Math.abs(event.start - prevEvent.end) <= 60000L
+                val isContiguousWithNext = nextEvent != null && Math.abs(nextEvent.start - event.end) <= 60000L
+
+                val cornerR = minOf(6f * scale, (rOut - rIn) * 0.22f)
+
+                val standardCapSpan = if (is24HourMode) 5.5f else 9.2f
+                val baseCapSpan = minOf(standardCapSpan, sweepDeg * 0.35f)
+
+                val showStartCap = !isContiguousWithPrev && sweepDeg >= 14f
+                val showEndCap = sweepDeg >= 14f
+
+                val startCapSpan = if (showStartCap) baseCapSpan else 0f
+                val endCapSpan = if (showEndCap) baseCapSpan else 0f
+
+                val pillPath = buildPillPath(
+                    centerX, centerY, rIn, rOut,
+                    dialDeg, sweepDeg,
+                    cornerRadius = cornerR,
+                    roundStart = !isContiguousWithPrev,
+                    roundEnd = !isContiguousWithNext
                 )
 
-                // Sector Title Typography (centered at midpoint angle, flipped tangentially for legibility)
-                if (sweepDeg >= 12f) {
-                    val midAngleDeg = canvasStartDeg + sweepDeg / 2f
-                    val midRad = Math.toRadians(midAngleDeg.toDouble())
-                    val posX = centerX + midR * Math.cos(midRad).toFloat()
-                    val posY = centerY + midR * Math.sin(midRad).toFloat()
+                layouts.add(
+                    SectorLayout(
+                        event = event,
+                        startDeg = dialDeg,
+                        sweepDeg = sweepDeg,
+                        pillPath = pillPath,
+                        showStartCap = showStartCap,
+                        startCapSpan = startCapSpan,
+                        showEndCap = showEndCap,
+                        endCapSpan = endCapSpan,
+                        isContiguousWithNext = isContiguousWithNext,
+                        isContiguousWithPrev = isContiguousWithPrev
+                    )
+                )
+            }
 
-                    val keyword = distillShortKeyword(event.title)
-                    val lum = (0.299 * Color.red(event.color) + 0.587 * Color.green(event.color) + 0.114 * Color.blue(event.color)) / 255.0
-                    val textColor = if (lum > 0.55) Color.parseColor("#1E1A16") else Color.WHITE
+            // PASS 1: Sector Pill Bodies
+            for (l in layouts) {
+                val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = l.event.color
+                    style = Paint.Style.FILL
+                }
+                canvas.drawPath(l.pillPath, fillPaint)
+            }
 
-                    val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-                        color = textColor
-                        textSize = (strokeW * 0.28f).coerceIn(9f * scale, 13f * scale)
-                        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                        textAlign = Paint.Align.CENTER
-                    }
+            // PASS 2: Sector Content (Icon, Kalam Title, Duration & River Pebble Subtasks)
+            for (l in layouts) {
+                if (l.sweepDeg < 10f) continue
 
-                    canvas.save()
-                    canvas.translate(posX, posY)
-                    var tangentRad = midRad + Math.PI / 2.0
-                    if (Math.cos(tangentRad) < 0.05) {
-                        tangentRad += Math.PI
-                    }
-                    canvas.rotate(Math.toDegrees(tangentRad).toFloat())
+                val midDeg = l.startDeg + l.sweepDeg / 2f
+                val midRad = Math.toRadians((midDeg - 90.0).toDouble())
+                val midR = (rIn + rOut) / 2f
+                val posX = centerX + midR * Math.cos(midRad).toFloat()
+                val posY = centerY + midR * Math.sin(midRad).toFloat()
 
-                    val hasSubtasks = event.subtasks.isNotEmpty() && sweepDeg >= 30f
-                    if (hasSubtasks) {
-                        val titleBaselineY = -4f * scale
-                        canvas.drawText(keyword, 0f, titleBaselineY, textPaint)
+                val lum = (0.299 * Color.red(l.event.color) + 0.587 * Color.green(l.event.color) + 0.114 * Color.blue(l.event.color)) / 255.0
+                val isDarkSector = lum <= 0.55
+                val textColor = if (isDarkSector) Color.parseColor("#F7F3EE") else Color.parseColor("#1E1A16")
 
-                        val subtaskPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-                            color = textColor
-                            textSize = (strokeW * 0.18f).coerceIn(7f * scale, 9.5f * scale)
-                            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-                            textAlign = Paint.Align.CENTER
-                            alpha = if (lum > 0.55) 200 else 220
-                        }
-                        val subtaskSummary = event.subtasks.take(2).joinToString(" • ")
-                        val subtaskBaselineY = 8f * scale
-                        canvas.drawText(subtaskSummary, 0f, subtaskBaselineY, subtaskPaint)
-                    } else {
-                        val textBaselineY = -(textPaint.descent() + textPaint.ascent()) / 2f
-                        canvas.drawText(keyword, 0f, textBaselineY, textPaint)
-                    }
+                val iconEmoji = getEventIconEmoji(l.event.title)
+                val keyword = distillShortKeyword(l.event.title)
 
-                    canvas.restore()
+                val durMin = ((l.event.end - l.event.start) / (60 * 1000L)).toInt()
+                val durStr = if (durMin >= 60) {
+                    val h = durMin / 60
+                    val m = durMin % 60
+                    if (m > 0) "${h}h ${m}m" else "${h}h"
+                } else {
+                    "${durMin}m"
+                }
+
+                val iconPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                    textSize = 11.5f * scale
+                    textAlign = Paint.Align.CENTER
+                }
+                val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = textColor
+                    textSize = 10.5f * scale
+                    typeface = kalamTypeface
+                    textAlign = Paint.Align.CENTER
+                }
+                val durPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = if (isDarkSector) Color.argb(225, 247, 243, 238) else Color.argb(225, 30, 26, 22)
+                    textSize = 8.8f * scale
+                    typeface = kalamTypeface
+                    textAlign = Paint.Align.CENTER
+                }
+
+                val titleW = titlePaint.measureText(keyword)
+                val centerTitleHalfDeg = ((titleW + 6f * scale) / 2f) / (midR * Math.PI.toFloat() / 180f)
+
+                canvas.save()
+                canvas.translate(posX, posY)
+                var tangentRad = midRad + Math.PI / 2.0
+                if (Math.cos(tangentRad) < 0.05) {
+                    tangentRad += Math.PI
+                }
+                canvas.rotate(Math.toDegrees(tangentRad).toFloat())
+
+                // 3 Content Tiers (matching SectorContentRenderer):
+                // Tier 1: Small sweep (< 20° in 12H, < 12° in 24H) -> Icon only (e.g. Break: ☕)
+                // Tier 2: Medium sweep (20° to 38°) -> Icon + Title (e.g. Workout: 🏋️ Workout)
+                // Tier 3: Large sweep (>= 38°) -> Icon + Title + Duration (e.g. Study Time 3h)
+                val isSmallSector = l.sweepDeg < (if (is24HourMode) 12f else 20f)
+                val isLargeSector = l.sweepDeg >= (if (is24HourMode) 25f else 38f)
+
+                val showIconOnly = isSmallSector
+                val showDur = isLargeSector
+
+                val words = l.event.title.trim().split(Regex("""\s+""")).filter { it.isNotEmpty() }
+                val displayLines = if (!showIconOnly && words.size == 2 && l.sweepDeg >= 48f) words
+                                   else if (!showIconOnly) listOf(keyword)
+                                   else emptyList()
+
+                val iconH = 12f * scale
+                val titleLineH = if (displayLines.isNotEmpty()) titlePaint.descent() - titlePaint.ascent() else 0f
+                val totalTitleH = titleLineH * displayLines.size
+                val durH = if (showDur) durPaint.descent() - durPaint.ascent() else 0f
+
+                val totalContentH = iconH + totalTitleH + (if (showDur) durH + 1f * scale else 0f)
+                var curY = -totalContentH / 2f
+
+                // 1. Icon (Always drawn; centered in small sectors like Break)
+                curY += iconH * 0.8f
+                canvas.drawText(iconEmoji, 0f, curY, iconPaint)
+                curY += 2f * scale
+
+                // 2. Title lines (for medium and large sectors)
+                for (line in displayLines) {
+                    curY += titleLineH * 0.85f
+                    canvas.drawText(line, 0f, curY, titlePaint)
+                }
+
+                // 3. Duration (for large sectors)
+                if (showDur) {
+                    curY += durH * 0.9f + 1f * scale
+                    canvas.drawText(durStr, 0f, curY, durPaint)
+                }
+                canvas.restore()
+
+                // River Pebble Subtasks in left and right bays
+                if (l.event.subtasks.isNotEmpty() && l.sweepDeg >= 26f) {
+                    drawRiverPebbles(
+                        canvas = canvas,
+                        centerX = centerX,
+                        centerY = centerY,
+                        rIn = rIn,
+                        rOut = rOut,
+                        startDeg = l.startDeg,
+                        sweepDeg = l.sweepDeg,
+                        subtasks = l.event.subtasks,
+                        centerTitleHalfDeg = centerTitleHalfDeg,
+                        startCapSpan = l.startCapSpan,
+                        endCapSpan = l.endCapSpan,
+                        textColor = textColor,
+                        scale = scale,
+                        kalamTypeface = kalamTypeface,
+                        isDarkSector = isDarkSector
+                    )
                 }
             }
 
-            // 5. Outer Bezel Outline
+            // PASS 3: Boundary Timestamp Caps (Draw on top of sector bodies)
+            for (l in layouts) {
+                val cornerR = minOf(6f * scale, (rOut - rIn) * 0.22f)
+
+                // End cap
+                if (l.showEndCap) {
+                    val endCapStartDeg = (l.startDeg + l.sweepDeg) - l.endCapSpan
+                    drawIntegratedCap(
+                        canvas = canvas,
+                        centerX = centerX,
+                        centerY = centerY,
+                        rIn = rIn,
+                        rOut = rOut,
+                        startDeg = endCapStartDeg,
+                        sweepDeg = l.endCapSpan,
+                        timeMs = l.event.end,
+                        eventColor = l.event.color,
+                        isStartCap = false,
+                        is24HourMode = is24HourMode,
+                        scale = scale,
+                        cornerRadius = cornerR,
+                        roundStart = false,
+                        roundEnd = !l.isContiguousWithNext
+                    )
+                }
+
+                // Start cap
+                if (l.showStartCap) {
+                    drawIntegratedCap(
+                        canvas = canvas,
+                        centerX = centerX,
+                        centerY = centerY,
+                        rIn = rIn,
+                        rOut = rOut,
+                        startDeg = l.startDeg,
+                        sweepDeg = l.startCapSpan,
+                        timeMs = l.event.start,
+                        eventColor = l.event.color,
+                        isStartCap = true,
+                        is24HourMode = is24HourMode,
+                        scale = scale,
+                        cornerRadius = cornerR,
+                        roundStart = !l.isContiguousWithPrev,
+                        roundEnd = false
+                    )
+                }
+            }
+
+            // PASS 4: Bezel Outline, 48 Ticks & 3D Numerals
             val outlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.parseColor("#374151")
                 style = Paint.Style.STROKE
@@ -688,7 +1185,6 @@ class SectographWidgetProvider : AppWidgetProvider() {
             }
             canvas.drawCircle(centerX, centerY, baseRadius, outlinePaint)
 
-            // 6. Minor Interval Ticks (48 intervals)
             val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.parseColor("#4B5563")
                 strokeWidth = 1.0f * scale
@@ -697,7 +1193,7 @@ class SectographWidgetProvider : AppWidgetProvider() {
             }
             val intervals = 48
             for (i in 0 until intervals) {
-                if (i % 4 == 0) continue // Hour numerals sit here
+                if (i % 4 == 0) continue
                 val deg = (i / intervals.toFloat()) * 360f - 90f
                 val rad = Math.toRadians(deg.toDouble())
                 val tickLen = if (i % 2 == 0) 3.5f * scale else 2.0f * scale
@@ -708,7 +1204,6 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 canvas.drawLine(x1, y1, x2, y2, tickPaint)
             }
 
-            // 7. 3D Hour Numerals (12, 1, 2, ..., 11)
             val numPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.parseColor("#D1D5DB")
                 textSize = 9.0f * scale
