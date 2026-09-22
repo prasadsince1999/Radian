@@ -529,21 +529,49 @@ class SectographWidgetProvider : AppWidgetProvider() {
             return Color.argb(a, r, g, b)
         }
 
-        private fun getEventIconEmoji(title: String): String {
-            val lower = title.lowercase(Locale.getDefault())
-            return when {
-                lower.contains("workout") || lower.contains("gym") || lower.contains("fitness") ||
-                lower.contains("run") || lower.contains("walk") || lower.contains("exercise") -> "🏋️"
-                lower.contains("cook") || lower.contains("dinner") || lower.contains("lunch") ||
-                lower.contains("eat") || lower.contains("meal") -> "🍽"
-                lower.contains("read") || lower.contains("book") || lower.contains("arxiv") -> "📖"
-                lower.contains("break") || lower.contains("coffee") || lower.contains("tea") -> "☕"
-                lower.contains("sleep") || lower.contains("bed") || lower.contains("nap") ||
-                lower.contains("rest") -> "🛏️"
-                lower.contains("code") || lower.contains("work") || lower.contains("study") ||
-                lower.contains("focus") || lower.contains("dev") || lower.contains("project") -> "💻"
-                else -> "⏱"
+        private var cachedMaterialIconsTypeface: Typeface? = null
+
+        private fun getMaterialIconsTypeface(context: Context): Typeface {
+            if (cachedMaterialIconsTypeface != null) return cachedMaterialIconsTypeface!!
+            return try {
+                val tf = Typeface.createFromAsset(context.assets, "flutter_assets/fonts/MaterialIcons-Regular.otf")
+                cachedMaterialIconsTypeface = tf
+                tf
+            } catch (_: Exception) {
+                try {
+                    val tf = Typeface.createFromAsset(context.assets, "fonts/MaterialIcons-Regular.otf")
+                    cachedMaterialIconsTypeface = tf
+                    tf
+                } catch (_: Exception) {
+                    Typeface.DEFAULT
+                }
             }
+        }
+
+        private fun getEventIconGlyph(title: String): String {
+            val lower = title.lowercase(Locale.getDefault())
+            val codePoint = when {
+                lower.contains("cook") || lower.contains("dinner") || lower.contains("lunch") ||
+                lower.contains("eat") || lower.contains("meal") || lower.contains("breakfast") ||
+                lower.contains("food") -> 0xf0108 // Icons.restaurant_rounded
+                lower.contains("code") || lower.contains("work") || lower.contains("study") ||
+                lower.contains("focus") || lower.contains("dev") || lower.contains("project") ||
+                lower.contains("laptop") -> 0xf841 // Icons.laptop_mac_rounded
+                lower.contains("sleep") || lower.contains("bed") || lower.contains("nap") ||
+                lower.contains("rest") -> 0xf5b8 // Icons.bedtime_rounded
+                lower.contains("workout") || lower.contains("gym") || lower.contains("fitness") ||
+                lower.contains("run") || lower.contains("walk") || lower.contains("exercise") ||
+                lower.contains("cardio") || lower.contains("sport") -> 0xf767 // Icons.fitness_center_rounded
+                lower.contains("break") || lower.contains("coffee") || lower.contains("tea") ||
+                lower.contains("chill") -> 0xf655 // Icons.coffee_rounded
+                lower.contains("read") || lower.contains("book") || lower.contains("learn") ||
+                lower.contains("novel") -> 0xf8b4 // Icons.menu_book_rounded
+                lower.contains("chat") || lower.contains("meet") || lower.contains("call") ||
+                lower.contains("forum") -> 0xf79d // Icons.forum_rounded
+                lower.contains("music") || lower.contains("audio") -> 0xf7da // Icons.headphones_rounded
+                else -> 0xf012b // Icons.schedule_rounded
+            }
+            return String(Character.toChars(codePoint))
         }
 
         private fun buildPillPath(
@@ -936,6 +964,8 @@ class SectographWidgetProvider : AppWidgetProvider() {
             val rOut = baseRadius - 6f * scale
             val rate = if (is24HourMode) 0.25f else 0.5f
 
+            val overlapDeg = if (is24HourMode) 0.8f else 1.2f
+
             data class SectorLayout(
                 val event: NativeSectorEvent,
                 val startDeg: Float,
@@ -943,7 +973,9 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 val pillPath: Path,
                 val showStartCap: Boolean,
                 val startCapSpan: Float,
+                val effectiveStartCap: Float,
                 val showEndCap: Boolean,
+                val endCapStartDeg: Float,
                 val endCapSpan: Float,
                 val isContiguousWithNext: Boolean,
                 val isContiguousWithPrev: Boolean
@@ -977,7 +1009,11 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 val showEndCap = sweepDeg >= 14f
 
                 val startCapSpan = if (showStartCap) baseCapSpan else 0f
-                val endCapSpan = if (showEndCap) baseCapSpan else 0f
+                val endCapSpan = if (showEndCap) baseCapSpan + (if (isContiguousWithNext) overlapDeg else 0f) else 0f
+                val endBoundaryDeg = dialDeg + sweepDeg
+                val capEndDeg = endBoundaryDeg + (if (isContiguousWithNext) overlapDeg else 0f)
+                val endCapStartDeg = capEndDeg - endCapSpan
+                val effectiveStartCap = if (showStartCap) startCapSpan else (if (isContiguousWithPrev) overlapDeg else 0f)
 
                 val pillPath = buildPillPath(
                     centerX, centerY, rIn, rOut,
@@ -995,7 +1031,9 @@ class SectographWidgetProvider : AppWidgetProvider() {
                         pillPath = pillPath,
                         showStartCap = showStartCap,
                         startCapSpan = startCapSpan,
+                        effectiveStartCap = effectiveStartCap,
                         showEndCap = showEndCap,
+                        endCapStartDeg = endCapStartDeg,
                         endCapSpan = endCapSpan,
                         isContiguousWithNext = isContiguousWithNext,
                         isContiguousWithPrev = isContiguousWithPrev
@@ -1012,7 +1050,9 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 canvas.drawPath(l.pillPath, fillPaint)
             }
 
-            // PASS 2: Sector Content (Icon, Kalam Title, Duration & River Pebble Subtasks)
+            val materialIconsTypeface = getMaterialIconsTypeface(context)
+
+            // PASS 2: Sector Content (Monochrome Icon, Kalam Title, Duration & River Pebble Subtasks)
             for (l in layouts) {
                 if (l.sweepDeg < 10f) continue
 
@@ -1026,7 +1066,7 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 val isDarkSector = lum <= 0.55
                 val textColor = if (isDarkSector) Color.parseColor("#F7F3EE") else Color.parseColor("#1E1A16")
 
-                val iconEmoji = getEventIconEmoji(l.event.title)
+                val iconGlyph = getEventIconGlyph(l.event.title)
                 val keyword = distillShortKeyword(l.event.title)
 
                 val durMin = ((l.event.end - l.event.start) / (60 * 1000L)).toInt()
@@ -1039,7 +1079,9 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 }
 
                 val iconPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-                    textSize = 11.5f * scale
+                    color = textColor
+                    textSize = 12.0f * scale
+                    typeface = materialIconsTypeface
                     textAlign = Paint.Align.CENTER
                 }
                 val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -1067,8 +1109,8 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 canvas.rotate(Math.toDegrees(tangentRad).toFloat())
 
                 // 3 Content Tiers (matching SectorContentRenderer):
-                // Tier 1: Small sweep (< 20° in 12H, < 12° in 24H) -> Icon only (e.g. Break: ☕)
-                // Tier 2: Medium sweep (20° to 38°) -> Icon + Title (e.g. Workout: 🏋️ Workout)
+                // Tier 1: Small sweep (< 20° in 12H, < 12° in 24H) -> Icon only (e.g. Break)
+                // Tier 2: Medium sweep (20° to 38°) -> Icon + Title (e.g. Workout)
                 // Tier 3: Large sweep (>= 38°) -> Icon + Title + Duration (e.g. Study Time 3h)
                 val isSmallSector = l.sweepDeg < (if (is24HourMode) 12f else 20f)
                 val isLargeSector = l.sweepDeg >= (if (is24HourMode) 25f else 38f)
@@ -1091,7 +1133,7 @@ class SectographWidgetProvider : AppWidgetProvider() {
 
                 // 1. Icon (Always drawn; centered in small sectors like Break)
                 curY += iconH * 0.8f
-                canvas.drawText(iconEmoji, 0f, curY, iconPaint)
+                canvas.drawText(iconGlyph, 0f, curY, iconPaint)
                 curY += 2f * scale
 
                 // 2. Title lines (for medium and large sectors)
@@ -1119,7 +1161,7 @@ class SectographWidgetProvider : AppWidgetProvider() {
                         sweepDeg = l.sweepDeg,
                         subtasks = l.event.subtasks,
                         centerTitleHalfDeg = centerTitleHalfDeg,
-                        startCapSpan = l.startCapSpan,
+                        startCapSpan = l.effectiveStartCap,
                         endCapSpan = l.endCapSpan,
                         textColor = textColor,
                         scale = scale,
@@ -1133,16 +1175,15 @@ class SectographWidgetProvider : AppWidgetProvider() {
             for (l in layouts) {
                 val cornerR = minOf(6f * scale, (rOut - rIn) * 0.22f)
 
-                // End cap
+                // End cap (Draws on top of successor blocks with drop shadow when contiguous!)
                 if (l.showEndCap) {
-                    val endCapStartDeg = (l.startDeg + l.sweepDeg) - l.endCapSpan
                     drawIntegratedCap(
                         canvas = canvas,
                         centerX = centerX,
                         centerY = centerY,
                         rIn = rIn,
                         rOut = rOut,
-                        startDeg = endCapStartDeg,
+                        startDeg = l.endCapStartDeg,
                         sweepDeg = l.endCapSpan,
                         timeMs = l.event.end,
                         eventColor = l.event.color,
@@ -1151,7 +1192,9 @@ class SectographWidgetProvider : AppWidgetProvider() {
                         scale = scale,
                         cornerRadius = cornerR,
                         roundStart = false,
-                        roundEnd = !l.isContiguousWithNext
+                        roundEnd = true,
+                        isContiguous = l.isContiguousWithNext,
+                        overlapDeg = if (l.isContiguousWithNext) overlapDeg else 0f
                     )
                 }
 
@@ -1172,7 +1215,9 @@ class SectographWidgetProvider : AppWidgetProvider() {
                         scale = scale,
                         cornerRadius = cornerR,
                         roundStart = !l.isContiguousWithPrev,
-                        roundEnd = false
+                        roundEnd = false,
+                        isContiguous = false,
+                        overlapDeg = 0f
                     )
                 }
             }
@@ -1186,17 +1231,19 @@ class SectographWidgetProvider : AppWidgetProvider() {
             canvas.drawCircle(centerX, centerY, baseRadius, outlinePaint)
 
             val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.parseColor("#4B5563")
+                color = Color.argb(102, 229, 231, 235) // Color(0xFFE5E7EB) alpha 0.40
                 strokeWidth = 1.0f * scale
                 style = Paint.Style.STROKE
                 strokeCap = Paint.Cap.ROUND
             }
             val intervals = 48
+            val intervalsPerHour = if (is24HourMode) 2 else 4
             for (i in 0 until intervals) {
-                if (i % 4 == 0) continue
+                if (i % intervalsPerHour == 0) continue // Skip positions where hour numerals sit
                 val deg = (i / intervals.toFloat()) * 360f - 90f
                 val rad = Math.toRadians(deg.toDouble())
-                val tickLen = if (i % 2 == 0) 3.5f * scale else 2.0f * scale
+                val isHalfHour = (!is24HourMode && i % 2 == 0)
+                val tickLen = (if (isHalfHour) 3.5f else 2.0f) * scale
                 val x1 = centerX + baseRadius * Math.cos(rad).toFloat()
                 val y1 = centerY + baseRadius * Math.sin(rad).toFloat()
                 val x2 = centerX + (baseRadius - tickLen) * Math.cos(rad).toFloat()
@@ -1204,13 +1251,42 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 canvas.drawLine(x1, y1, x2, y2, tickPaint)
             }
 
-            val numPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.parseColor("#D1D5DB")
-                textSize = 9.0f * scale
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            // 3D Hour Numbers Centered on trackOuterRadius (rOut)
+            // Straddling half over the block and half outside!
+            val numRadius = rOut
+            val numFontSize = (if (is24HourMode) 8.5f else 11.5f) * scale
+            val numTypeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+
+            // 1. Ambient Drop Shadow (blurRadius = 3.5f * scale, dy = 1.8f * scale)
+            val numShadowPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.argb(240, 0, 0, 0)
+                textSize = numFontSize
+                typeface = numTypeface
                 textAlign = Paint.Align.CENTER
+                maskFilter = BlurMaskFilter(3.5f * scale, BlurMaskFilter.Blur.NORMAL)
             }
-            val numRadius = baseRadius - 4.5f * scale
+
+            // 2. 3D Dark Bezel Outline / Halo (#0F172A, strokeWidth = 2.4f * scale)
+            val numHaloPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.argb(235, 15, 23, 42)
+                textSize = numFontSize
+                typeface = numTypeface
+                textAlign = Paint.Align.CENTER
+                style = Paint.Style.STROKE
+                strokeWidth = 2.4f * scale
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+            }
+
+            // 3. Crisp Face Fill (#F8FAFC)
+            val numFacePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.parseColor("#F8FAFC")
+                textSize = numFontSize
+                typeface = numTypeface
+                textAlign = Paint.Align.CENTER
+                style = Paint.Style.FILL
+            }
+
             val hourCount = if (is24HourMode) 24 else 12
             val stepHours = if (is24HourMode) 2 else 1
             for (h in 0 until hourCount step stepHours) {
@@ -1219,8 +1295,14 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 val rad = Math.toRadians(deg.toDouble())
                 val nx = centerX + numRadius * Math.cos(rad).toFloat()
                 val ny = centerY + numRadius * Math.sin(rad).toFloat()
-                val numBaselineY = ny - ((numPaint.descent() + numPaint.ascent()) / 2f)
-                canvas.drawText(numStr, nx, numBaselineY, numPaint)
+                val baselineY = ny - ((numFacePaint.descent() + numFacePaint.ascent()) / 2f)
+
+                // 1. Ambient Drop Shadow (dy = 1.8f * scale)
+                canvas.drawText(numStr, nx, baselineY + 1.8f * scale, numShadowPaint)
+                // 2. 3D Dark Bezel Outline / Halo
+                canvas.drawText(numStr, nx, baselineY, numHaloPaint)
+                // 3. Crisp Face Fill
+                canvas.drawText(numStr, nx, baselineY, numFacePaint)
             }
         }
 

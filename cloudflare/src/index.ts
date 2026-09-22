@@ -324,16 +324,16 @@ export default {
         JSON.stringify(
           {
             success: true,
-            tag: 'v1.0.16',
-            version: '1.0.16',
+            tag: 'v1.0.17',
+            version: '1.0.17',
             downloadUrl:
-              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.16/Radian-v1.0.16.apk',
-            apkName: 'Radian-v1.0.16.apk',
+              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.17/Radian-v1.0.17.apk',
+            apkName: 'Radian-v1.0.17.apk',
             sizeBytes: 74832208,
             releaseNotes:
-              '### Radian v1.0.16 - 1:1 Visual Parity Native Dynamic Widget Engine\n\n- **1:1 Visual Parity**: Native Kotlin Canvas engine now mirrors the exact original Flutter dial styling with 3D rounded sector pill paths, drop shadows, and radial elevation.\n- **Kalam-Bold Typography**: Bundled Kalam font loaded natively for all titles, durations, and subtask chips.\n- **Organic River Pebble Subtasks**: Floating rounded pebble capsules with subtle angular tilts placed in open water bays.\n- **Boundary Timestamp Caps**: Darkened badges with crisp white tabular time text (9:00 AM, 12:00 PM, 3:00 PM, 3:30 PM, 4:30 PM, etc.).\n- **Zero Freeze / Stale Protection**: Live background updates with <3ms execution without needing Flutter in memory.',
+              '### Radian v1.0.17 - 1:1 Parity: Monochrome Theme Icons, 3D Bezel Numerals & Overlapping Cap Shadows\n\n- **Monochrome Theme Icons**: Native Material Icons font glyphs rendered in high-contrast adaptive textColor (charcoal on light blocks, crisp white on dark blocks) matching Flutter exactly.\n- **3D Bezel Numerals on rOut**: Hour numerals positioned on trackOuterRadius straddling half over the block and half outside, rendered with ambient drop shadows, dark outline halo (#0F172A), and bold white face.\n- **Overlapping Cap Drop Shadows**: Contiguous end caps extend by overlapDeg onto successor blocks with 3D drop shadow clipping and smooth rounded corners.\n- **Zero Freeze / Stale Protection**: Live background updates with <3ms execution without needing Flutter in memory.',
             publishedAt: new Date().toISOString(),
-            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.16',
+            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.17',
           },
           null,
           2

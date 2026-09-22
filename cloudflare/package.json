@@ -1,6 +1,6 @@
 {
   "name": "radian-mcp-cloudflare",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "description": "24/7 Hosted Model Context Protocol (MCP) Server for Radian with Server-Sent Events (SSE) & Streamlined Client-Side SQLite/D1 Hybrid Storage.",
   "main": "src/index.ts",
   "scripts": {
