@@ -136,6 +136,13 @@ class AndroidWidgetService {
         showCenterClock: false,
       );
 
+      final lensParams = DialImageRenderer.computeLensParameters(
+        events: dayEvents,
+        currentTime: currentTime,
+        settings: settings,
+        activeEvent: activeEvent,
+      );
+
       final eventsData = dayEvents
           .map(
             (e) => {
@@ -161,6 +168,10 @@ class AndroidWidgetService {
         'dialBgColor': dialBgColor,
         'eventsJson': eventsJson,
         'timestamp': currentTime.millisecondsSinceEpoch,
+        'focusAngle': lensParams.focusAngle,
+        'magnification': lensParams.magnification,
+        'isFocusLensEnabled': lensParams.isFocusLensEnabled,
+        'centerClockDisplay': settings.centerClockDisplay.name,
       });
     } catch (e, st) {
       debugPrint('syncWidget error: $e\n$st');

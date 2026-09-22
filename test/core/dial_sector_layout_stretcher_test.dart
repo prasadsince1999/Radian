@@ -241,5 +241,75 @@ void main() {
       expect(stretched3.first.startAngle, 105.0);
       expect(stretched3.first.sweepAngle, 64.0);
     });
+
+    test('active sector with subtasks contiguous with successor borrows from downstream gaps and expands to full target', () {
+      final events = [
+        SectorEvent(
+          id: 'projects',
+          title: 'Projects',
+          start: DateTime(2026, 9, 22, 12, 0),
+          end: DateTime(2026, 9, 22, 15, 0),
+          startAngle: 0.0,
+          sweepAngle: 90.0,
+        ),
+        SectorEvent(
+          id: 'break',
+          title: 'Break',
+          start: DateTime(2026, 9, 22, 15, 0),
+          end: DateTime(2026, 9, 22, 15, 30),
+          startAngle: 90.0,
+          sweepAngle: 15.0,
+          subtasks: const ['Coffee', 'Rest'],
+        ),
+        SectorEvent(
+          id: 'workout',
+          title: 'Workout',
+          start: DateTime(2026, 9, 22, 15, 30),
+          end: DateTime(2026, 9, 22, 16, 30),
+          startAngle: 105.0,
+          sweepAngle: 30.0,
+          subtasks: const ['Gym', 'Cardio'],
+        ),
+        SectorEvent(
+          id: 'read',
+          title: 'Read',
+          start: DateTime(2026, 9, 22, 16, 45),
+          end: DateTime(2026, 9, 22, 18, 45),
+          startAngle: 142.5,
+          sweepAngle: 60.0,
+        ),
+      ];
+
+      final result = DialSectorLayoutStretcher.stretch(
+        events,
+        is24HourMode: false,
+        activeEventId: 'break',
+        currentTime: DateTime(2026, 9, 22, 15, 6),
+      );
+
+      final stretchedBreak = result.firstWhere((e) => e.id == 'break');
+      final stretchedWorkout = result.firstWhere((e) => e.id == 'workout');
+      final stretchedRead = result.firstWhere((e) => e.id == 'read');
+
+      // Break must expand significantly past its 15° initial sweep to fit subtasks
+      expect(stretchedBreak.sweepAngle, greaterThanOrEqualTo(50.0));
+
+      // Break and Workout must remain contiguous at their boundary
+      final breakEnd = SectorMath.normalizeDegrees(
+        stretchedBreak.startAngle + stretchedBreak.sweepAngle,
+      );
+      expect(
+        (stretchedWorkout.startAngle - breakEnd).abs(),
+        lessThanOrEqualTo(0.1),
+      );
+
+      // Gap between Workout and Read must remain positive and valid
+      final workoutEnd = SectorMath.normalizeDegrees(
+        stretchedWorkout.startAngle + stretchedWorkout.sweepAngle,
+      );
+      var gapToRead = (stretchedRead.startAngle - workoutEnd) % 360.0;
+      if (gapToRead < 0) gapToRead += 360.0;
+      expect(gapToRead, greaterThanOrEqualTo(3.5));
+    });
   });
 }

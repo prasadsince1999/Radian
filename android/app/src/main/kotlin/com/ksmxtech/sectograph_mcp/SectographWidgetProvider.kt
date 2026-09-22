@@ -103,9 +103,45 @@ class SectographWidgetProvider : AppWidgetProvider() {
         const val KEY_EVENTS_JSON = "eventsJson"
         const val KEY_BASE_TIMESTAMP = "baseTimestamp"
         const val KEY_BASE_DATE = "baseDate"
+        const val KEY_FOCUS_ANGLE = "focusAngle"
+        const val KEY_MAGNIFICATION = "magnification"
+        const val KEY_LENS_ENABLED = "isFocusLensEnabled"
+        const val KEY_CENTER_CLOCK_DISPLAY = "centerClockDisplay"
         const val MAX_BASE_BITMAP_AGE_MS = 45 * 60 * 1000L // 45 minutes
         const val ACTION_ADD_BLOCK = "com.ksmxtech.sectograph_mcp.ACTION_ADD_BLOCK"
         const val ACTION_MINUTE_TICK = "com.ksmxtech.sectograph_mcp.ACTION_MINUTE_TICK"
+
+        private fun normalizeDegrees(deg: Double): Double {
+            var d = deg % 360.0
+            if (d < 0.0) d += 360.0
+            return d
+        }
+
+        private fun normalizeDelta(deg: Double): Double {
+            var d = deg % 360.0
+            if (d > 180.0) d -= 360.0
+            if (d < -180.0) d += 360.0
+            return d
+        }
+
+        private fun warpAngle(angleDeg: Double, focusAngle: Double, magnification: Double): Double {
+            if (Math.abs(magnification - 1.0) <= 0.001) {
+                return normalizeDegrees(angleDeg)
+            }
+            val normalized = normalizeDegrees(angleDeg)
+            val diff = normalizeDelta(normalized - focusAngle)
+            val x = diff / 180.0
+
+            val absX = Math.abs(x)
+            val warpedX = (magnification * x) / (1.0 + (magnification - 1.0) * absX)
+            val warpedDiff = warpedX * 180.0
+            return normalizeDegrees(focusAngle + warpedDiff)
+        }
+
+        private fun isColorDark(color: Int): Boolean {
+            val darkness = 1 - (0.299 * Color.red(color) + 0.587 * Color.green(color) + 0.114 * Color.blue(color)) / 255.0
+            return darkness >= 0.5
+        }
 
         fun scheduleNextMinuteAlarm(context: Context) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
@@ -245,14 +281,15 @@ class SectographWidgetProvider : AppWidgetProvider() {
             }
 
             // 1. Clear / Refresh Center Hub Circle
+            val isDarkDial = isColorDark(if (dialBgColor != 0) dialBgColor else Color.parseColor("#0F172A"))
             val hubFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = if (dialBgColor != 0) dialBgColor else Color.parseColor("#0F172A")
+                color = if (dialBgColor != 0) dialBgColor else (if (isDarkDial) Color.parseColor("#0F172A") else Color.WHITE)
                 style = Paint.Style.FILL
             }
             canvas.drawCircle(centerX, centerY, innerRadius - 1f, hubFillPaint)
 
             val hubBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.parseColor("#374151")
+                color = if (isDarkDial) Color.parseColor("#374151") else Color.parseColor("#E2E8F0")
                 style = Paint.Style.STROKE
                 strokeWidth = 1.0f * scale
             }
@@ -267,11 +304,22 @@ class SectographWidgetProvider : AppWidgetProvider() {
 
             // 12 o'clock corresponds to -90 degrees from positive X axis
             val minuteFraction = (minute + second / 60f) / 60f
-            val angleDeg = if (is24HourMode) {
-                ((hour24 + minuteFraction) / 24f) * 360f - 90f
+            val dialDeg = if (is24HourMode) {
+                ((hour24 + minuteFraction) / 24f) * 360f
             } else {
-                ((hour12 + minuteFraction) / 12f) * 360f - 90f
+                ((hour12 + minuteFraction) / 12f) * 360f
             }
+
+            val focusAngle = prefs.getFloat(KEY_FOCUS_ANGLE, -1f)
+            val magnification = prefs.getFloat(KEY_MAGNIFICATION, 1.0f)
+            val isLensEnabled = prefs.getBoolean(KEY_LENS_ENABLED, true)
+
+            val warpedDialDeg = if (isLensEnabled && focusAngle >= 0f && magnification > 1.001f) {
+                warpAngle(dialDeg.toDouble(), focusAngle.toDouble(), magnification.toDouble()).toFloat()
+            } else {
+                dialDeg
+            }
+            val angleDeg = warpedDialDeg - 90f
             val angleRad = Math.toRadians(angleDeg.toDouble())
             val cosA = Math.cos(angleRad).toFloat()
             val sinA = Math.sin(angleRad).toFloat()
@@ -365,11 +413,9 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 }
             }
 
-            // 4. Center Clock Face Typography (Exact 1:1 Parity with SectographPainter)
-            val timeFontSize = innerRadius * 0.38f
-            val dateFontSize = innerRadius * 0.16f
-            val amPmFontSize = innerRadius * 0.18f
-            val chipFontSize = innerRadius * 0.125f
+            // 4. Center Clock Face Typography (Exact 1:1 Parity with Flutter SectographPainter)
+            val centerClockDisplay = prefs.getString(KEY_CENTER_CLOCK_DISPLAY, "digital") ?: "digital"
+            val isDigitalMode = (centerClockDisplay == "digital")
 
             val amPmStr = if (cal.get(Calendar.AM_PM) == Calendar.AM) "AM" else "PM"
             val timeFormat = if (is24HourMode) {
@@ -382,22 +428,32 @@ class SectographWidgetProvider : AppWidgetProvider() {
             val dateStr = dateFormat.format(cal.time)
 
             val hasAmPm = !is24HourMode
-            val hasChip = !activeTitle.isNullOrEmpty()
+            val hasChip = false
+
+            val isDark = isColorDark(if (dialBgColor != 0) dialBgColor else Color.parseColor("#0F172A"))
+            val primaryTextColor = if (isDark) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A")
+            val secondaryTextColor = if (isDark) Color.parseColor("#94A3B8") else Color.parseColor("#64748B")
+            val amPmColor = if (isDark) Color.parseColor("#38BDF8") else Color.parseColor("#0284C7")
+
+            val timeFontSize = innerRadius * (if (hasChip) 0.38f else 0.44f)
+            val dateFontSize = innerRadius * (if (hasChip) 0.16f else 0.165f)
+            val amPmFontSize = innerRadius * 0.18f
+            val chipFontSize = innerRadius * 0.125f
 
             val amPmPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.parseColor("#38BDF8") // Sky accent
+                color = amPmColor
                 textSize = amPmFontSize
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 textAlign = Paint.Align.CENTER
             }
             val timePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.WHITE
+                color = primaryTextColor
                 textSize = timeFontSize
                 typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
                 textAlign = Paint.Align.CENTER
             }
             val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.parseColor("#9CA3AF")
+                color = secondaryTextColor
                 textSize = dateFontSize
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 textAlign = Paint.Align.CENTER
@@ -408,8 +464,8 @@ class SectographWidgetProvider : AppWidgetProvider() {
             val dateH = dateFontSize
             val chipH = if (hasChip) chipFontSize * 1.8f else 0f
 
-            val gapAmPm = if (hasAmPm) 3.5f * scale else 0f
-            val gapDate = 4.5f * scale
+            val gapAmPm = if (hasAmPm) (if (hasChip) 3.5f else 2.5f) * scale else 0f
+            val gapDate = (if (hasChip) 4.5f else 3.5f) * scale
             val gapChip = if (hasChip) 6.0f * scale else 0f
 
             val totalH = amPmH + gapAmPm + timeH + gapDate + dateH + gapChip + chipH
@@ -703,19 +759,18 @@ class SectographWidgetProvider : AppWidgetProvider() {
             if (isContiguous && overlapDeg > 0f) {
                 val boundaryDeg = (startDeg + sweepDeg) - overlapDeg
                 canvas.save()
-                val shadowClip = buildPillPath(
-                    centerX, centerY, rIn - 8f * scale, rOut + 8f * scale,
-                    boundaryDeg, 45f,
-                    cornerRadius = 0f,
+                val shadowPath = buildPillPath(
+                    centerX, centerY, rIn, rOut,
+                    boundaryDeg, overlapDeg + 3.2f,
+                    cornerRadius = cornerRadius,
                     roundStart = false,
-                    roundEnd = false
+                    roundEnd = true
                 )
-                canvas.clipPath(shadowClip)
                 val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = Color.argb(100, 0, 0, 0)
-                    maskFilter = BlurMaskFilter(2.8f * scale, BlurMaskFilter.Blur.NORMAL)
+                    color = Color.argb(90, 0, 0, 0)
+                    maskFilter = BlurMaskFilter(3.2f * scale, BlurMaskFilter.Blur.NORMAL)
                 }
-                canvas.drawPath(capPath, shadowPaint)
+                canvas.drawPath(shadowPath, shadowPaint)
                 canvas.restore()
             }
 
@@ -781,7 +836,7 @@ class SectographWidgetProvider : AppWidgetProvider() {
             kalamTypeface: Typeface,
             isDarkSector: Boolean
         ) {
-            if (subtasks.isEmpty() || sweepDeg < 26f) return
+            if (subtasks.isEmpty() || sweepDeg < 20f) return
 
             val rawPebbles = subtasks.take(4).map { distillShortKeyword(it) }.filter { it.isNotEmpty() }
             if (rawPebbles.isEmpty()) return
@@ -992,7 +1047,13 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 val dialDeg = ((h * 60 + m + s / 60f) * rate) % 360f
 
                 val durMin = (event.end - event.start) / (60f * 1000f)
-                val sweepDeg = (durMin * rate).coerceIn(4f, 360f)
+                val isEventActive = (nowMs in event.start until event.end)
+                val rawSweepDeg = (durMin * rate).coerceIn(4f, 360f)
+                val sweepDeg = if (isEventActive) {
+                    maxOf(rawSweepDeg, if (event.subtasks.isNotEmpty()) 48f else 36f)
+                } else {
+                    rawSweepDeg
+                }
 
                 val prevEvent = if (i > 0) horizonEvents[i - 1] else null
                 val nextEvent = if (i < horizonEvents.size - 1) horizonEvents[i + 1] else null
@@ -1150,7 +1211,7 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 canvas.restore()
 
                 // River Pebble Subtasks in left and right bays
-                if (l.event.subtasks.isNotEmpty() && l.sweepDeg >= 26f) {
+                if (l.event.subtasks.isNotEmpty() && l.sweepDeg >= 20f) {
                     drawRiverPebbles(
                         canvas = canvas,
                         centerX = centerX,

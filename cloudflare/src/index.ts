@@ -324,16 +324,16 @@ export default {
         JSON.stringify(
           {
             success: true,
-            tag: 'v1.0.17',
-            version: '1.0.17',
+            tag: 'v1.0.18',
+            version: '1.0.18',
             downloadUrl:
-              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.17/Radian-v1.0.17.apk',
-            apkName: 'Radian-v1.0.17.apk',
+              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.18/Radian-v1.0.18.apk',
+            apkName: 'Radian-v1.0.18.apk',
             sizeBytes: 74832208,
             releaseNotes:
-              '### Radian v1.0.17 - 1:1 Parity: Monochrome Theme Icons, 3D Bezel Numerals & Overlapping Cap Shadows\n\n- **Monochrome Theme Icons**: Native Material Icons font glyphs rendered in high-contrast adaptive textColor (charcoal on light blocks, crisp white on dark blocks) matching Flutter exactly.\n- **3D Bezel Numerals on rOut**: Hour numerals positioned on trackOuterRadius straddling half over the block and half outside, rendered with ambient drop shadows, dark outline halo (#0F172A), and bold white face.\n- **Overlapping Cap Drop Shadows**: Contiguous end caps extend by overlapDeg onto successor blocks with 3D drop shadow clipping and smooth rounded corners.\n- **Zero Freeze / Stale Protection**: Live background updates with <3ms execution without needing Flutter in memory.',
+              '### Radian v1.0.18 - 1:1 Parity: Stretched Active Blocks, River Pebble Subtasks & High-Contrast Center Clock\n\n- **Full Fisheye & Stretched Active Blocks**: Widget dial now perfectly inherits Fisheye Time Lens warping and sector layout stretching, expanding the active sector and revealing subtasks with ample breathing room.\n- **Visible Current Time Subtasks**: River pebble chips (e.g. Coffee, Rest, Cardio, Gym) are organically placed and clearly visible in active and upcoming sectors on both in-app and widget dials.\n- **High-Contrast Digital Center Clock**: Crisp, bold dark charcoal (#0F172A) time on light backgrounds and white (#F8FAFC) on dark backgrounds, perfectly centered with no intrusive chip in digital clock mode.\n- **Harmonic Minute Needle Alignment**: Native Android minute needle warps in sync with the Fisheye lens angle, guaranteeing 0.0° drift against the active stretched sector.',
             publishedAt: new Date().toISOString(),
-            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.17',
+            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.18',
           },
           null,
           2

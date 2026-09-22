@@ -122,6 +122,10 @@ class MainActivity : FlutterActivity() {
                         val dialBgColor = (call.argument<Number>("dialBgColor"))?.toInt() ?: 0
                         val eventsJson = call.argument<String>("eventsJson")
                         val timestamp = (call.argument<Number>("timestamp"))?.toLong() ?: System.currentTimeMillis()
+                        val focusAngle = (call.argument<Number>("focusAngle"))?.toFloat() ?: -1f
+                        val magnification = (call.argument<Number>("magnification"))?.toFloat() ?: 1.0f
+                        val isFocusLensEnabled = call.argument<Boolean>("isFocusLensEnabled") ?: true
+                        val centerClockDisplay = call.argument<String>("centerClockDisplay") ?: "digital"
                         result.success(
                             widgetSyncHelper.updateWidget(
                                 title,
@@ -132,7 +136,11 @@ class MainActivity : FlutterActivity() {
                                 is24HourMode,
                                 dialBgColor,
                                 eventsJson,
-                                timestamp
+                                timestamp,
+                                focusAngle,
+                                magnification,
+                                isFocusLensEnabled,
+                                centerClockDisplay
                             )
                         )
                     }

@@ -241,7 +241,7 @@ class SectorContentRenderer {
     final bool showKeyword =
         !showFull &&
         (hasSubtasks
-            ? effectiveSweepDeg >= (is24HourMode ? 32.0 : 50.0)
+            ? effectiveSweepDeg >= (is24HourMode ? 14.0 : 20.0)
             : isMediumSector) &&
         scaleB >= 0.65;
     final bool showIconOnly = !showFull && !showKeyword;
@@ -525,9 +525,9 @@ class SectorContentRenderer {
 
     // Helper to check if a single pebble can fit comfortably with natural margins
     bool canFitSingle(int idx, double bayWidth) {
-      if (bayWidth <= 2.0) return false;
+      if (bayWidth <= 1.2) return false;
       final fullDeg = pebbleDimensions[idx].halfDeg * 2.0;
-      return bayWidth >= (fullDeg * 0.60 + 0.6);
+      return bayWidth >= (fullDeg * 0.40 + 0.4);
     }
 
     // Assign pebbles into Left Bay and Right Bay based on verified geometric capacity:
@@ -545,26 +545,24 @@ class SectorContentRenderer {
       if (canFitSingle(0, leftBayWidth) && canFitSingle(1, rightBayWidth)) {
         leftPebbleIndices.add(0);
         rightPebbleIndices.add(1);
+      } else if (canFitSingle(1, leftBayWidth) &&
+          canFitSingle(0, rightBayWidth)) {
+        leftPebbleIndices.add(1);
+        rightPebbleIndices.add(0);
+      } else if (leftBayWidth >= requiredForTwo(0, 1)) {
+        leftPebbleIndices.add(0);
+        leftPebbleIndices.add(1);
+      } else if (rightBayWidth >= requiredForTwo(0, 1)) {
+        rightPebbleIndices.add(0);
+        rightPebbleIndices.add(1);
       } else if (leftBayWidth >= rightBayWidth) {
-        if (leftBayWidth >= requiredForTwo(0, 1)) {
-          leftPebbleIndices.add(0);
-          leftPebbleIndices.add(1);
-        } else if (rightBayWidth >= requiredForTwo(0, 1)) {
-          rightPebbleIndices.add(0);
-          rightPebbleIndices.add(1);
-        } else if (canFitSingle(0, leftBayWidth)) {
+        if (canFitSingle(0, leftBayWidth)) {
           leftPebbleIndices.add(0);
         } else if (canFitSingle(0, rightBayWidth)) {
           rightPebbleIndices.add(0);
         }
       } else {
-        if (rightBayWidth >= requiredForTwo(0, 1)) {
-          rightPebbleIndices.add(0);
-          rightPebbleIndices.add(1);
-        } else if (leftBayWidth >= requiredForTwo(0, 1)) {
-          leftPebbleIndices.add(0);
-          leftPebbleIndices.add(1);
-        } else if (canFitSingle(0, rightBayWidth)) {
+        if (canFitSingle(0, rightBayWidth)) {
           rightPebbleIndices.add(0);
         } else if (canFitSingle(0, leftBayWidth)) {
           leftPebbleIndices.add(0);

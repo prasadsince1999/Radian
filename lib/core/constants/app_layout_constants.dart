@@ -80,7 +80,7 @@ abstract final class AppLayoutConstants {
   }
 
   /// Minimum effective sweep angle threshold to display subtask river pebble chips.
-  static const double minSubtaskPebbleSweepDeg12H = 14.0;
+  static const double minSubtaskPebbleSweepDeg12H = 10.0;
 
   /// Minimum effective sweep angle threshold to display subtask river pebble chips in 24H mode.
   static const double minSubtaskPebbleSweepDeg24H = 10.0;

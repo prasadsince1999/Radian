@@ -209,6 +209,7 @@ class DialSectorLayoutStretcher {
     // 6. Allocate from each gap k: event k expands forward, event k+1 expands backward
     final grantedFwd = List<double>.filled(n, 0.0);
     final grantedBwd = List<double>.filled(n, 0.0);
+    final shiftFwd = List<double>.filled(n, 0.0);
 
     for (int k = 0; k < n; k++) {
       final nextIdx = (k + 1) % n;
@@ -256,6 +257,26 @@ class DialSectorLayoutStretcher {
         remainingDeficit -= extraFwd;
       }
 
+      // If still unsatisfied, borrow from downstream gaps and propagate forward shift
+      if (remainingDeficit > 0.001) {
+        for (int step = 1; step < n && remainingDeficit > 0.001; step++) {
+          final targetGapIdx = (i + step - 1) % n;
+          if (remainingUsable[targetGapIdx] > 0.0) {
+            final take = math.min(
+              remainingDeficit,
+              remainingUsable[targetGapIdx],
+            );
+            grantedFwd[i] += take;
+            remainingUsable[targetGapIdx] -= take;
+            remainingDeficit -= take;
+            for (int s = 1; s < step; s++) {
+              final shiftIdx = (i + s) % n;
+              shiftFwd[shiftIdx] += take;
+            }
+          }
+        }
+      }
+
       // Try taking remaining deficit from prev gap (only for non-priority events)
       final prevIdx = (i - 1 + n) % n;
       if (!isPriority[i] &&
@@ -284,7 +305,9 @@ class DialSectorLayoutStretcher {
       final bwd = grantedBwd[i];
       final fwd = grantedFwd[i];
 
-      final newStart = SectorMath.normalizeDegrees(ev.startAngle - bwd);
+      final newStart = SectorMath.normalizeDegrees(
+        ev.startAngle - bwd + shiftFwd[i],
+      );
       final newSweep = ev.sweepAngle + bwd + fwd;
 
       updatedMap[ev.id] = ev.copyWith(

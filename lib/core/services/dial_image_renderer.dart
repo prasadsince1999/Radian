@@ -157,7 +157,81 @@ abstract final class DialImageRenderer {
       }
     }
 
-    // Fisheye Time Lens focus center
+    final lensParams = computeLensParameters(
+      events: positionedEvents,
+      currentTime: currentTime,
+      settings: settings,
+      activeEvent: resolvedActive,
+      selectedEvent: selectedEvent,
+    );
+
+    final lens = lensParams.isFocusLensEnabled
+        ? FisheyeTimeLens(
+            focusAngle: lensParams.focusAngle,
+            magnification: lensParams.magnification,
+          )
+        : const FisheyeTimeLens.linear();
+
+    final warpedEvents = baseDisplayEvents.map((e) {
+      final warped = lens.warpSector(
+        startDeg: e.startAngle,
+        sweepDeg: e.sweepAngle,
+      );
+      return e.copyWith(
+        startAngle: warped.startDeg,
+        sweepAngle: warped.sweepDeg,
+      );
+    }).toList();
+
+    final finalDisplayEvents = DialSectorLayoutStretcher.stretch(
+      warpedEvents,
+      is24HourMode: settings.is24HourMode,
+      activeEventId: resolvedActive?.id,
+      selectedEventId: selectedEvent?.id,
+      currentTime: currentTime,
+    );
+
+    final painter = SectographPainter(
+      events: finalDisplayEvents,
+      selectedEvent: selectedEvent,
+      activeEvent: resolvedActive,
+      currentTime: currentTime,
+      scrubAngle: null,
+      settings: settings,
+      colorScheme: colorScheme,
+      showCenterClock: showCenterClock,
+      showNeedle: showNeedle,
+      lens: lens,
+    );
+
+    painter.paint(canvas, paintSize);
+
+    final picture = recorder.endRecording();
+    final image = picture.toImageSync(size.toInt(), size.toInt());
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    return byteData?.buffer.asUint8List();
+  }
+
+  /// Computes lens parameters (focusAngle, magnification, isFocusLensEnabled) for widget needle sync.
+  static ({double focusAngle, double magnification, bool isFocusLensEnabled})
+  computeLensParameters({
+    required List<SectorEvent> events,
+    required DateTime currentTime,
+    required DialSettings settings,
+    SectorEvent? activeEvent,
+    SectorEvent? selectedEvent,
+  }) {
+    SectorEvent? resolvedActive = activeEvent;
+    if (resolvedActive == null) {
+      for (final e in events) {
+        if (!currentTime.isBefore(e.start) && currentTime.isBefore(e.end)) {
+          resolvedActive = e;
+          break;
+        }
+      }
+    }
+
     final focusEvent = selectedEvent ?? resolvedActive;
     final double focusAngle;
     if (focusEvent != null) {
@@ -182,59 +256,10 @@ abstract final class DialImageRenderer {
               ? math.max(settings.lensMagnification, 1.85)
               : settings.lensMagnification);
 
-    // For the Android home screen widget (showNeedle == false), use linear projection so the
-    // native minute needle strictly aligns with block start/end timestamps and dial bezel numerals.
-    // In-app interactive dial uses dynamic fisheye lens when enabled.
-    final useFisheye = settings.isFocusLensEnabled && showNeedle;
-    final lens = useFisheye
-        ? FisheyeTimeLens(
-            focusAngle: focusAngle,
-            magnification: activeMagnification,
-          )
-        : const FisheyeTimeLens.linear();
-
-    final warpedEvents = baseDisplayEvents.map((e) {
-      final warped = lens.warpSector(
-        startDeg: e.startAngle,
-        sweepDeg: e.sweepAngle,
-      );
-      return e.copyWith(
-        startAngle: warped.startDeg,
-        sweepAngle: warped.sweepDeg,
-      );
-    }).toList();
-
-    // For home screen widget (showNeedle == false), strictly avoid artificial stretching
-    // so block caps and needle maintain 100% mathematical alignment with real clock time.
-    final finalDisplayEvents = showNeedle
-        ? DialSectorLayoutStretcher.stretch(
-            warpedEvents,
-            is24HourMode: settings.is24HourMode,
-            activeEventId: resolvedActive?.id,
-            selectedEventId: selectedEvent?.id,
-            currentTime: currentTime,
-          )
-        : warpedEvents;
-
-    final painter = SectographPainter(
-      events: finalDisplayEvents,
-      selectedEvent: selectedEvent,
-      activeEvent: resolvedActive,
-      currentTime: currentTime,
-      scrubAngle: null,
-      settings: settings,
-      colorScheme: colorScheme,
-      showCenterClock: showCenterClock,
-      showNeedle: showNeedle,
-      lens: lens,
+    return (
+      focusAngle: focusAngle,
+      magnification: activeMagnification,
+      isFocusLensEnabled: settings.isFocusLensEnabled,
     );
-
-    painter.paint(canvas, paintSize);
-
-    final picture = recorder.endRecording();
-    final image = picture.toImageSync(size.toInt(), size.toInt());
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-
-    return byteData?.buffer.asUint8List();
   }
 }

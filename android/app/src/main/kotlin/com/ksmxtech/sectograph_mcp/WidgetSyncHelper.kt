@@ -30,7 +30,11 @@ class WidgetSyncHelper(private val context: Context) {
         is24HourMode: Boolean = false,
         dialBgColor: Int = 0,
         eventsJson: String? = null,
-        timestamp: Long = System.currentTimeMillis()
+        timestamp: Long = System.currentTimeMillis(),
+        focusAngle: Float = -1f,
+        magnification: Float = 1.0f,
+        isFocusLensEnabled: Boolean = true,
+        centerClockDisplay: String = "digital"
     ): Boolean {
         // Save base dial image atomically if present
         if (dialBytes != null && dialBytes.isNotEmpty()) {
@@ -60,6 +64,10 @@ class WidgetSyncHelper(private val context: Context) {
             .putInt(SectographWidgetProvider.KEY_DIAL_BG_COLOR, dialBgColor)
             .putLong(SectographWidgetProvider.KEY_BASE_TIMESTAMP, timestamp)
             .putString(SectographWidgetProvider.KEY_BASE_DATE, todayStr)
+            .putFloat(SectographWidgetProvider.KEY_FOCUS_ANGLE, focusAngle)
+            .putFloat(SectographWidgetProvider.KEY_MAGNIFICATION, magnification)
+            .putBoolean(SectographWidgetProvider.KEY_LENS_ENABLED, isFocusLensEnabled)
+            .putString(SectographWidgetProvider.KEY_CENTER_CLOCK_DISPLAY, centerClockDisplay)
 
         if (eventsJson != null) {
             editor.putString(SectographWidgetProvider.KEY_EVENTS_JSON, eventsJson)
