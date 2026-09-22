@@ -324,16 +324,16 @@ export default {
         JSON.stringify(
           {
             success: true,
-            tag: 'v1.0.15',
-            version: '1.0.15',
+            tag: 'v1.0.16',
+            version: '1.0.16',
             downloadUrl:
-              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.15/Radian-v1.0.15.apk',
-            apkName: 'Radian-v1.0.15.apk',
-            sizeBytes: 76500000,
+              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.16/Radian-v1.0.16.apk',
+            apkName: 'Radian-v1.0.16.apk',
+            sizeBytes: 74832208,
             releaseNotes:
-              '### Radian v1.0.15 - Dual-Tier Hybrid Widget Engine & Real-Time Background Synchronization\n\n- **Dual-Tier Hybrid Architecture**: Ultra-crisp Flutter pre-rendered dial when the app is active, backed by a sub-3ms native Android Kotlin Canvas sector engine when the app is suspended or overnight.\n- **Zero Stale Background Display**: Dynamic staleness detection (>45min or date rollover) automatically redraws rolling 12-hour sectors directly from persistent schedule data without needing Flutter root UI isolate.\n- **Native Sector Arcs & Subtask Typography**: Direct Kotlin Canvas arc rendering with adaptive text contrast, short keyword distillation, and subtask pill rendering.\n- **Real-Time Minute Needle & Hub Parity**: Crimson minute needle, celestial sun/moon pip, and digital center clock face stay in 100% mathematical sync around the clock.',
+              '### Radian v1.0.16 - 1:1 Visual Parity Native Dynamic Widget Engine\n\n- **1:1 Visual Parity**: Native Kotlin Canvas engine now mirrors the exact original Flutter dial styling with 3D rounded sector pill paths, drop shadows, and radial elevation.\n- **Kalam-Bold Typography**: Bundled Kalam font loaded natively for all titles, durations, and subtask chips.\n- **Organic River Pebble Subtasks**: Floating rounded pebble capsules with subtle angular tilts placed in open water bays.\n- **Boundary Timestamp Caps**: Darkened badges with crisp white tabular time text (9:00 AM, 12:00 PM, 3:00 PM, 3:30 PM, 4:30 PM, etc.).\n- **Zero Freeze / Stale Protection**: Live background updates with <3ms execution without needing Flutter in memory.',
             publishedAt: new Date().toISOString(),
-            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.15',
+            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.16',
           },
           null,
           2
