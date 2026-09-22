@@ -16,6 +16,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PointF
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.net.Uri
@@ -107,6 +108,7 @@ class SectographWidgetProvider : AppWidgetProvider() {
         const val KEY_MAGNIFICATION = "magnification"
         const val KEY_LENS_ENABLED = "isFocusLensEnabled"
         const val KEY_CENTER_CLOCK_DISPLAY = "centerClockDisplay"
+        const val KEY_INNER_RADIUS_RATIO = "innerRadiusRatio"
         const val MAX_BASE_BITMAP_AGE_MS = 45 * 60 * 1000L // 45 minutes
         const val ACTION_ADD_BLOCK = "com.ksmxtech.sectograph_mcp.ACTION_ADD_BLOCK"
         const val ACTION_MINUTE_TICK = "com.ksmxtech.sectograph_mcp.ACTION_MINUTE_TICK"
@@ -261,8 +263,8 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 null
             }
 
-            val width = baseBitmap?.width ?: 720
-            val height = baseBitmap?.height ?: 720
+            val width = baseBitmap?.width ?: 1080
+            val height = baseBitmap?.height ?: 1080
             val compositeBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(compositeBitmap)
 
@@ -272,10 +274,20 @@ class SectographWidgetProvider : AppWidgetProvider() {
 
             val maxRadius = (Math.min(width, height) / 2f) - 4f * scale
             val baseRadius = maxRadius
-            val innerRadius = baseRadius * 0.44f // Matches AppLayoutConstants.innerRadiusRatio
+            val innerRadiusRatio = prefs.getFloat(KEY_INNER_RADIUS_RATIO, 0.34f)
+            val innerRadius = baseRadius * innerRadiusRatio
 
             if (baseBitmap != null) {
-                canvas.drawBitmap(baseBitmap, 0f, 0f, null)
+                val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+                    isDither = true
+                }
+                if (baseBitmap.width == width && baseBitmap.height == height) {
+                    canvas.drawBitmap(baseBitmap, 0f, 0f, bitmapPaint)
+                } else {
+                    val srcRect = Rect(0, 0, baseBitmap.width, baseBitmap.height)
+                    val dstRect = RectF(0f, 0f, width.toFloat(), height.toFloat())
+                    canvas.drawBitmap(baseBitmap, srcRect, dstRect, bitmapPaint)
+                }
             } else {
                 drawDynamicSectors(context, canvas, centerX, centerY, baseRadius, innerRadius, scale, nowMs, is24HourMode, dialBgColor, prefs)
             }
@@ -435,9 +447,9 @@ class SectographWidgetProvider : AppWidgetProvider() {
             val secondaryTextColor = if (isDark) Color.parseColor("#94A3B8") else Color.parseColor("#64748B")
             val amPmColor = if (isDark) Color.parseColor("#38BDF8") else Color.parseColor("#0284C7")
 
-            val timeFontSize = innerRadius * (if (hasChip) 0.38f else 0.44f)
-            val dateFontSize = innerRadius * (if (hasChip) 0.16f else 0.165f)
-            val amPmFontSize = innerRadius * 0.18f
+            val timeFontSize = innerRadius * (if (hasChip) 0.38f else 0.48f)
+            val dateFontSize = innerRadius * (if (hasChip) 0.16f else 0.18f)
+            val amPmFontSize = innerRadius * 0.19f
             val chipFontSize = innerRadius * 0.125f
 
             val amPmPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -464,8 +476,8 @@ class SectographWidgetProvider : AppWidgetProvider() {
             val dateH = dateFontSize
             val chipH = if (hasChip) chipFontSize * 1.8f else 0f
 
-            val gapAmPm = if (hasAmPm) (if (hasChip) 3.5f else 2.5f) * scale else 0f
-            val gapDate = (if (hasChip) 4.5f else 3.5f) * scale
+            val gapAmPm = if (hasAmPm) (if (hasChip) 3.0f else 2.0f) * scale else 0f
+            val gapDate = (if (hasChip) 4.0f else 3.0f) * scale
             val gapChip = if (hasChip) 6.0f * scale else 0f
 
             val totalH = amPmH + gapAmPm + timeH + gapDate + dateH + gapChip + chipH

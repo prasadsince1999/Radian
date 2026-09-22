@@ -24,7 +24,7 @@ abstract final class DialImageRenderer {
     required ColorScheme colorScheme,
     SectorEvent? activeEvent,
     SectorEvent? selectedEvent,
-    double size = 720.0,
+    double size = 1080.0,
     bool showNeedle = true,
     bool showCenterClock = true,
   }) async {

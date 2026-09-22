@@ -126,6 +126,7 @@ class MainActivity : FlutterActivity() {
                         val magnification = (call.argument<Number>("magnification"))?.toFloat() ?: 1.0f
                         val isFocusLensEnabled = call.argument<Boolean>("isFocusLensEnabled") ?: true
                         val centerClockDisplay = call.argument<String>("centerClockDisplay") ?: "digital"
+                        val innerRadiusRatio = (call.argument<Number>("innerRadiusRatio"))?.toFloat() ?: 0.34f
                         result.success(
                             widgetSyncHelper.updateWidget(
                                 title,
@@ -140,7 +141,8 @@ class MainActivity : FlutterActivity() {
                                 focusAngle,
                                 magnification,
                                 isFocusLensEnabled,
-                                centerClockDisplay
+                                centerClockDisplay,
+                                innerRadiusRatio
                             )
                         )
                     }

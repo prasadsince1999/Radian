@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import '../../domain/models/dial_settings.dart';
 import '../../domain/models/sector_event.dart';
+import '../constants/app_layout_constants.dart';
 import '../utils/time_formatters.dart';
 import 'dial_image_renderer.dart';
 
@@ -131,7 +132,7 @@ class AndroidWidgetService {
         settings: settings,
         colorScheme: colorScheme,
         activeEvent: activeEvent,
-        size: 720.0,
+        size: 1080.0,
         showNeedle: false,
         showCenterClock: false,
       );
@@ -172,6 +173,7 @@ class AndroidWidgetService {
         'magnification': lensParams.magnification,
         'isFocusLensEnabled': lensParams.isFocusLensEnabled,
         'centerClockDisplay': settings.centerClockDisplay.name,
+        'innerRadiusRatio': AppLayoutConstants.innerRadiusRatio,
       });
     } catch (e, st) {
       debugPrint('syncWidget error: $e\n$st');

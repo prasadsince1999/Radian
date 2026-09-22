@@ -324,16 +324,16 @@ export default {
         JSON.stringify(
           {
             success: true,
-            tag: 'v1.0.18',
-            version: '1.0.18',
+            tag: 'v1.0.19',
+            version: '1.0.19',
             downloadUrl:
-              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.18/Radian-v1.0.18.apk',
-            apkName: 'Radian-v1.0.18.apk',
-            sizeBytes: 74832208,
+              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.19/Radian-v1.0.19.apk',
+            apkName: 'Radian-v1.0.19.apk',
+            sizeBytes: 75373484,
             releaseNotes:
-              '### Radian v1.0.18 - 1:1 Parity: Stretched Active Blocks, River Pebble Subtasks & High-Contrast Center Clock\n\n- **Full Fisheye & Stretched Active Blocks**: Widget dial now perfectly inherits Fisheye Time Lens warping and sector layout stretching, expanding the active sector and revealing subtasks with ample breathing room.\n- **Visible Current Time Subtasks**: River pebble chips (e.g. Coffee, Rest, Cardio, Gym) are organically placed and clearly visible in active and upcoming sectors on both in-app and widget dials.\n- **High-Contrast Digital Center Clock**: Crisp, bold dark charcoal (#0F172A) time on light backgrounds and white (#F8FAFC) on dark backgrounds, perfectly centered with no intrusive chip in digital clock mode.\n- **Harmonic Minute Needle Alignment**: Native Android minute needle warps in sync with the Fisheye lens angle, guaranteeing 0.0° drift against the active stretched sector.',
+              '### Radian v1.0.19 - High-Resolution 1080p Retina Rendering & Reduced Center Clock Space\n\n- **1080p Retina Widget Rendering**: Upgraded widget dial render resolution from 720px to 1080px across Flutter and native Android Canvas with 32-bit dithering and bilinear filtering, eliminating blurriness on high-DPI screens.\n- **Reduced Center Clock Round Circle Space**: Lowered center circle radius ratio from 0.44 down to 0.34, expanding sector depth by +18.5% and eliminating wasted whitespace in the center circle.\n- **Spacious Sector Bands**: Subtasks, keywords, icons, and duration labels enjoy significantly more breathing room within deeper sector arcs.\n- **Perfect Proportions**: Center digital time, AM/PM, and date indicators scale smoothly within the reduced circle with elegant margins.',
             publishedAt: new Date().toISOString(),
-            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.18',
+            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.19',
           },
           null,
           2
