@@ -27,9 +27,6 @@ class FakeEventRepository implements EventRepository {
     List<SectorEvent> events,
     DateTime day,
   ) {
-    final startOfDay = DateTime(day.year, day.month, day.day);
-    final endOfDay = startOfDay.add(const Duration(days: 1));
-
     final dayEvents = <SectorEvent>[];
     for (final e in events) {
       if (e.repeatDays != null && e.repeatDays!.isNotEmpty) {
@@ -89,12 +86,31 @@ class FakeEventRepository implements EventRepository {
           );
         }
       } else {
-        if (e.start.isBefore(endOfDay) && e.end.isAfter(startOfDay)) {
-          dayEvents.add(e);
-        }
+        // PERMANENT DAILY ROUTINE BLOCK:
+        // Main blocks are permanent daily rhythms without end date.
+        final projStart = DateTime(
+          day.year,
+          day.month,
+          day.day,
+          e.start.hour,
+          e.start.minute,
+        );
+        dayEvents.add(
+          e.copyWith(start: projStart, end: projStart.add(e.duration)),
+        );
       }
     }
-    return dayEvents;
+
+    final uniqueDayEvents = <SectorEvent>[];
+    final seenSlots = <String>{};
+    for (final ev in dayEvents) {
+      final slotKey =
+          '${ev.title.trim().toLowerCase()}_${ev.start.hour}:${ev.start.minute}_${ev.end.hour}:${ev.end.minute}';
+      if (seenSlots.add(slotKey)) {
+        uniqueDayEvents.add(ev);
+      }
+    }
+    return uniqueDayEvents;
   }
 
   @override

@@ -171,6 +171,46 @@ class LocalEventRepository implements EventRepository {
         hasEnriched = true;
         unawaited(prefs!.setBool('sectograph_cleaned_corrupted_v3', true));
       }
+
+      final didCleanCorruptedV4 =
+          prefs!.getBool('sectograph_cleaned_corrupted_v4') ?? false;
+      if (!didCleanCorruptedV4) {
+        // Normalize legacy date-prefixed IDs (e.g. 20260921-in-sleep -> in-sleep)
+        // and deduplicate identical routines so only 1 canonical routine block per slot exists.
+        final seenRoutineSlots = <String>{};
+        final cleanedEvents = <SectorEvent>[];
+        for (final ev in _events) {
+          var normalizedId = ev.id;
+          if (RegExp(r'^\d{8}-').hasMatch(normalizedId)) {
+            normalizedId = normalizedId.replaceFirst(RegExp(r'^\d{8}-'), '');
+          }
+          final slotKey =
+              '${ev.title.trim().toLowerCase()}_${ev.start.hour}:${ev.start.minute}_${ev.end.hour}:${ev.end.minute}';
+          if (seenRoutineSlots.add(slotKey)) {
+            cleanedEvents.add(ev.copyWith(id: normalizedId));
+          } else {
+            hasEnriched = true;
+          }
+        }
+        _events.clear();
+        _events.addAll(cleanedEvents);
+
+        // If repository is empty, seed canonical permanent schedule
+        if (_events.isEmpty) {
+          if (kIsWeb && is24) {
+            _events.addAll(
+              SampleEventsData.generateInternational24hSchedule(now),
+            );
+          } else {
+            _events.addAll(SampleEventsData.generateDefaultSchedule(now));
+          }
+          hasEnriched = true;
+        }
+
+        hasEnriched = true;
+        unawaited(prefs!.setBool('sectograph_cleaned_corrupted_v4', true));
+      }
+
       if (hasEnriched) {
         unawaited(_saveToDisk());
       }
@@ -211,9 +251,6 @@ class LocalEventRepository implements EventRepository {
     List<SectorEvent> events,
     DateTime day,
   ) {
-    final startOfDay = DateTime(day.year, day.month, day.day);
-    final endOfDay = DateTime(day.year, day.month, day.day + 1);
-
     final dayEvents = <SectorEvent>[];
     for (final e in events) {
       if (e.repeatDays != null && e.repeatDays!.isNotEmpty) {
@@ -273,13 +310,34 @@ class LocalEventRepository implements EventRepository {
           );
         }
       } else {
-        if (e.start.isBefore(endOfDay) && e.end.isAfter(startOfDay)) {
-          dayEvents.add(e);
-        }
+        // PERMANENT DAILY ROUTINE BLOCK:
+        // In Radian/Sectograph, main blocks are permanent daily rhythms without end date.
+        // They project onto every viewing day at their configured start time and duration.
+        final projStart = DateTime(
+          day.year,
+          day.month,
+          day.day,
+          e.start.hour,
+          e.start.minute,
+        );
+        dayEvents.add(
+          e.copyWith(start: projStart, end: projStart.add(e.duration)),
+        );
       }
     }
 
-    final deconflictedDayEvents = _deconflictDayEvents(dayEvents);
+    // Deduplicate any routine blocks sharing the exact same slot key
+    final uniqueDayEvents = <SectorEvent>[];
+    final seenSlots = <String>{};
+    for (final ev in dayEvents) {
+      final slotKey =
+          '${ev.title.trim().toLowerCase()}_${ev.start.hour}:${ev.start.minute}_${ev.end.hour}:${ev.end.minute}';
+      if (seenSlots.add(slotKey)) {
+        uniqueDayEvents.add(ev);
+      }
+    }
+
+    final deconflictedDayEvents = _deconflictDayEvents(uniqueDayEvents);
     final levels = ConcentricSolver.solve(deconflictedDayEvents);
     return deconflictedDayEvents.map((e) {
       final solved = levels[e];

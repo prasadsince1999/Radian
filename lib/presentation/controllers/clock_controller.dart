@@ -75,8 +75,9 @@ final currentTimeProvider = StreamProvider<DateTime>((ref) {
 
 /// Active event taking place right now.
 final currentActiveEventProvider = Provider<SectorEvent?>((ref) {
-  final eventsAsync = ref.watch(allEventsProvider);
   final now = ref.watch(currentTimeProvider).value ?? DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final eventsAsync = ref.watch(eventsForDateProvider(today));
 
   return eventsAsync.when(
     data: (events) {

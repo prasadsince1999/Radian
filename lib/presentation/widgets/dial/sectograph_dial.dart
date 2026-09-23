@@ -181,22 +181,38 @@ class SectographDial extends ConsumerWidget {
                           );
                         }
                       } else {
-                        final startOfDay = DateTime(
+                        // Permanent daily routine block:
+                        // In Radian/Sectograph, main blocks are permanent daily rhythms without end date.
+                        // They project onto every viewing day at their configured time of day.
+                        final projStart = DateTime(
                           viewingDay.year,
                           viewingDay.month,
                           viewingDay.day,
+                          e.start.hour,
+                          e.start.minute,
                         );
-                        final endOfDay = DateTime(
-                          startOfDay.year,
-                          startOfDay.month,
-                          startOfDay.day + 1,
+                        projectedDayEvents.add(
+                          e.copyWith(
+                            start: projStart,
+                            end: projStart.add(e.duration),
+                          ),
                         );
-                        if (e.start.isBefore(endOfDay) &&
-                            e.end.isAfter(startOfDay)) {
-                          projectedDayEvents.add(e);
-                        }
                       }
                     }
+
+                    // Deduplicate any routine blocks sharing the exact same slot key
+                    final uniqueProjected = <SectorEvent>[];
+                    final seenSlots = <String>{};
+                    for (final ev in projectedDayEvents) {
+                      final slotKey =
+                          '${ev.title.trim().toLowerCase()}_${ev.start.hour}:${ev.start.minute}_${ev.end.hour}:${ev.end.minute}';
+                      if (seenSlots.add(slotKey)) {
+                        uniqueProjected.add(ev);
+                      }
+                    }
+                    projectedDayEvents
+                      ..clear()
+                      ..addAll(uniqueProjected);
 
                     List<SectorEvent> computedEvents;
                     DateTime refTime = isToday

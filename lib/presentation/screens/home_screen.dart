@@ -214,14 +214,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _syncAndroidWidget() {
-    // Prioritize allEventsProvider so widget always has today's real events around DateTime.now()
-    // regardless of whether the user is browsing another date in the calendar view.
+    final currentTime = DateTime.now();
+    final today = DateTime(currentTime.year, currentTime.month, currentTime.day);
+    // Always supply today's projected events so widget has valid timestamps for the current day
     final events =
-        ref.read(allEventsProvider).value ??
+        ref.read(eventsForDateProvider(today)).value ??
         ref.read(dayEventsProvider).value ??
         const [];
     final activeEvent = ref.read(currentActiveEventProvider);
-    final currentTime = DateTime.now();
     final settings = ref.read(dialSettingsProvider);
     final theme = Theme.of(context);
 

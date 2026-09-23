@@ -389,13 +389,35 @@ class SectographWidgetProvider : AppWidgetProvider() {
                     var nearestUpcomingDiff = Long.MAX_VALUE
                     var nearestUpcomingColor = activeColor
 
+                    val todayCal = Calendar.getInstance().apply { timeInMillis = nowMs }
+                    val tYear = todayCal.get(Calendar.YEAR)
+                    val tMonth = todayCal.get(Calendar.MONTH)
+                    val tDay = todayCal.get(Calendar.DAY_OF_MONTH)
+
                     for (i in 0 until arr.length()) {
                         val obj = arr.getJSONObject(i)
-                        val start = obj.getLong("start")
-                        val end = obj.getLong("end")
+                        val rawStart = obj.getLong("start")
+                        val rawEnd = obj.getLong("end")
                         val title = obj.getString("title")
                         val colorVal = obj.optLong("color", -1L)
                         val color = if (colorVal != -1L) colorVal.toInt() else activeColor
+
+                        val evCal = Calendar.getInstance().apply { timeInMillis = rawStart }
+                        val sHour = evCal.get(Calendar.HOUR_OF_DAY)
+                        val sMin = evCal.get(Calendar.MINUTE)
+                        val durMs = rawEnd - rawStart
+
+                        val pCal = Calendar.getInstance().apply {
+                            set(Calendar.YEAR, tYear)
+                            set(Calendar.MONTH, tMonth)
+                            set(Calendar.DAY_OF_MONTH, tDay)
+                            set(Calendar.HOUR_OF_DAY, sHour)
+                            set(Calendar.MINUTE, sMin)
+                            set(Calendar.SECOND, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }
+                        val start = pCal.timeInMillis
+                        val end = start + durMs
 
                         if (nowMs in start until end) {
                             activeTitle = title
@@ -982,6 +1004,11 @@ class SectographWidgetProvider : AppWidgetProvider() {
             // 2. Parse and Filter Events from eventsJson
             val eventsJsonStr = prefs.getString(KEY_EVENTS_JSON, null)
             val allEvents = mutableListOf<NativeSectorEvent>()
+            val todayCal = Calendar.getInstance().apply { timeInMillis = nowMs }
+            val tYear = todayCal.get(Calendar.YEAR)
+            val tMonth = todayCal.get(Calendar.MONTH)
+            val tDay = todayCal.get(Calendar.DAY_OF_MONTH)
+
             if (!eventsJsonStr.isNullOrEmpty()) {
                 try {
                     val arr = JSONArray(eventsJsonStr)
@@ -989,8 +1016,8 @@ class SectographWidgetProvider : AppWidgetProvider() {
                         val obj = arr.getJSONObject(i)
                         val id = obj.optString("id", i.toString())
                         val title = obj.optString("title", "")
-                        val start = obj.optLong("start", 0L)
-                        val end = obj.optLong("end", 0L)
+                        val rawStart = obj.optLong("start", 0L)
+                        val rawEnd = obj.optLong("end", 0L)
                         val colorVal = obj.optLong("color", -1L)
                         val color = if (colorVal != -1L) colorVal.toInt() else Color.parseColor("#38BDF8")
                         val subtasks = mutableListOf<String>()
@@ -1001,7 +1028,24 @@ class SectographWidgetProvider : AppWidgetProvider() {
                                 if (st.isNotEmpty()) subtasks.add(st)
                             }
                         }
-                        if (end > start && title.isNotEmpty()) {
+                        if (rawEnd > rawStart && title.isNotEmpty()) {
+                            val evCal = Calendar.getInstance().apply { timeInMillis = rawStart }
+                            val sHour = evCal.get(Calendar.HOUR_OF_DAY)
+                            val sMin = evCal.get(Calendar.MINUTE)
+                            val durMs = rawEnd - rawStart
+
+                            val pCal = Calendar.getInstance().apply {
+                                set(Calendar.YEAR, tYear)
+                                set(Calendar.MONTH, tMonth)
+                                set(Calendar.DAY_OF_MONTH, tDay)
+                                set(Calendar.HOUR_OF_DAY, sHour)
+                                set(Calendar.MINUTE, sMin)
+                                set(Calendar.SECOND, 0)
+                                set(Calendar.MILLISECOND, 0)
+                            }
+                            val start = pCal.timeInMillis
+                            val end = start + durMs
+
                             allEvents.add(NativeSectorEvent(id, title, start, end, color, subtasks))
                         }
                     }
