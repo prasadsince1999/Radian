@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_layout_constants.dart';
-import '../../core/constants/app_strings.dart';
 import '../../core/layout/window_size_class.dart';
 import '../../core/services/android_widget_service.dart';
 import '../../core/theme/app_colors.dart';
@@ -318,7 +317,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final String otaSubtitle = hasOtaUpdate
         ? 'Update ready (tap to install)'
         : (updateState.isUpToDate
-              ? 'v${AppStrings.appVersion} (Latest)'
+              ? 'v${updateState.currentVersion} (Latest)'
               : 'Check releases');
 
     return Scaffold(
@@ -749,7 +748,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                           ),
                           Text(
-                            'v${AppStrings.appVersion} · KSM × Tech',
+                            'v${updateState.currentVersion} · KSM × Tech',
                             style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w500,

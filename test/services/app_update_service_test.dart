@@ -184,9 +184,9 @@ void main() {
       final mockClient = MockClient((request) async {
         return http.Response(
           jsonEncode({
-            'version': '1.0.2',
-            'tag': 'v1.0.2',
-            'downloadUrl': 'https://example.com/Radian-1.0.2.apk',
+            'version': '1.0.21',
+            'tag': 'v1.0.21',
+            'downloadUrl': 'https://example.com/Radian-1.0.21.apk',
             'apkName': 'Radian.apk',
             'sizeBytes': 50000000,
             'releaseNotes': 'Current release.',
@@ -206,6 +206,13 @@ void main() {
       expect(hasUpdate, isFalse);
       expect(controller.state.status, equals(AppUpdateStatus.upToDate));
       expect(controller.state.isUpToDate, isTrue);
+      expect(controller.state.currentVersion, equals('1.0.21'));
+    });
+
+    test('getInstalledVersion falls back to AppStrings.appVersion in test environment', () async {
+      final service = AppUpdateService();
+      final version = await service.getInstalledVersion();
+      expect(version, equals('1.0.21'));
     });
 
     test('dismiss resets state to idle', () {

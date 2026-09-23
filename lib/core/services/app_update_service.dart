@@ -67,6 +67,28 @@ class AppUpdateService {
   static bool get isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
+  String? _cachedVersionName;
+  int? _cachedVersionCode;
+
+  /// Retrieves the actual installed application version dynamically from the Android OS.
+  /// Falls back to [AppStrings.appVersion] on web, desktop, or in test environments.
+  Future<String> getInstalledVersion() async {
+    if (_cachedVersionName != null) return _cachedVersionName!;
+    if (isAndroid) {
+      try {
+        final result = await _updaterChannel.invokeMethod<dynamic>('getAppVersion');
+        if (result is Map && result['versionName'] != null) {
+          _cachedVersionName = result['versionName'].toString();
+          _cachedVersionCode = (result['versionCode'] as num?)?.toInt();
+          return _cachedVersionName!;
+        }
+      } catch (_) {}
+    }
+    return AppStrings.appVersion;
+  }
+
+  int? get installedVersionCode => _cachedVersionCode;
+
   /// Compares current version with remote version (e.g. 1.0.1 vs 1.0.2).
   static bool isNewerVersion(String current, String remote) {
     List<int> parse(String v) => v

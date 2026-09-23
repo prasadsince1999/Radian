@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../controllers/app_update_controller.dart';
 import '../common/bouncy_pressable.dart';
 import '../common/radian_app_logo.dart';
 
@@ -63,6 +64,8 @@ class AboutRadianDialog extends ConsumerWidget {
     final onSurface = colorScheme.onSurface;
     final onSurfaceVariant = colorScheme.onSurfaceVariant;
     final outlineVariant = colorScheme.outlineVariant;
+    final updateState = ref.watch(appUpdateControllerProvider);
+    final displayVersion = updateState.currentVersion;
 
     return Dialog(
       backgroundColor: colorScheme.surfaceContainerHighest,
@@ -213,7 +216,7 @@ class AboutRadianDialog extends ConsumerWidget {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'v${AppStrings.appVersion} (Build ${AppStrings.appBuildNumber}) · Production Edge',
+                                  'v$displayVersion (Build ${AppStrings.appBuildNumber}) · Production Edge',
                                   style: TextStyle(
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w700,

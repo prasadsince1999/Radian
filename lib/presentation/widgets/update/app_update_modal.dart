@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_layout_constants.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/expressive_shapes.dart';
 import '../../controllers/app_update_controller.dart';
@@ -158,13 +157,13 @@ class _AppUpdateModalState extends ConsumerState<AppUpdateModal> {
                 if (updateState.isChecking) ...[
                   _buildCheckingView(colorScheme),
                 ] else if (updateState.isUpToDate) ...[
-                  _buildUpToDateView(colorScheme),
+                  _buildUpToDateView(colorScheme, updateState.currentVersion),
                 ] else if (updateState.hasError) ...[
                   _buildErrorView(colorScheme, updateState.errorMessage),
                 ] else if (updateState.updateInfo != null) ...[
                   _buildUpdateAvailableView(context, updateState, colorScheme),
                 ] else ...[
-                  _buildPromptCheckView(colorScheme),
+                  _buildPromptCheckView(colorScheme, updateState.currentVersion),
                 ],
 
                 const SizedBox(height: 16),
@@ -227,7 +226,7 @@ class _AppUpdateModalState extends ConsumerState<AppUpdateModal> {
     );
   }
 
-  Widget _buildUpToDateView(ColorScheme colorScheme) {
+  Widget _buildUpToDateView(ColorScheme colorScheme, String currentVersion) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -261,7 +260,7 @@ class _AppUpdateModalState extends ConsumerState<AppUpdateModal> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Version v${AppStrings.appVersion} is the latest release.',
+            'Version v$currentVersion is the latest release.',
             style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 16),
@@ -392,7 +391,7 @@ class _AppUpdateModalState extends ConsumerState<AppUpdateModal> {
     );
   }
 
-  Widget _buildPromptCheckView(ColorScheme colorScheme) {
+  Widget _buildPromptCheckView(ColorScheme colorScheme, String currentVersion) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -418,7 +417,7 @@ class _AppUpdateModalState extends ConsumerState<AppUpdateModal> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Current version: v${AppStrings.appVersion}',
+            'Current version: v$currentVersion',
             style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 16),
@@ -501,7 +500,7 @@ class _AppUpdateModalState extends ConsumerState<AppUpdateModal> {
                       ),
                     ),
                     child: Text(
-                      'v${AppStrings.appVersion}',
+                      'v${state.currentVersion}',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,

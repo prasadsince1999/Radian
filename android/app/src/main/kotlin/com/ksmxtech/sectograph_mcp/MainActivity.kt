@@ -196,6 +196,26 @@ class MainActivity : FlutterActivity() {
         // 3. In-App OTA Updater MethodChannel
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UPDATER_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
+                "getAppVersion" -> {
+                    try {
+                        val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
+                        } else {
+                            @Suppress("DEPRECATION")
+                            packageManager.getPackageInfo(packageName, 0)
+                        }
+                        val versionName = packageInfo.versionName ?: "1.0.21"
+                        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            packageInfo.longVersionCode
+                        } else {
+                            @Suppress("DEPRECATION")
+                            packageInfo.versionCode.toLong()
+                        }
+                        result.success(mapOf("versionName" to versionName, "versionCode" to versionCode))
+                    } catch (e: Exception) {
+                        result.error("VERSION_ERR", e.message, null)
+                    }
+                }
                 "getCacheApkPath" -> {
                     val updateDir = File(cacheDir, "updates").apply { if (!exists()) mkdirs() }
                     val apkFile = File(updateDir, "Radian-update.apk")

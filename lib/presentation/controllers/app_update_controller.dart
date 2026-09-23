@@ -21,6 +21,7 @@ enum AppUpdateStatus {
 class AppUpdateState {
   final AppUpdateStatus status;
   final AppUpdateInfo? updateInfo;
+  final String currentVersion;
   final double downloadProgress;
   final int receivedBytes;
   final int totalBytes;
@@ -31,6 +32,7 @@ class AppUpdateState {
   const AppUpdateState({
     this.status = AppUpdateStatus.idle,
     this.updateInfo,
+    this.currentVersion = AppStrings.appVersion,
     this.downloadProgress = 0.0,
     this.receivedBytes = 0,
     this.totalBytes = 0,
@@ -61,6 +63,7 @@ class AppUpdateState {
   AppUpdateState copyWith({
     AppUpdateStatus? status,
     AppUpdateInfo? updateInfo,
+    String? currentVersion,
     double? downloadProgress,
     int? receivedBytes,
     int? totalBytes,
@@ -71,6 +74,7 @@ class AppUpdateState {
     return AppUpdateState(
       status: status ?? this.status,
       updateInfo: updateInfo ?? this.updateInfo,
+      currentVersion: currentVersion ?? this.currentVersion,
       downloadProgress: downloadProgress ?? this.downloadProgress,
       receivedBytes: receivedBytes ?? this.receivedBytes,
       totalBytes: totalBytes ?? this.totalBytes,
@@ -117,8 +121,9 @@ class AppUpdateController extends StateNotifier<AppUpdateState> {
         return false;
       }
 
+      final currentVersion = await _service.getInstalledVersion();
       final hasUpdate = AppUpdateService.isNewerVersion(
-        AppStrings.appVersion,
+        currentVersion,
         info.version,
       );
 
@@ -126,6 +131,7 @@ class AppUpdateController extends StateNotifier<AppUpdateState> {
         state = state.copyWith(
           status: AppUpdateStatus.available,
           updateInfo: info,
+          currentVersion: currentVersion,
           downloadProgress: 0.0,
           lastCheckedTime: DateTime.now(),
         );
@@ -142,6 +148,7 @@ class AppUpdateController extends StateNotifier<AppUpdateState> {
         state = state.copyWith(
           status: AppUpdateStatus.upToDate,
           updateInfo: info,
+          currentVersion: currentVersion,
           lastCheckedTime: DateTime.now(),
         );
         return false;

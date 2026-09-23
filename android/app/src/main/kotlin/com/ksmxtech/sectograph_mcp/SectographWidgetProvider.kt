@@ -288,6 +288,9 @@ class SectographWidgetProvider : AppWidgetProvider() {
                     val dstRect = RectF(0f, 0f, width.toFloat(), height.toFloat())
                     canvas.drawBitmap(baseBitmap, srcRect, dstRect, bitmapPaint)
                 }
+                try {
+                    baseBitmap.recycle()
+                } catch (_: Exception) {}
             } else {
                 drawDynamicSectors(context, canvas, centerX, centerY, baseRadius, innerRadius, scale, nowMs, is24HourMode, dialBgColor, prefs)
             }
