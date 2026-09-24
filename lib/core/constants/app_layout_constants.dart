@@ -79,11 +79,16 @@ abstract final class AppLayoutConstants {
     );
   }
 
-  /// Minimum effective sweep angle threshold to display subtask river pebble chips.
-  static const double minSubtaskPebbleSweepDeg12H = 10.0;
+  /// Minimum effective sweep before any subtask pebble is drawn (12H).
+  /// Below this, title + duration stay readable and chips are dropped.
+  static const double minSubtaskPebbleSweepDeg12H = 38.0;
 
-  /// Minimum effective sweep angle threshold to display subtask river pebble chips in 24H mode.
-  static const double minSubtaskPebbleSweepDeg24H = 10.0;
+  /// Minimum effective sweep before any subtask pebble is drawn (24H).
+  static const double minSubtaskPebbleSweepDeg24H = 24.0;
+
+  /// Sweep needed before two pebbles may share one bay.
+  static const double minTwoPebbleBaySweepDeg12H = 70.0;
+  static const double minTwoPebbleBaySweepDeg24H = 42.0;
 
   /// Minimum buffer preserved between distinct non-contiguous blocks on the dial face.
   static const double minInterBlockGapDeg = 3.5;
