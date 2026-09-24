@@ -646,38 +646,17 @@ class SectographWidgetProvider : AppWidgetProvider() {
         }
 
         private fun isBitmapStale(targetFile: File?, prefs: SharedPreferences, nowMs: Long): Boolean {
+            // Flutter owns sector layout. Keep that photo for the whole calendar day
+            // so Kotlin never invents a second arrangement of blocks / subtasks.
             if (targetFile == null || !targetFile.exists() || !targetFile.canRead()) return true
+            if (targetFile.length() < 1024L) return true
 
-            val baseTimestamp = prefs.getLong(KEY_BASE_TIMESTAMP, 0L)
             val baseDate = prefs.getString(KEY_BASE_DATE, null)
-            val activeEventEnd = prefs.getLong(KEY_ACTIVE_EVENT_END, 0L)
-            val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(nowMs))
-
-            // 1. Calendar day rollover check (e.g. Monday night -> Tuesday morning)
+            val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(nowMs))
             if (baseDate != null && baseDate != todayStr) {
                 return true
             }
-
-            // 2. Active event window check:
-            // If an active event was recorded at sync time, the base dial bitmap remains
-            // 100% valid and fresh for the ENTIRE duration of that active block!
-            if (activeEventEnd > baseTimestamp) {
-                if (nowMs in baseTimestamp..activeEventEnd) {
-                    return false
-                }
-                if (nowMs > activeEventEnd) {
-                    return true // Active event ended, transition to dynamic sectors
-                }
-            }
-
-            // 3. Fallback age check for idle / gap times: allow 12 hours (full dial rotation)
-            val age = if (baseTimestamp > 0L) {
-                nowMs - baseTimestamp
-            } else {
-                nowMs - targetFile.lastModified()
-            }
-
-            return age > MAX_IDLE_BITMAP_AGE_MS || age < 0L
+            return false
         }
 
         private var cachedKalamTypeface: Typeface? = null
