@@ -262,21 +262,24 @@ export default {
 
     // 5. REST Endpoint: OTA App Updates (fetches latest GitHub Release with edge cache)
     if (request.method === 'GET' && (url.pathname === '/api/updates/latest' || url.pathname === '/api/version')) {
+      const forceRefresh = url.searchParams.get('refresh') === '1' || url.searchParams.get('nocache') === '1';
       try {
         const ghRes = await fetch('https://api.github.com/repos/prasadsince1999/Radian/releases/latest', {
           headers: {
-            'User-Agent': 'Radian-Updater/1.0.1',
+            'User-Agent': 'Radian-Updater/1.0.22',
             Accept: 'application/vnd.github.v3+json',
           },
-          cf: {
-            cacheTtl: 300,
-            cacheEverything: true,
-          },
+          cf: forceRefresh
+            ? { cacheTtl: 0 }
+            : {
+                cacheTtl: 120,
+                cacheEverything: true,
+              },
         });
 
         if (ghRes.ok) {
           const release: any = await ghRes.json();
-          const tag = release.tag_name || 'v1.0.1';
+          const tag = release.tag_name || 'v1.0.22';
           const version = tag.replace(/^v/, '');
           const apkAsset =
             release.assets?.find(
@@ -300,7 +303,7 @@ export default {
                 version,
                 downloadUrl,
                 apkName: apkAsset?.name || `Radian-${tag}.apk`,
-                sizeBytes: apkAsset?.size || 58123885,
+                sizeBytes: apkAsset?.size || 74848592,
                 releaseNotes: release.body || '',
                 publishedAt: release.published_at || new Date().toISOString(),
                 htmlUrl: release.html_url || `https://github.com/prasadsince1999/Radian/releases/tag/${tag}`,
@@ -312,7 +315,7 @@ export default {
               headers: {
                 ...corsHeaders,
                 'Content-Type': 'application/json',
-                'Cache-Control': 'public, max-age=300',
+                'Cache-Control': forceRefresh ? 'no-cache, no-store' : 'public, max-age=120',
               },
             }
           );
@@ -324,16 +327,16 @@ export default {
         JSON.stringify(
           {
             success: true,
-            tag: 'v1.0.19',
-            version: '1.0.19',
+            tag: 'v1.0.22',
+            version: '1.0.22',
             downloadUrl:
-              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.19/Radian-v1.0.19.apk',
-            apkName: 'Radian-v1.0.19.apk',
-            sizeBytes: 75373484,
+              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.22/Radian-v1.0.22.apk',
+            apkName: 'Radian-v1.0.22.apk',
+            sizeBytes: 74848592,
             releaseNotes:
-              '### Radian v1.0.19 - High-Resolution 1080p Retina Rendering & Reduced Center Clock Space\n\n- **1080p Retina Widget Rendering**: Upgraded widget dial render resolution from 720px to 1080px across Flutter and native Android Canvas with 32-bit dithering and bilinear filtering, eliminating blurriness on high-DPI screens.\n- **Reduced Center Clock Round Circle Space**: Lowered center circle radius ratio from 0.44 down to 0.34, expanding sector depth by +18.5% and eliminating wasted whitespace in the center circle.\n- **Spacious Sector Bands**: Subtasks, keywords, icons, and duration labels enjoy significantly more breathing room within deeper sector arcs.\n- **Perfect Proportions**: Center digital time, AM/PM, and date indicators scale smoothly within the reduced circle with elegant margins.',
-            publishedAt: new Date().toISOString(),
-            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.19',
+              '### Radian v1.0.22 - Monolithic Space Rebalancing & Generous Subtask Sweeps\n\n- **Contiguous Monolithic Rebalancing**: Blocks with subtasks borrow space backward from contiguous monolithic blocks without subtasks.\n- **Expanded Subtask Sweeps**: 3-subtask blocks target 110° sweep for natural breathing room.\n- **Active Event Headroom Guard**: Current time needle headroom strictly protected inside active blocks.\n- **Boundary Clearance**: 8.5°+ safety buffer between boundary caps and subtask pebbles.\n- **Minimum Legible Text Size**: Enforced bold subtask chips with base size >= 10.5pt.\n- **100% Android Widget Parity**: Mirrored layout between Flutter offscreen renderer and native Kotlin canvas.',
+            publishedAt: '2026-09-24T00:18:53Z',
+            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.22',
           },
           null,
           2
