@@ -266,7 +266,7 @@ export default {
       try {
         const ghRes = await fetch('https://api.github.com/repos/prasadsince1999/Radian/releases/latest', {
           headers: {
-            'User-Agent': 'Radian-Updater/1.0.22',
+            'User-Agent': 'Radian-Updater/1.0.23',
             Accept: 'application/vnd.github.v3+json',
           },
           cf: forceRefresh
@@ -279,7 +279,7 @@ export default {
 
         if (ghRes.ok) {
           const release: any = await ghRes.json();
-          const tag = release.tag_name || 'v1.0.22';
+          const tag = release.tag_name || 'v1.0.23';
           const version = tag.replace(/^v/, '');
           const apkAsset =
             release.assets?.find(
@@ -327,16 +327,16 @@ export default {
         JSON.stringify(
           {
             success: true,
-            tag: 'v1.0.22',
-            version: '1.0.22',
+            tag: 'v1.0.23',
+            version: '1.0.23',
             downloadUrl:
-              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.22/Radian-v1.0.22.apk',
-            apkName: 'Radian-v1.0.22.apk',
+              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.23/Radian-v1.0.23.apk',
+            apkName: 'Radian-v1.0.23.apk',
             sizeBytes: 74848592,
             releaseNotes:
-              '### Radian v1.0.22 - Monolithic Space Rebalancing & Generous Subtask Sweeps\n\n- **Contiguous Monolithic Rebalancing**: Blocks with subtasks borrow space backward from contiguous monolithic blocks without subtasks.\n- **Expanded Subtask Sweeps**: 3-subtask blocks target 110° sweep for natural breathing room.\n- **Active Event Headroom Guard**: Current time needle headroom strictly protected inside active blocks.\n- **Boundary Clearance**: 8.5°+ safety buffer between boundary caps and subtask pebbles.\n- **Minimum Legible Text Size**: Enforced bold subtask chips with base size >= 10.5pt.\n- **100% Android Widget Parity**: Mirrored layout between Flutter offscreen renderer and native Kotlin canvas.',
-            publishedAt: '2026-09-24T00:18:53Z',
-            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.22',
+              '### Radian v1.0.23 - Permanent Dial-Widget Sync & Mathematical Clock Grounding\n\n- **Permanent Clock Grounding**: Completely eliminated `shiftFwd` across events. Every block strictly anchors its start cap to its actual scheduled clock time.\n- **App vs Widget Horizon Parity**: Aligned upcoming blocks count to 3 by default across both Flutter and Android native Kotlin fallback.\n- **Subtask Eligibility Guard**: Only active, immediate next, and selected blocks expand for subtasks; far-future blocks retain their scheduled geometric proportions.\n- **Dial Settings Persistence**: Fully persisted previous/future blocks count across app launches and synced with the home screen widget.\n- **Zero-Drift Timeline Parity**: Pixel-perfect sync between the in-app interactive dial and the Android home screen widget.',
+            publishedAt: new Date().toISOString(),
+            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.23',
           },
           null,
           2

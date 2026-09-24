@@ -77,7 +77,7 @@ void main() {
     });
 
     test(
-      'extracts default 1 previous + 1 active + 2 upcoming from 10 events',
+      'extracts default 1 previous + 1 active + 3 upcoming from 10 events',
       () {
         final events = [
           makeEvent('e0', 0, 2),
@@ -87,7 +87,7 @@ void main() {
           makeEvent('e4', 8, 11), // Active
           makeEvent('e5', 11, 13), // Next 1
           makeEvent('e6', 13, 15), // Next 2
-          makeEvent('e7', 15, 17),
+          makeEvent('e7', 15, 17), // Next 3
           makeEvent('e8', 17, 19),
         ];
 
@@ -98,13 +98,14 @@ void main() {
           is24HourMode: true,
         );
 
-        // Default should have at most 4 blocks: prev1 (e3), active (e4), next1 (e5), next2 (e6)
-        expect(result.visibleEvents.length, 4);
+        // Default should have at most 5 blocks: prev1 (e3), active (e4), next1 (e5), next2 (e6), next3 (e7)
+        expect(result.visibleEvents.length, 5);
         expect(result.visibleEvents.map((e) => e.id).toList(), [
           'e3',
           'e4',
           'e5',
           'e6',
+          'e7',
         ]);
       },
     );

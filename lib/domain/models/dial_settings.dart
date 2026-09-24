@@ -55,7 +55,7 @@ class DialSettings {
     this.lensMagnification = 1.75,
     this.dateOfBirth,
     this.previousBlocksCount = 1,
-    this.futureBlocksCount = 2,
+    this.futureBlocksCount = 3,
   });
 
   Color get seedColor {
@@ -173,7 +173,7 @@ class DialSettings {
       previousBlocksCount:
           (json['previousBlocksCount'] as num?)?.toInt().clamp(0, 3) ?? 1,
       futureBlocksCount:
-          (json['futureBlocksCount'] as num?)?.toInt().clamp(0, 3) ?? 2,
+          (json['futureBlocksCount'] as num?)?.toInt().clamp(0, 3) ?? 3,
     );
   }
 }

@@ -478,7 +478,8 @@ class McpTools {
     SyncHealthSessionsUseCase? syncHealthSessionsUseCase,
   }) async {
     final now = arguments['currentTime'] != null
-        ? (DateTime.tryParse(arguments['currentTime'].toString()) ?? DateTime.now())
+        ? (DateTime.tryParse(arguments['currentTime'].toString()) ??
+              DateTime.now())
         : DateTime.now();
 
     DateTime parseDate(dynamic d) {

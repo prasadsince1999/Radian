@@ -116,10 +116,7 @@ class SectorContentRenderer {
     final titleFontSize = dynamicTypeSize;
     final metaFontSize = (dynamicTypeSize * 0.85).clamp(7.5, 10.5);
     final pebbleFontSize = hasSubtasks
-        ? (dynamicTypeSize * 0.95).clamp(
-            is24HourMode ? 9.2 : 10.2,
-            12.5,
-          )
+        ? (dynamicTypeSize * 0.95).clamp(is24HourMode ? 9.2 : 10.2, 12.5)
         : (dynamicTypeSize * 0.85).clamp(8.5, 11.0);
 
     final iconData = _getEventIcon(event);
@@ -722,10 +719,8 @@ class SectorContentRenderer {
           bayStart + scaledHalf1,
           bayEnd - scaledHalf1,
         );
-        final p2Angle = (p1Angle + scaledHalf1 + betweenGap + scaledHalf2).clamp(
-          bayStart + scaledHalf2,
-          bayEnd - scaledHalf2,
-        );
+        final p2Angle = (p1Angle + scaledHalf1 + betweenGap + scaledHalf2)
+            .clamp(bayStart + scaledHalf2, bayEnd - scaledHalf2);
 
         final p1R = midR.clamp(
           rIn + (dim1.h * scaleFactor) / 2.0 + 2.0,

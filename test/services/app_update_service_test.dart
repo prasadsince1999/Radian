@@ -187,7 +187,8 @@ void main() {
           jsonEncode({
             'version': AppStrings.appVersion,
             'tag': 'v${AppStrings.appVersion}',
-            'downloadUrl': 'https://example.com/Radian-${AppStrings.appVersion}.apk',
+            'downloadUrl':
+                'https://example.com/Radian-${AppStrings.appVersion}.apk',
             'apkName': 'Radian.apk',
             'sizeBytes': 50000000,
             'releaseNotes': 'Current release.',

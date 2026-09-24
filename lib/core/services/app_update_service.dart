@@ -76,7 +76,9 @@ class AppUpdateService {
     if (_cachedVersionName != null) return _cachedVersionName!;
     if (isAndroid) {
       try {
-        final result = await _updaterChannel.invokeMethod<dynamic>('getAppVersion');
+        final result = await _updaterChannel.invokeMethod<dynamic>(
+          'getAppVersion',
+        );
         if (result is Map && result['versionName'] != null) {
           _cachedVersionName = result['versionName'].toString();
           _cachedVersionCode = (result['versionCode'] as num?)?.toInt();

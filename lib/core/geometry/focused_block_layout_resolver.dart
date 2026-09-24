@@ -74,7 +74,7 @@ class FocusedBlockLayoutResolver {
     SectorEvent? selectedEvent,
     bool is24HourMode = false,
     int previousBlocksCount = 1,
-    int futureBlocksCount = 2,
+    int futureBlocksCount = 3,
   }) {
     if (events.isEmpty) {
       return const FocusedHorizonResult(

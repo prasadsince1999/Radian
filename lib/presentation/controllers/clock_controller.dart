@@ -113,6 +113,11 @@ class DialSettingsNotifier extends StateNotifier<DialSettings> {
       final clockDisplayStr = prefs.getString('setting_clock_display');
       final dialShapeStr = prefs.getString('setting_dial_shape');
       final pastHoursStr = prefs.getString('setting_past_hours_style');
+      final prevBlocks = prefs.getInt('setting_previous_blocks_count');
+      final futureBlocks = prefs.getInt('setting_future_blocks_count');
+      final lensEnabled = prefs.getBool('setting_lens_enabled');
+      final lensMag = prefs.getDouble('setting_lens_magnification');
+      final dobStr = prefs.getString('setting_dob');
 
       state = state.copyWith(
         is24HourMode: is24,
@@ -159,6 +164,11 @@ class DialSettingsNotifier extends StateNotifier<DialSettings> {
                 orElse: () => state.pastHoursStyle,
               )
             : null,
+        previousBlocksCount: prevBlocks,
+        futureBlocksCount: futureBlocks,
+        isFocusLensEnabled: lensEnabled,
+        lensMagnification: lensMag,
+        dateOfBirth: dobStr != null ? DateTime.tryParse(dobStr) : null,
       );
     }
   }
@@ -185,6 +195,30 @@ class DialSettingsNotifier extends StateNotifier<DialSettings> {
         'setting_past_hours_style',
         newSettings.pastHoursStyle.name,
       );
+      await prefs.setInt(
+        'setting_previous_blocks_count',
+        newSettings.previousBlocksCount,
+      );
+      await prefs.setInt(
+        'setting_future_blocks_count',
+        newSettings.futureBlocksCount,
+      );
+      await prefs.setBool(
+        'setting_lens_enabled',
+        newSettings.isFocusLensEnabled,
+      );
+      await prefs.setDouble(
+        'setting_lens_magnification',
+        newSettings.lensMagnification,
+      );
+      if (newSettings.dateOfBirth != null) {
+        await prefs.setString(
+          'setting_dob',
+          newSettings.dateOfBirth!.toIso8601String(),
+        );
+      } else {
+        await prefs.remove('setting_dob');
+      }
     }
   }
 

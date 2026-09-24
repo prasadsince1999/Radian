@@ -111,6 +111,8 @@ class SectographWidgetProvider : AppWidgetProvider() {
         const val KEY_LENS_ENABLED = "isFocusLensEnabled"
         const val KEY_CENTER_CLOCK_DISPLAY = "centerClockDisplay"
         const val KEY_INNER_RADIUS_RATIO = "innerRadiusRatio"
+        const val KEY_PREVIOUS_BLOCKS_COUNT = "previousBlocksCount"
+        const val KEY_FUTURE_BLOCKS_COUNT = "futureBlocksCount"
         const val MAX_IDLE_BITMAP_AGE_MS = 12 * 3600 * 1000L // 12 hours (full dial cycle)
         const val ACTION_ADD_BLOCK = "com.ksmxtech.sectograph_mcp.ACTION_ADD_BLOCK"
         const val ACTION_MINUTE_TICK = "com.ksmxtech.sectograph_mcp.ACTION_MINUTE_TICK"
@@ -1242,9 +1244,16 @@ class SectographWidgetProvider : AppWidgetProvider() {
             val upcomingEvents = allEvents.filter { it.start >= nowMs && (it.start - nowMs) <= 12 * 3600 * 1000L }
                 .sortedBy { it.start }
 
-            pastEvents.firstOrNull()?.let { horizonEvents.add(it) }
+            val pastBlocksCount = prefs.getInt(KEY_PREVIOUS_BLOCKS_COUNT, 1)
+            val futureBlocksCount = prefs.getInt(KEY_FUTURE_BLOCKS_COUNT, 3)
+
+            for (past in pastEvents.take(pastBlocksCount)) {
+                if (!horizonEvents.any { h -> h.id == past.id }) {
+                    horizonEvents.add(past)
+                }
+            }
             activeEvent?.let { if (!horizonEvents.any { h -> h.id == it.id }) horizonEvents.add(it) }
-            for (up in upcomingEvents.take(3)) {
+            for (up in upcomingEvents.take(futureBlocksCount)) {
                 if (!horizonEvents.any { h -> h.id == up.id }) {
                     horizonEvents.add(up)
                 }

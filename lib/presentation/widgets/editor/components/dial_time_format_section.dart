@@ -353,7 +353,7 @@ class DialTimeFormatSection extends ConsumerWidget {
                         ),
                       ),
                       Text(
-                        'Upcoming tasks (0–3, default 2)',
+                        'Upcoming tasks (0–3, default 3)',
                         style: TextStyle(fontSize: 10.5, color: secondaryText),
                       ),
                     ],

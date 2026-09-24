@@ -102,6 +102,36 @@ class DialSectorLayoutStretcher {
     // 3. Compute target required sweep and deficit for each sector
     final deficits = List<double>.filled(n, 0.0);
     final isPriority = List<bool>.filled(n, false);
+    final isSubtaskEligible = List<bool>.filled(n, false);
+
+    // Identify active or selected focal anchor on circular dial
+    int activeIdx = -1;
+    for (int i = 0; i < n; i++) {
+      final ev = sorted[i];
+      final isTargetActive =
+          (activeEventId != null && ev.id == activeEventId) ||
+          (currentTime != null &&
+              !currentTime.isBefore(ev.start) &&
+              currentTime.isBefore(ev.end));
+      final isTargetSelected =
+          selectedEventId != null && ev.id == selectedEventId;
+      if (isTargetActive || isTargetSelected) {
+        activeIdx = i;
+        break;
+      }
+    }
+
+    if (activeIdx != -1) {
+      isSubtaskEligible[activeIdx] = true;
+      final prevIdx = (activeIdx - 1 + n) % n;
+      final nextIdx = (activeIdx + 1) % n;
+      isSubtaskEligible[prevIdx] = true;
+      isSubtaskEligible[nextIdx] = true;
+    } else {
+      for (int i = 0; i < n; i++) {
+        isSubtaskEligible[i] = true;
+      }
+    }
 
     for (int i = 0; i < n; i++) {
       final ev = sorted[i];
@@ -123,7 +153,9 @@ class DialSectorLayoutStretcher {
           : (is24HourMode ? 18.0 : 26.0);
 
       // Subtask-aware breathing room:
-      if (ev.subtasks.isNotEmpty) {
+      // Allocate generous subtask sweeps ONLY to events that are eligible to display subtasks!
+      // Far-future events do not display subtasks and must not balloon to distort clock time.
+      if (ev.subtasks.isNotEmpty && isSubtaskEligible[i]) {
         final subtaskTarget = is24HourMode
             ? AppLayoutConstants.targetActiveSubtaskSweepDeg24H(
                 ev.subtasks.length,
@@ -131,7 +163,6 @@ class DialSectorLayoutStretcher {
             : AppLayoutConstants.targetActiveSubtaskSweepDeg12H(
                 ev.subtasks.length,
               );
-        // Any block with subtasks targets the full subtask capacity so it has natural breathing room
         baseTargetSweep = math.max(baseTargetSweep, subtaskTarget);
       } else if (isHighPriority) {
         final priorityFloor = is24HourMode ? 28.0 : 40.0;
@@ -161,7 +192,6 @@ class DialSectorLayoutStretcher {
 
     final grantedFwd = List<double>.filled(n, 0.0);
     final grantedBwd = List<double>.filled(n, 0.0);
-    final shiftFwd = List<double>.filled(n, 0.0);
 
     // 4.5. Contiguous Monolithic Rebalancing:
     // If an event with subtasks has a deficit, first borrow space directly from
@@ -189,9 +219,8 @@ class DialSectorLayoutStretcher {
           minDonorSweep = math.max(minDonorSweep, needleOffsetDeg + 12.0);
         }
 
-        final currentPrevSweep = prevEv.sweepAngle +
-            grantedFwd[prevIdx] -
-            grantedBwd[prevIdx];
+        final currentPrevSweep =
+            prevEv.sweepAngle + grantedFwd[prevIdx] - grantedBwd[prevIdx];
         final prevAvail = math.max(0.0, currentPrevSweep - minDonorSweep);
         if (prevAvail > 0.0) {
           final take = math.min(remDeficit, prevAvail);
@@ -217,14 +246,12 @@ class DialSectorLayoutStretcher {
             minDonorSweep = math.max(minDonorSweep, needleFromEndDeg + 12.0);
           }
 
-          final currentNextSweep = nextEv.sweepAngle +
-              grantedFwd[nextIdx] -
-              grantedBwd[nextIdx];
+          final currentNextSweep =
+              nextEv.sweepAngle + grantedFwd[nextIdx] - grantedBwd[nextIdx];
           final nextAvail = math.max(0.0, currentNextSweep - minDonorSweep);
           if (nextAvail > 0.0) {
             final takeFwd = math.min(remDeficit, nextAvail);
             grantedFwd[i] += takeFwd;
-            shiftFwd[nextIdx] += takeFwd;
             grantedFwd[nextIdx] -= takeFwd;
             remDeficit -= takeFwd;
           }
@@ -322,26 +349,6 @@ class DialSectorLayoutStretcher {
         remainingDeficit -= extraFwd;
       }
 
-      // If still unsatisfied, borrow from downstream gaps and propagate forward shift
-      if (remainingDeficit > 0.001) {
-        for (int step = 1; step < n && remainingDeficit > 0.001; step++) {
-          final targetGapIdx = (i + step - 1) % n;
-          if (remainingUsable[targetGapIdx] > 0.0) {
-            final take = math.min(
-              remainingDeficit,
-              remainingUsable[targetGapIdx],
-            );
-            grantedFwd[i] += take;
-            remainingUsable[targetGapIdx] -= take;
-            remainingDeficit -= take;
-            for (int s = 1; s < step; s++) {
-              final shiftIdx = (i + s) % n;
-              shiftFwd[shiftIdx] += take;
-            }
-          }
-        }
-      }
-
       // Try taking remaining deficit from prev gap (only for non-priority events)
       final prevIdx = (i - 1 + n) % n;
       if (!isPriority[i] &&
@@ -370,9 +377,7 @@ class DialSectorLayoutStretcher {
       final bwd = grantedBwd[i];
       final fwd = grantedFwd[i];
 
-      final newStart = SectorMath.normalizeDegrees(
-        ev.startAngle - bwd + shiftFwd[i],
-      );
+      final newStart = SectorMath.normalizeDegrees(ev.startAngle - bwd);
       final newSweep = ev.sweepAngle + bwd + fwd;
 
       updatedMap[ev.id] = ev.copyWith(

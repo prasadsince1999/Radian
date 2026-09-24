@@ -36,7 +36,9 @@ class WidgetSyncHelper(private val context: Context) {
         magnification: Float = 1.0f,
         isFocusLensEnabled: Boolean = true,
         centerClockDisplay: String = "digital",
-        innerRadiusRatio: Float = 0.34f
+        innerRadiusRatio: Float = 0.34f,
+        previousBlocksCount: Int = 1,
+        futureBlocksCount: Int = 3
     ): Boolean {
         // Save base dial image atomically if present
         if (dialBytes != null && dialBytes.isNotEmpty()) {
@@ -72,6 +74,8 @@ class WidgetSyncHelper(private val context: Context) {
             .putBoolean(SectographWidgetProvider.KEY_LENS_ENABLED, isFocusLensEnabled)
             .putString(SectographWidgetProvider.KEY_CENTER_CLOCK_DISPLAY, centerClockDisplay)
             .putFloat(SectographWidgetProvider.KEY_INNER_RADIUS_RATIO, innerRadiusRatio)
+            .putInt(SectographWidgetProvider.KEY_PREVIOUS_BLOCKS_COUNT, previousBlocksCount)
+            .putInt(SectographWidgetProvider.KEY_FUTURE_BLOCKS_COUNT, futureBlocksCount)
 
         if (eventsJson != null) {
             editor.putString(SectographWidgetProvider.KEY_EVENTS_JSON, eventsJson)

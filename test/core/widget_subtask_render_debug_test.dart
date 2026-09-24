@@ -153,7 +153,87 @@ void main() {
     expect(bytes!.length, greaterThan(10000));
 
     // Save visual receipt
-    final outPath = r'C:\Users\kpr25\.gemini\antigravity\brain\929bfdb8-35ee-4c24-b8f4-3d3806ecd4de\screenshots\verified_yoga_3subtasks_no_overlap.png';
+    final outPath =
+        r'C:\Users\kpr25\.gemini\antigravity\brain\929bfdb8-35ee-4c24-b8f4-3d3806ecd4de\screenshots\verified_yoga_3subtasks_no_overlap.png';
+    await io.File(outPath).writeAsBytes(bytes);
+  });
+
+  test('DialImageRenderer at 12:38 PM renders Projects, Break, Workout, and Read with 100% time sync', () async {
+    final now = DateTime(2026, 9, 24, 12, 38);
+    final study = SectorEvent(
+      id: '1',
+      title: 'Study Time',
+      start: DateTime(2026, 9, 24, 9, 0),
+      end: DateTime(2026, 9, 24, 12, 0),
+      colorHex: '#FFC107',
+      subtasks: ['LinAlg', 'PyTorch', 'Transformers'],
+    );
+    final projects = SectorEvent(
+      id: '2',
+      title: 'Projects',
+      start: DateTime(2026, 9, 24, 12, 0),
+      end: DateTime(2026, 9, 24, 15, 0),
+      colorHex: '#FFC107',
+      subtasks: ['Data Prep', 'LoRA Tune', 'Loss & Eval'],
+    );
+    final breakEvent = SectorEvent(
+      id: '3',
+      title: 'Break',
+      start: DateTime(2026, 9, 24, 15, 0),
+      end: DateTime(2026, 9, 24, 15, 30),
+      colorHex: '#9C27B0',
+      subtasks: ['Coffee', 'Rest'],
+    );
+    final workout = SectorEvent(
+      id: '4',
+      title: 'Workout',
+      start: DateTime(2026, 9, 24, 15, 30),
+      end: DateTime(2026, 9, 24, 16, 30),
+      colorHex: '#FF5722',
+      subtasks: ['Gym', 'Cardio', 'Stretch'],
+    );
+    final read = SectorEvent(
+      id: '5',
+      title: 'Read',
+      start: DateTime(2026, 9, 24, 16, 45),
+      end: DateTime(2026, 9, 24, 18, 45),
+      colorHex: '#4CAF50',
+      subtasks: [],
+    );
+
+    final events = [
+      study,
+      projects,
+      breakEvent,
+      workout,
+      read,
+    ].map((e) => e.withComputedAngles(is24HourMode: false)).toList();
+    const settings = DialSettings(
+      pastHoursStyle: PastHoursStyle.focusedBlock,
+      previousBlocksCount: 1,
+      futureBlocksCount: 3,
+    );
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF6366F1),
+    );
+
+    final bytes = await DialImageRenderer.renderDialPng(
+      events: events,
+      currentTime: now,
+      settings: settings,
+      colorScheme: colorScheme,
+      activeEvent: projects,
+      size: 1080.0,
+      showNeedle: true,
+      showCenterClock: true,
+    );
+
+    expect(bytes, isNotNull);
+    expect(bytes!.length, greaterThan(10000));
+
+    // Save visual receipt
+    final outPath =
+        r'C:\Users\kpr25\.gemini\antigravity\brain\929bfdb8-35ee-4c24-b8f4-3d3806ecd4de\screenshots\verified_sync_fixed_1238.png';
     await io.File(outPath).writeAsBytes(bytes);
   });
 }

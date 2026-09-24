@@ -179,8 +179,7 @@ abstract final class SampleEventsData {
         colorHex: '#F59E0B',
         category: 'Focus',
         iconName: 'laptop',
-        notes:
-            'Peak morning cognitive bandwidth: Distributed Systems & Architecture',
+        notes: 'Peak morning cognitive bandwidth: Distributed Systems & Architecture',
         subtasks: const [
           'Distributed Systems',
           'Core Engine',
@@ -208,8 +207,7 @@ abstract final class SampleEventsData {
         colorHex: '#6366F1',
         category: 'Meetings',
         iconName: 'chat',
-        notes:
-            'Cross-timezone overlap: SF Standup, Architecture RFCs & PR Reviews',
+        notes: 'Cross-timezone overlap: SF Standup, Architecture RFCs & PR Reviews',
         subtasks: const ['SF Standup', 'PR Reviews', 'Design RFC'],
       ),
       // 17:30 - 18:45 Athletic Training
@@ -245,8 +243,7 @@ abstract final class SampleEventsData {
         colorHex: '#8B5CF6',
         category: 'Reading',
         iconName: 'book',
-        notes:
-            'Low blue-light exposure, paper reading & journal reflection',
+        notes: 'Low blue-light exposure, paper reading & journal reflection',
         subtasks: const ['Paper Notes', 'Kindle', 'Stillness'],
       ),
       // 23:00 - 24:00 Night Stillness

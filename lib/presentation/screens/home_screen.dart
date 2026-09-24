@@ -214,7 +214,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   void _syncAndroidWidget() {
     final currentTime = DateTime.now();
-    final today = DateTime(currentTime.year, currentTime.month, currentTime.day);
+    final today = DateTime(
+      currentTime.year,
+      currentTime.month,
+      currentTime.day,
+    );
     // Always supply today's projected events so widget has valid timestamps for the current day
     final events =
         ref.read(eventsForDateProvider(today)).value ??

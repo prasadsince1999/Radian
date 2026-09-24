@@ -343,10 +343,11 @@ void main() {
         subtasks: const [],
       );
 
-      final result = DialSectorLayoutStretcher.stretch(
-        [sleep, yoga, breakfast],
-        is24HourMode: false,
-      );
+      final result = DialSectorLayoutStretcher.stretch([
+        sleep,
+        yoga,
+        breakfast,
+      ], is24HourMode: false);
 
       final stretchedSleep = result.firstWhere((e) => e.id == 'sleep');
       final stretchedYoga = result.firstWhere((e) => e.id == 'yoga');

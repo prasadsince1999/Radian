@@ -163,7 +163,10 @@ class _AppUpdateModalState extends ConsumerState<AppUpdateModal> {
                 ] else if (updateState.updateInfo != null) ...[
                   _buildUpdateAvailableView(context, updateState, colorScheme),
                 ] else ...[
-                  _buildPromptCheckView(colorScheme, updateState.currentVersion),
+                  _buildPromptCheckView(
+                    colorScheme,
+                    updateState.currentVersion,
+                  ),
                 ],
 
                 const SizedBox(height: 16),

@@ -58,59 +58,70 @@ void main() {
       final futureDay = monday.add(const Duration(days: 30));
       final futureEvents = await repo.getEventsForDay(futureDay);
       expect(futureEvents.length, 2);
-      expect(futureEvents[0].start, DateTime(futureDay.year, futureDay.month, futureDay.day, 0, 0));
-    });
-
-    test('blocks with repeatDays project only on their specified days of week', () async {
-      SharedPreferences.setMockInitialValues({});
-      final prefs = await SharedPreferences.getInstance();
-      final repo = LocalEventRepository(prefs: prefs);
-
-      // Create block repeating on Weekdays only (1 = Mon ... 5 = Fri)
-      final monday = DateTime(2026, 9, 21); // Mon (weekday 1)
-      final weekdayBlock = SectorEvent(
-        id: 'team-standup',
-        title: 'Team Standup',
-        start: DateTime(monday.year, monday.month, monday.day, 10, 0),
-        end: DateTime(monday.year, monday.month, monday.day, 10, 30),
-        repeatDays: [1, 2, 3, 4, 5],
+      expect(
+        futureEvents[0].start,
+        DateTime(futureDay.year, futureDay.month, futureDay.day, 0, 0),
       );
-
-      await repo.addEvent(weekdayBlock);
-
-      // Wednesday, Sep 23 (weekday 3) -> should appear
-      final wednesdayEvents = await repo.getEventsForDay(DateTime(2026, 9, 23));
-      expect(wednesdayEvents.any((e) => e.title == 'Team Standup'), isTrue);
-
-      // Sunday, Sep 27 (weekday 7) -> should NOT appear
-      final sundayEvents = await repo.getEventsForDay(DateTime(2026, 9, 27));
-      expect(sundayEvents.any((e) => e.title == 'Team Standup'), isFalse);
     });
 
-    test('blocks with recurrenceEndDate project only up to the end date', () async {
-      SharedPreferences.setMockInitialValues({});
-      final prefs = await SharedPreferences.getInstance();
-      final repo = LocalEventRepository(prefs: prefs);
+    test(
+      'blocks with repeatDays project only on their specified days of week',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        final repo = LocalEventRepository(prefs: prefs);
 
-      final monday = DateTime(2026, 9, 21);
-      final limitedBlock = SectorEvent(
-        id: 'sprint-review',
-        title: 'Sprint Review',
-        start: DateTime(monday.year, monday.month, monday.day, 14, 0),
-        end: DateTime(monday.year, monday.month, monday.day, 15, 0),
-        recurrenceEndDate: DateTime(2026, 9, 24),
-      );
+        // Create block repeating on Weekdays only (1 = Mon ... 5 = Fri)
+        final monday = DateTime(2026, 9, 21); // Mon (weekday 1)
+        final weekdayBlock = SectorEvent(
+          id: 'team-standup',
+          title: 'Team Standup',
+          start: DateTime(monday.year, monday.month, monday.day, 10, 0),
+          end: DateTime(monday.year, monday.month, monday.day, 10, 30),
+          repeatDays: [1, 2, 3, 4, 5],
+        );
 
-      await repo.addEvent(limitedBlock);
+        await repo.addEvent(weekdayBlock);
 
-      // Sep 23 -> within boundary -> should appear
-      final dayBefore = await repo.getEventsForDay(DateTime(2026, 9, 23));
-      expect(dayBefore.any((e) => e.title == 'Sprint Review'), isTrue);
+        // Wednesday, Sep 23 (weekday 3) -> should appear
+        final wednesdayEvents = await repo.getEventsForDay(
+          DateTime(2026, 9, 23),
+        );
+        expect(wednesdayEvents.any((e) => e.title == 'Team Standup'), isTrue);
 
-      // Sep 25 -> after boundary -> should NOT appear
-      final dayAfter = await repo.getEventsForDay(DateTime(2026, 9, 25));
-      expect(dayAfter.any((e) => e.title == 'Sprint Review'), isFalse);
-    });
+        // Sunday, Sep 27 (weekday 7) -> should NOT appear
+        final sundayEvents = await repo.getEventsForDay(DateTime(2026, 9, 27));
+        expect(sundayEvents.any((e) => e.title == 'Team Standup'), isFalse);
+      },
+    );
+
+    test(
+      'blocks with recurrenceEndDate project only up to the end date',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        final repo = LocalEventRepository(prefs: prefs);
+
+        final monday = DateTime(2026, 9, 21);
+        final limitedBlock = SectorEvent(
+          id: 'sprint-review',
+          title: 'Sprint Review',
+          start: DateTime(monday.year, monday.month, monday.day, 14, 0),
+          end: DateTime(monday.year, monday.month, monday.day, 15, 0),
+          recurrenceEndDate: DateTime(2026, 9, 24),
+        );
+
+        await repo.addEvent(limitedBlock);
+
+        // Sep 23 -> within boundary -> should appear
+        final dayBefore = await repo.getEventsForDay(DateTime(2026, 9, 23));
+        expect(dayBefore.any((e) => e.title == 'Sprint Review'), isTrue);
+
+        // Sep 25 -> after boundary -> should NOT appear
+        final dayAfter = await repo.getEventsForDay(DateTime(2026, 9, 25));
+        expect(dayAfter.any((e) => e.title == 'Sprint Review'), isFalse);
+      },
+    );
 
     test('SampleEventsData produces canonical permanent routines', () {
       final now = DateTime(2026, 9, 23);
@@ -118,18 +129,21 @@ void main() {
 
       // Should have 10 standard routine blocks
       expect(schedule.length, 10);
-      expect(schedule.map((e) => e.id), containsAll([
-        'in-sleep',
-        'in-yoga',
-        'in-chai',
-        'in-study',
-        'in-projects',
-        'in-break',
-        'in-workout',
-        'in-read',
-        'in-dinner',
-        'in-code',
-      ]));
+      expect(
+        schedule.map((e) => e.id),
+        containsAll([
+          'in-sleep',
+          'in-yoga',
+          'in-chai',
+          'in-study',
+          'in-projects',
+          'in-break',
+          'in-workout',
+          'in-read',
+          'in-dinner',
+          'in-code',
+        ]),
+      );
 
       // None should have day prefixes
       for (final ev in schedule) {
@@ -137,29 +151,32 @@ void main() {
       }
     });
 
-    test('deduplicates legacy duplicate routine blocks on initialization', () async {
-      // Simulate stored SharedPreferences with 3 legacy copies of Sleep from old multi-day seeding
-      SharedPreferences.setMockInitialValues({
-        'radian_events_v1': '''[
+    test(
+      'deduplicates legacy duplicate routine blocks on initialization',
+      () async {
+        // Simulate stored SharedPreferences with 3 legacy copies of Sleep from old multi-day seeding
+        SharedPreferences.setMockInitialValues({
+          'radian_events_v1': '''[
           {"id":"20260920-in-sleep","title":"Sleep","start":"2026-09-20T00:00:00.000","end":"2026-09-20T06:00:00.000","colorHex":"#98A8C8"},
           {"id":"20260921-in-sleep","title":"Sleep","start":"2026-09-21T00:00:00.000","end":"2026-09-21T06:00:00.000","colorHex":"#98A8C8"},
           {"id":"20260922-in-sleep","title":"Sleep","start":"2026-09-22T00:00:00.000","end":"2026-09-22T06:00:00.000","colorHex":"#98A8C8"}
         ]''',
-      });
+        });
 
-      final prefs = await SharedPreferences.getInstance();
-      final repo = LocalEventRepository(prefs: prefs);
+        final prefs = await SharedPreferences.getInstance();
+        final repo = LocalEventRepository(prefs: prefs);
 
-      // All 3 should be collapsed to 1 canonical routine block
-      final allEvents = await repo.getAllEvents();
-      final sleepEvents = allEvents.where((e) => e.title == 'Sleep').toList();
-      expect(sleepEvents.length, 1);
-      expect(sleepEvents.first.id, 'in-sleep');
+        // All 3 should be collapsed to 1 canonical routine block
+        final allEvents = await repo.getAllEvents();
+        final sleepEvents = allEvents.where((e) => e.title == 'Sleep').toList();
+        expect(sleepEvents.length, 1);
+        expect(sleepEvents.first.id, 'in-sleep');
 
-      // Projected day events should also have exactly 1 Sleep block
-      final dayEvents = await repo.getEventsForDay(DateTime(2026, 9, 23));
-      final daySleep = dayEvents.where((e) => e.title == 'Sleep').toList();
-      expect(daySleep.length, 1);
-    });
+        // Projected day events should also have exactly 1 Sleep block
+        final dayEvents = await repo.getEventsForDay(DateTime(2026, 9, 23));
+        final daySleep = dayEvents.where((e) => e.title == 'Sleep').toList();
+        expect(daySleep.length, 1);
+      },
+    );
   });
 }

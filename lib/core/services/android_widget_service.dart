@@ -176,6 +176,8 @@ class AndroidWidgetService {
         'isFocusLensEnabled': lensParams.isFocusLensEnabled,
         'centerClockDisplay': settings.centerClockDisplay.name,
         'innerRadiusRatio': AppLayoutConstants.innerRadiusRatio,
+        'previousBlocksCount': settings.previousBlocksCount,
+        'futureBlocksCount': settings.futureBlocksCount,
       });
     } catch (e, st) {
       debugPrint('syncWidget error: $e\n$st');

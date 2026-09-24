@@ -131,6 +131,8 @@ class MainActivity : FlutterActivity() {
                         val isFocusLensEnabled = call.argument<Boolean>("isFocusLensEnabled") ?: true
                         val centerClockDisplay = call.argument<String>("centerClockDisplay") ?: "digital"
                         val innerRadiusRatio = (call.argument<Number>("innerRadiusRatio"))?.toFloat() ?: 0.34f
+                        val previousBlocksCount = (call.argument<Number>("previousBlocksCount"))?.toInt() ?: 1
+                        val futureBlocksCount = (call.argument<Number>("futureBlocksCount"))?.toInt() ?: 3
                         result.success(
                             widgetSyncHelper.updateWidget(
                                 title,
@@ -147,7 +149,9 @@ class MainActivity : FlutterActivity() {
                                 magnification,
                                 isFocusLensEnabled,
                                 centerClockDisplay,
-                                innerRadiusRatio
+                                innerRadiusRatio,
+                                previousBlocksCount,
+                                futureBlocksCount
                             )
                         )
                     }
