@@ -477,7 +477,9 @@ class McpTools {
     HealthRepository? healthRepository,
     SyncHealthSessionsUseCase? syncHealthSessionsUseCase,
   }) async {
-    final now = DateTime.now();
+    final now = arguments['currentTime'] != null
+        ? (DateTime.tryParse(arguments['currentTime'].toString()) ?? DateTime.now())
+        : DateTime.now();
 
     DateTime parseDate(dynamic d) {
       if (d is String && d.isNotEmpty) {
@@ -501,6 +503,15 @@ class McpTools {
             break;
           }
         }
+        if (active == null) {
+          final allEvents = await repository.getAllEvents();
+          for (final e in allEvents) {
+            if (e.isCurrentlyActive(now)) {
+              active = e;
+              break;
+            }
+          }
+        }
 
         SubtaskItem? activeSubtask;
         if (active != null && active.subtaskItems.isNotEmpty) {
@@ -509,7 +520,10 @@ class McpTools {
             if (s.startTime != null && s.endTime != null) {
               final sStart = s.startTime!.hour * 60 + s.startTime!.minute;
               final sEnd = s.endTime!.hour * 60 + s.endTime!.minute;
-              if (curMinutes >= sStart && curMinutes < sEnd) {
+              final isMatch = (sStart <= sEnd)
+                  ? (curMinutes >= sStart && curMinutes < sEnd)
+                  : (curMinutes >= sStart || curMinutes < sEnd);
+              if (isMatch) {
                 activeSubtask = s;
                 break;
               }
@@ -529,7 +543,10 @@ class McpTools {
                   s.endTime != null) {
                 final sStart = s.startTime!.hour * 60 + s.startTime!.minute;
                 final sEnd = s.endTime!.hour * 60 + s.endTime!.minute;
-                if (curMinutes >= sStart && curMinutes < sEnd) {
+                final isMatch = (sStart <= sEnd)
+                    ? (curMinutes >= sStart && curMinutes < sEnd)
+                    : (curMinutes >= sStart || curMinutes < sEnd);
+                if (isMatch) {
                   activeSubtask = s;
                   break;
                 }

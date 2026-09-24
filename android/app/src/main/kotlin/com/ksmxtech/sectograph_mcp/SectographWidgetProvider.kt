@@ -37,7 +37,8 @@ internal data class NativeSectorEvent(
     val start: Long,
     val end: Long,
     val color: Int,
-    val subtasks: List<String>
+    val subtasks: List<String>,
+    val iconName: String? = null
 )
 
 /**
@@ -104,12 +105,13 @@ class SectographWidgetProvider : AppWidgetProvider() {
         const val KEY_EVENTS_JSON = "eventsJson"
         const val KEY_BASE_TIMESTAMP = "baseTimestamp"
         const val KEY_BASE_DATE = "baseDate"
+        const val KEY_ACTIVE_EVENT_END = "activeEventEnd"
         const val KEY_FOCUS_ANGLE = "focusAngle"
         const val KEY_MAGNIFICATION = "magnification"
         const val KEY_LENS_ENABLED = "isFocusLensEnabled"
         const val KEY_CENTER_CLOCK_DISPLAY = "centerClockDisplay"
         const val KEY_INNER_RADIUS_RATIO = "innerRadiusRatio"
-        const val MAX_BASE_BITMAP_AGE_MS = 45 * 60 * 1000L // 45 minutes
+        const val MAX_IDLE_BITMAP_AGE_MS = 12 * 3600 * 1000L // 12 hours (full dial cycle)
         const val ACTION_ADD_BLOCK = "com.ksmxtech.sectograph_mcp.ACTION_ADD_BLOCK"
         const val ACTION_MINUTE_TICK = "com.ksmxtech.sectograph_mcp.ACTION_MINUTE_TICK"
 
@@ -277,6 +279,73 @@ class SectographWidgetProvider : AppWidgetProvider() {
             val innerRadiusRatio = prefs.getFloat(KEY_INNER_RADIUS_RATIO, 0.34f)
             val innerRadius = baseRadius * innerRadiusRatio
 
+            val isLensEnabled = prefs.getBoolean(KEY_LENS_ENABLED, true)
+            val storedFocusAngle = prefs.getFloat(KEY_FOCUS_ANGLE, -1f)
+            val storedMagnification = prefs.getFloat(KEY_MAGNIFICATION, 1.0f)
+
+            var dynamicFocusAngle = storedFocusAngle
+            var dynamicMagnification = storedMagnification
+
+            val eventsJsonStr = prefs.getString(KEY_EVENTS_JSON, null)
+            val rate = if (is24HourMode) 0.25f else 0.5f
+
+            if (!eventsJsonStr.isNullOrEmpty()) {
+                try {
+                    val arr = JSONArray(eventsJsonStr)
+                    val todayCal = Calendar.getInstance().apply { timeInMillis = nowMs }
+                    val tYear = todayCal.get(Calendar.YEAR)
+                    val tMonth = todayCal.get(Calendar.MONTH)
+                    val tDay = todayCal.get(Calendar.DAY_OF_MONTH)
+
+                    var currentActiveObj: org.json.JSONObject? = null
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        val rawStart = obj.optLong("start", 0L)
+                        val rawEnd = obj.optLong("end", 0L)
+                        if (rawEnd > rawStart) {
+                            val evCal = Calendar.getInstance().apply { timeInMillis = rawStart }
+                            val sHour = evCal.get(Calendar.HOUR_OF_DAY)
+                            val sMin = evCal.get(Calendar.MINUTE)
+                            val durMs = rawEnd - rawStart
+                            val pCal = Calendar.getInstance().apply {
+                                set(Calendar.YEAR, tYear)
+                                set(Calendar.MONTH, tMonth)
+                                set(Calendar.DAY_OF_MONTH, tDay)
+                                set(Calendar.HOUR_OF_DAY, sHour)
+                                set(Calendar.MINUTE, sMin)
+                                set(Calendar.SECOND, 0)
+                                set(Calendar.MILLISECOND, 0)
+                            }
+                            val start = pCal.timeInMillis
+                            val end = start + durMs
+                            if (nowMs in start until end) {
+                                currentActiveObj = obj
+                                break
+                            }
+                        }
+                    }
+
+                    if (currentActiveObj != null) {
+                        val rawStart = currentActiveObj.optLong("start", 0L)
+                        val rawEnd = currentActiveObj.optLong("end", 0L)
+                        val durMs = rawEnd - rawStart
+                        val midMs = rawStart + durMs / 2
+                        val midCal = Calendar.getInstance().apply { timeInMillis = midMs }
+                        val h = if (is24HourMode) midCal.get(Calendar.HOUR_OF_DAY) else (midCal.get(Calendar.HOUR) % 12)
+                        val m = midCal.get(Calendar.MINUTE)
+                        val s = midCal.get(Calendar.SECOND)
+                        dynamicFocusAngle = ((h * 60 + m + s / 60f) * rate) % 360f
+                        val subtasksArr = currentActiveObj.optJSONArray("subtasks")
+                        val hasSubtasks = subtasksArr != null && subtasksArr.length() > 0
+                        dynamicMagnification = if (hasSubtasks) 2.05f else 1.75f
+                    } else {
+                        // Linear dial in gaps
+                        dynamicFocusAngle = -1f
+                        dynamicMagnification = 1.0f
+                    }
+                } catch (_: Exception) {}
+            }
+
             if (baseBitmap != null) {
                 val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
                     isDither = true
@@ -292,7 +361,10 @@ class SectographWidgetProvider : AppWidgetProvider() {
                     baseBitmap.recycle()
                 } catch (_: Exception) {}
             } else {
-                drawDynamicSectors(context, canvas, centerX, centerY, baseRadius, innerRadius, scale, nowMs, is24HourMode, dialBgColor, prefs)
+                drawDynamicSectors(
+                    context, canvas, centerX, centerY, baseRadius, innerRadius, scale, nowMs,
+                    is24HourMode, dialBgColor, prefs, dynamicFocusAngle, dynamicMagnification, isLensEnabled
+                )
             }
 
             // 1. Clear / Refresh Center Hub Circle
@@ -325,12 +397,11 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 ((hour12 + minuteFraction) / 12f) * 360f
             }
 
-            val focusAngle = prefs.getFloat(KEY_FOCUS_ANGLE, -1f)
-            val magnification = prefs.getFloat(KEY_MAGNIFICATION, 1.0f)
-            val isLensEnabled = prefs.getBoolean(KEY_LENS_ENABLED, true)
+            val effectiveFocusAngle = if (baseBitmap != null) storedFocusAngle else dynamicFocusAngle
+            val effectiveMagnification = if (baseBitmap != null) storedMagnification else dynamicMagnification
 
-            val warpedDialDeg = if (isLensEnabled && focusAngle >= 0f && magnification > 1.001f) {
-                warpAngle(dialDeg.toDouble(), focusAngle.toDouble(), magnification.toDouble()).toFloat()
+            val warpedDialDeg = if (isLensEnabled && effectiveFocusAngle >= 0f && effectiveMagnification > 1.001f) {
+                warpAngle(dialDeg.toDouble(), effectiveFocusAngle.toDouble(), effectiveMagnification.toDouble()).toFloat()
             } else {
                 dialDeg
             }
@@ -384,7 +455,6 @@ class SectographWidgetProvider : AppWidgetProvider() {
             var activeTitle: String? = null
             var activeColor: Int = Color.parseColor("#38BDF8")
 
-            val eventsJsonStr = prefs.getString(KEY_EVENTS_JSON, null)
             if (!eventsJsonStr.isNullOrEmpty()) {
                 try {
                     val arr = JSONArray(eventsJsonStr)
@@ -578,6 +648,7 @@ class SectographWidgetProvider : AppWidgetProvider() {
 
             val baseTimestamp = prefs.getLong(KEY_BASE_TIMESTAMP, 0L)
             val baseDate = prefs.getString(KEY_BASE_DATE, null)
+            val activeEventEnd = prefs.getLong(KEY_ACTIVE_EVENT_END, 0L)
             val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(nowMs))
 
             // 1. Calendar day rollover check (e.g. Monday night -> Tuesday morning)
@@ -585,14 +656,26 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 return true
             }
 
-            // 2. Age check (stale if older than 45 minutes)
+            // 2. Active event window check:
+            // If an active event was recorded at sync time, the base dial bitmap remains
+            // 100% valid and fresh for the ENTIRE duration of that active block!
+            if (activeEventEnd > baseTimestamp) {
+                if (nowMs in baseTimestamp..activeEventEnd) {
+                    return false
+                }
+                if (nowMs > activeEventEnd) {
+                    return true // Active event ended, transition to dynamic sectors
+                }
+            }
+
+            // 3. Fallback age check for idle / gap times: allow 12 hours (full dial rotation)
             val age = if (baseTimestamp > 0L) {
                 nowMs - baseTimestamp
             } else {
                 nowMs - targetFile.lastModified()
             }
 
-            return age > MAX_BASE_BITMAP_AGE_MS || age < 0L
+            return age > MAX_IDLE_BITMAP_AGE_MS || age < 0L
         }
 
         private var cachedKalamTypeface: Typeface? = null
@@ -641,7 +724,19 @@ class SectographWidgetProvider : AppWidgetProvider() {
             }
         }
 
-        private fun getEventIconGlyph(title: String): String {
+        private fun getEventIconGlyph(title: String, iconName: String? = null): String {
+            if (!iconName.isNullOrEmpty()) {
+                val icon = iconName.lowercase(Locale.getDefault())
+                when {
+                    icon.contains("laptop") || icon.contains("code") || icon.contains("dev") || icon.contains("work") -> return String(Character.toChars(0xf841))
+                    icon.contains("restaurant") || icon.contains("food") || icon.contains("dinner") || icon.contains("eat") -> return String(Character.toChars(0xf0108))
+                    icon.contains("fitness") || icon.contains("gym") || icon.contains("workout") -> return String(Character.toChars(0xf767))
+                    icon.contains("bed") || icon.contains("sleep") || icon.contains("rest") -> return String(Character.toChars(0xf5b8))
+                    icon.contains("book") || icon.contains("read") -> return String(Character.toChars(0xf8b4))
+                    icon.contains("coffee") || icon.contains("break") -> return String(Character.toChars(0xf655))
+                    icon.contains("headphone") || icon.contains("music") -> return String(Character.toChars(0xf7da))
+                }
+            }
             val lower = title.lowercase(Locale.getDefault())
             val codePoint = when {
                 lower.contains("cook") || lower.contains("dinner") || lower.contains("lunch") ||
@@ -649,7 +744,7 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 lower.contains("food") -> 0xf0108 // Icons.restaurant_rounded
                 lower.contains("code") || lower.contains("work") || lower.contains("study") ||
                 lower.contains("focus") || lower.contains("dev") || lower.contains("project") ||
-                lower.contains("laptop") -> 0xf841 // Icons.laptop_mac_rounded
+                lower.contains("flexible") || lower.contains("laptop") -> 0xf841 // Icons.laptop_mac_rounded
                 lower.contains("sleep") || lower.contains("bed") || lower.contains("nap") ||
                 lower.contains("rest") -> 0xf5b8 // Icons.bedtime_rounded
                 lower.contains("workout") || lower.contains("gym") || lower.contains("fitness") ||
@@ -878,14 +973,17 @@ class SectographWidgetProvider : AppWidgetProvider() {
             val rawPebbles = subtasks.take(4).map { distillShortKeyword(it) }.filter { it.isNotEmpty() }
             if (rawPebbles.isEmpty()) return
 
-            val midDeg = startDeg + sweepDeg / 2f
+            val effectiveStart = startDeg + startCapSpan
+            val effectiveEnd = (startDeg + sweepDeg) - endCapSpan
+            val effectiveSweep = maxOf(1f, effectiveEnd - effectiveStart)
+            val effectiveMidDeg = effectiveStart + effectiveSweep / 2f
             val midR = (rIn + rOut) / 2f
 
-            val pebbleFontSize = 9.2f * scale
+            val pebbleFontSize = 10.5f * scale
             val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = textColor
                 textSize = pebbleFontSize
-                typeface = kalamTypeface
+                typeface = Typeface.create(kalamTypeface, Typeface.BOLD)
                 textAlign = Paint.Align.CENTER
             }
 
@@ -906,26 +1004,27 @@ class SectographWidgetProvider : AppWidgetProvider() {
             val pebbleDims = rawPebbles.map { text ->
                 val tw = textPaint.measureText(text)
                 val th = textPaint.descent() - textPaint.ascent()
-                val w = tw + 9f * scale
-                val h = th + 5f * scale
+                val w = tw + 7f * scale
+                val h = th + 4.5f * scale
                 val halfDeg = (w / 2f) / (midR * Math.PI.toFloat() / 180f)
                 PebbleDim(text, w, h, halfDeg)
             }
 
-            val leftBayStart = startDeg + startCapSpan + 1.5f
-            val leftBayEnd = midDeg - centerTitleHalfDeg - 1.5f
+            val leftBayStart = effectiveStart + 8.5f
+            val leftBayEnd = effectiveMidDeg - centerTitleHalfDeg - 4.0f
             val leftBayWidth = leftBayEnd - leftBayStart
 
-            val rightBayStart = midDeg + centerTitleHalfDeg + 1.5f
-            val rightBayEnd = (startDeg + sweepDeg) - endCapSpan - 1.5f
+            val rightBayStart = effectiveMidDeg + centerTitleHalfDeg + 4.0f
+            val rightBayEnd = effectiveEnd - 8.5f
             val rightBayWidth = rightBayEnd - rightBayStart
 
-            val tilts = floatArrayOf(-0.04f, 0.05f, -0.05f, 0.04f)
+            val tilts = if (sweepDeg < 45f) floatArrayOf(0f, 0f, 0f, 0f) else floatArrayOf(-0.04f, 0.05f, -0.05f, 0.04f)
 
-            fun renderPebble(dim: PebbleDim, angleDeg: Float, tilt: Float) {
+            fun renderPebble(dim: PebbleDim, angleDeg: Float, tilt: Float, radiusOffset: Float = 0f, scaleFactor: Float = 1.0f) {
                 val rad = Math.toRadians((angleDeg - 90.0).toDouble())
-                val px = centerX + midR * Math.cos(rad).toFloat()
-                val py = centerY + midR * Math.sin(rad).toFloat()
+                val pr = midR + radiusOffset
+                val px = centerX + pr * Math.cos(rad).toFloat()
+                val py = centerY + pr * Math.sin(rad).toFloat()
 
                 canvas.save()
                 canvas.translate(px, py)
@@ -936,32 +1035,104 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 tangentRad += tilt
                 canvas.rotate(Math.toDegrees(tangentRad).toFloat())
 
-                val rect = RectF(-dim.w / 2f, -dim.h / 2f, dim.w / 2f, dim.h / 2f)
-                val cornerRadius = dim.h / 2f
+                val rw = (dim.w * scaleFactor) / 2f
+                val rh = (dim.h * scaleFactor) / 2f
+                val rect = RectF(-rw, -rh, rw, rh)
+                val cornerRadius = rh
                 canvas.drawRoundRect(rect, cornerRadius, cornerRadius, pebbleBgPaint)
                 canvas.drawRoundRect(rect, cornerRadius, cornerRadius, pebbleBorderPaint)
 
+                val oldSize = textPaint.textSize
+                textPaint.textSize = oldSize * scaleFactor
                 val textY = -((textPaint.descent() + textPaint.ascent()) / 2f)
                 canvas.drawText(dim.text, 0f, textY, textPaint)
+                textPaint.textSize = oldSize
                 canvas.restore()
+            }
+
+            val trackThickness = rOut - rIn
+            val radialDelta = minOf(12f * scale, trackThickness * 0.22f)
+
+            fun renderBayPebbleSingle(dim: PebbleDim, bayStart: Float, bayEnd: Float, bayW: Float, tilt: Float) {
+                if (bayW <= 0f) return
+                val maxAllowedW = maxOf(0f, bayW - 1.2f)
+                val scaleFactor = (maxAllowedW / (dim.halfDeg * 2f)).coerceIn(0.75f, 1.0f)
+                val scaledHalf = dim.halfDeg * scaleFactor
+                val minSafe = bayStart + scaledHalf
+                val maxSafe = bayEnd - scaledHalf
+                val targetAngle = if (minSafe <= maxSafe) ((bayStart + bayEnd) / 2f).coerceIn(minSafe, maxSafe) else ((bayStart + bayEnd) / 2f)
+                renderPebble(dim, targetAngle, tilt, radiusOffset = 0f, scaleFactor = scaleFactor)
+            }
+
+            fun renderBayPebblesTwo(dim1: PebbleDim, dim2: PebbleDim, bayStart: Float, bayEnd: Float, bayW: Float, t1: Float, t2: Float) {
+                if (bayW <= 0f) return
+                val fullW1 = dim1.halfDeg * 2f
+                val fullW2 = dim2.halfDeg * 2f
+                val required = fullW1 + 3.0f + fullW2
+                if (bayW < required) {
+                    // Radial staggering across track thickness:
+                    val maxAllowedW = maxOf(0f, bayW - 1.2f)
+                    val sScale1 = (maxAllowedW / fullW1).coerceIn(0.72f, 1.0f)
+                    val sScale2 = (maxAllowedW / fullW2).coerceIn(0.72f, 1.0f)
+                    val sHalf1 = dim1.halfDeg * sScale1
+                    val sHalf2 = dim2.halfDeg * sScale2
+
+                    val bayMid = (bayStart + bayEnd) / 2f
+                    val angSep = (bayW * 0.12f).coerceIn(0.8f, 2.0f)
+
+                    val minSafe1 = bayStart + sHalf1
+                    val maxSafe1 = bayEnd - sHalf1
+                    val p1Angle = if (minSafe1 <= maxSafe1) (bayMid - angSep).coerceIn(minSafe1, maxSafe1) else bayMid
+
+                    val minSafe2 = bayStart + sHalf2
+                    val maxSafe2 = bayEnd - sHalf2
+                    val p2Angle = if (minSafe2 <= maxSafe2) (bayMid + angSep).coerceIn(minSafe2, maxSafe2) else bayMid
+
+                    renderPebble(dim1, p1Angle, 0f, radiusOffset = radialDelta, scaleFactor = sScale1)
+                    renderPebble(dim2, p2Angle, 0f, radiusOffset = -radialDelta, scaleFactor = sScale2)
+                } else {
+                    val scaleFactor = (bayW / required).coerceIn(0.70f, 1.0f)
+                    val sHalf1 = dim1.halfDeg * scaleFactor
+                    val sHalf2 = dim2.halfDeg * scaleFactor
+                    val betweenGap = 3.0f * scaleFactor
+                    val p1Angle = (bayStart + 1.0f + sHalf1).coerceIn(bayStart + sHalf1, bayEnd - sHalf1)
+                    val p2Angle = (p1Angle + sHalf1 + betweenGap + sHalf2).coerceIn(bayStart + sHalf2, bayEnd - sHalf2)
+                    renderPebble(dim1, p1Angle, t1, scaleFactor = scaleFactor)
+                    renderPebble(dim2, p2Angle, t2, scaleFactor = scaleFactor)
+                }
             }
 
             if (pebbleDims.size == 1) {
                 val p = pebbleDims[0]
-                if (leftBayWidth >= p.halfDeg * 2f + 1f) {
-                    renderPebble(p, (leftBayStart + leftBayEnd) / 2f, tilts[0])
-                } else if (rightBayWidth >= p.halfDeg * 2f + 1f) {
-                    renderPebble(p, (rightBayStart + rightBayEnd) / 2f, tilts[0])
+                if (leftBayWidth >= rightBayWidth) {
+                    renderBayPebbleSingle(p, leftBayStart, leftBayEnd, leftBayWidth, tilts[0])
+                } else {
+                    renderBayPebbleSingle(p, rightBayStart, rightBayEnd, rightBayWidth, tilts[0])
                 }
-            } else if (pebbleDims.size >= 2) {
+            } else if (pebbleDims.size == 2) {
                 val p1 = pebbleDims[0]
                 val p2 = pebbleDims[1]
 
-                if (leftBayWidth >= p1.halfDeg * 1.5f) {
-                    renderPebble(p1, (leftBayStart + leftBayEnd) / 2f, tilts[0])
+                if (leftBayWidth >= p1.halfDeg * 1.5f && rightBayWidth >= p2.halfDeg * 1.5f) {
+                    renderBayPebbleSingle(p1, leftBayStart, leftBayEnd, leftBayWidth, tilts[0])
+                    renderBayPebbleSingle(p2, rightBayStart, rightBayEnd, rightBayWidth, tilts[1])
+                } else if (leftBayWidth >= rightBayWidth) {
+                    renderBayPebblesTwo(p1, p2, leftBayStart, leftBayEnd, leftBayWidth, tilts[0], tilts[1])
+                } else {
+                    renderBayPebblesTwo(p1, p2, rightBayStart, rightBayEnd, rightBayWidth, tilts[0], tilts[1])
                 }
-                if (rightBayWidth >= p2.halfDeg * 1.5f) {
-                    renderPebble(p2, (rightBayStart + rightBayEnd) / 2f, tilts[1])
+            } else if (pebbleDims.size >= 3) {
+                val p1 = pebbleDims[0]
+                val p2 = pebbleDims[1]
+                val p3 = pebbleDims[2]
+
+                // Allocate 2 pebbles to wider bay and 1 to other bay with strict boundary clamping
+                if (leftBayWidth >= rightBayWidth) {
+                    renderBayPebblesTwo(p1, p2, leftBayStart, leftBayEnd, leftBayWidth, tilts[0], tilts[1])
+                    renderBayPebbleSingle(p3, rightBayStart, rightBayEnd, rightBayWidth, tilts[2])
+                } else {
+                    renderBayPebbleSingle(p1, leftBayStart, leftBayEnd, leftBayWidth, tilts[0])
+                    renderBayPebblesTwo(p2, p3, rightBayStart, rightBayEnd, rightBayWidth, tilts[1], tilts[2])
                 }
             }
         }
@@ -977,7 +1148,10 @@ class SectographWidgetProvider : AppWidgetProvider() {
             nowMs: Long,
             is24HourMode: Boolean,
             dialBgColor: Int,
-            prefs: SharedPreferences
+            prefs: SharedPreferences,
+            dynamicFocusAngle: Float,
+            dynamicMagnification: Float,
+            isLensEnabled: Boolean
         ) {
             val kalamTypeface = getKalamTypeface(context)
 
@@ -996,7 +1170,11 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 strokeWidth = 1.0f * scale
             }
             for (h in 0 until totalHours) {
-                val rad = Math.toRadians((h * stepDeg - 90f).toDouble())
+                val rawDeg = h * stepDeg
+                val visualDeg = if (isLensEnabled && dynamicFocusAngle >= 0f && dynamicMagnification > 1.001f) {
+                    warpAngle(rawDeg.toDouble(), dynamicFocusAngle.toDouble(), dynamicMagnification.toDouble()).toFloat()
+                } else rawDeg
+                val rad = Math.toRadians((visualDeg - 90f).toDouble())
                 val x1 = centerX + innerRadius * Math.cos(rad).toFloat()
                 val y1 = centerY + innerRadius * Math.sin(rad).toFloat()
                 val x2 = centerX + (baseRadius - 8f * scale) * Math.cos(rad).toFloat()
@@ -1023,6 +1201,7 @@ class SectographWidgetProvider : AppWidgetProvider() {
                         val rawEnd = obj.optLong("end", 0L)
                         val colorVal = obj.optLong("color", -1L)
                         val color = if (colorVal != -1L) colorVal.toInt() else Color.parseColor("#38BDF8")
+                        val iconName = if (obj.has("iconName") && !obj.isNull("iconName")) obj.optString("iconName") else null
                         val subtasks = mutableListOf<String>()
                         val subtasksArr = obj.optJSONArray("subtasks")
                         if (subtasksArr != null) {
@@ -1049,7 +1228,7 @@ class SectographWidgetProvider : AppWidgetProvider() {
                             val start = pCal.timeInMillis
                             val end = start + durMs
 
-                            allEvents.add(NativeSectorEvent(id, title, start, end, color, subtasks))
+                            allEvents.add(NativeSectorEvent(id, title, start, end, color, subtasks, iconName))
                         }
                     }
                 } catch (_: Exception) {}
@@ -1095,23 +1274,105 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 val isContiguousWithPrev: Boolean
             )
 
+            data class EventGeom(var startDeg: Float, var sweepDeg: Float)
+
+            val geoms = horizonEvents.map { ev ->
+                val cal = Calendar.getInstance().apply { timeInMillis = ev.start }
+                val h = if (is24HourMode) cal.get(Calendar.HOUR_OF_DAY) else (cal.get(Calendar.HOUR) % 12)
+                val m = cal.get(Calendar.MINUTE)
+                val s = cal.get(Calendar.SECOND)
+                val rawStart = ((h * 60 + m + s / 60f) * rate) % 360f
+                val durMin = (ev.end - ev.start) / (60f * 1000f)
+                val rawSweep = (durMin * rate).coerceIn(4f, 360f)
+                EventGeom(rawStart, rawSweep)
+            }.toMutableList()
+
+            // Contiguous Monolithic Rebalancing:
+            // Borrow space backward/forward from contiguous blocks with no subtasks (e.g. Sleep with large sweep)
+            val minMonolithic = if (is24HourMode) 28f else 45f
+            for (i in 0 until horizonEvents.size) {
+                val ev = horizonEvents[i]
+                if (ev.subtasks.isEmpty()) continue
+
+                val targetFloor = when (ev.subtasks.size) {
+                    1 -> if (is24HourMode) 40f else 70f
+                    2 -> if (is24HourMode) 50f else 88f
+                    3 -> if (is24HourMode) 62f else 110f
+                    else -> if (is24HourMode) (62f + (ev.subtasks.size - 3) * 6f).coerceAtMost(80f)
+                            else (110f + (ev.subtasks.size - 3) * 10f).coerceAtMost(130f)
+                }
+                var deficit = targetFloor - geoms[i].sweepDeg
+                if (deficit <= 0.001f) continue
+
+                val prevIdx = if (i > 0) i - 1 else horizonEvents.size - 1
+                val prevEv = horizonEvents[prevIdx]
+                val isPrevContiguous = Math.abs(ev.start - prevEv.end) <= 60000L || Math.abs((ev.start - prevEv.end) % 86400000L) <= 60000L
+                if (isPrevContiguous && prevEv.subtasks.isEmpty()) {
+                    var minDonor = minMonolithic
+                    if (nowMs in prevEv.start until prevEv.end) {
+                        val elapsedMin = (nowMs - prevEv.start) / 60000f
+                        val needleOffsetDeg = elapsedMin * rate
+                        minDonor = maxOf(minDonor, needleOffsetDeg + 12f)
+                    }
+                    val prevAvail = maxOf(0f, geoms[prevIdx].sweepDeg - minDonor)
+                    if (prevAvail > 0f) {
+                        val take = minOf(deficit, prevAvail)
+                        geoms[prevIdx].sweepDeg -= take
+                        geoms[i].startDeg = (geoms[i].startDeg - take + 360f) % 360f
+                        geoms[i].sweepDeg += take
+                        deficit -= take
+                    }
+                }
+
+                if (deficit > 0.001f) {
+                    val nextIdx = (i + 1) % horizonEvents.size
+                    val nextEv = horizonEvents[nextIdx]
+                    val isNextContiguous = Math.abs(nextEv.start - ev.end) <= 60000L || Math.abs((nextEv.start - ev.end) % 86400000L) <= 60000L
+                    if (isNextContiguous && nextEv.subtasks.isEmpty()) {
+                        var minDonor = minMonolithic
+                        if (nowMs in nextEv.start until nextEv.end) {
+                            val remMin = (nextEv.end - nowMs) / 60000f
+                            val needleFromEndDeg = remMin * rate
+                            minDonor = maxOf(minDonor, needleFromEndDeg + 12f)
+                        }
+                        val nextAvail = maxOf(0f, geoms[nextIdx].sweepDeg - minDonor)
+                        if (nextAvail > 0f) {
+                            val takeFwd = minOf(deficit, nextAvail)
+                            geoms[i].sweepDeg += takeFwd
+                            geoms[nextIdx].startDeg = (geoms[nextIdx].startDeg + takeFwd) % 360f
+                            geoms[nextIdx].sweepDeg -= takeFwd
+                            deficit -= takeFwd
+                        }
+                    }
+                }
+            }
+
             val layouts = mutableListOf<SectorLayout>()
 
             for (i in 0 until horizonEvents.size) {
                 val event = horizonEvents[i]
-                val cal = Calendar.getInstance().apply { timeInMillis = event.start }
-                val h = if (is24HourMode) cal.get(Calendar.HOUR_OF_DAY) else (cal.get(Calendar.HOUR) % 12)
-                val m = cal.get(Calendar.MINUTE)
-                val s = cal.get(Calendar.SECOND)
-                val dialDeg = ((h * 60 + m + s / 60f) * rate) % 360f
-
-                val durMin = (event.end - event.start) / (60f * 1000f)
+                val rawStartDeg = geoms[i].startDeg
                 val isEventActive = (nowMs in event.start until event.end)
-                val rawSweepDeg = (durMin * rate).coerceIn(4f, 360f)
-                val sweepDeg = if (isEventActive) {
-                    maxOf(rawSweepDeg, if (event.subtasks.isNotEmpty()) 48f else 36f)
+                val unwarpedSweep = if (isEventActive) {
+                    maxOf(geoms[i].sweepDeg, 36f)
                 } else {
-                    rawSweepDeg
+                    geoms[i].sweepDeg
+                }
+
+                // Warp start and end angles using FisheyeTimeLens for 100% in-app parity
+                val dialDeg: Float
+                val sweepDeg: Float
+                if (isLensEnabled && dynamicFocusAngle >= 0f && dynamicMagnification > 1.001f) {
+                    val wStart = warpAngle(rawStartDeg.toDouble(), dynamicFocusAngle.toDouble(), dynamicMagnification.toDouble()).toFloat()
+                    val wEnd = warpAngle((rawStartDeg + unwarpedSweep).toDouble(), dynamicFocusAngle.toDouble(), dynamicMagnification.toDouble()).toFloat()
+                    var wSweep = wEnd - wStart
+                    if (wSweep < 0f) wSweep += 360f
+                    if (wSweep == 0f && unwarpedSweep > 0f) wSweep = 360f
+                    dialDeg = wStart
+                    sweepDeg = wSweep
+                } else {
+                    dialDeg = rawStartDeg
+                    sweepDeg = unwarpedSweep
                 }
 
                 val prevEvent = if (i > 0) horizonEvents[i - 1] else null
@@ -1176,7 +1437,10 @@ class SectographWidgetProvider : AppWidgetProvider() {
             for (l in layouts) {
                 if (l.sweepDeg < 10f) continue
 
-                val midDeg = l.startDeg + l.sweepDeg / 2f
+                val effStart = l.startDeg + l.effectiveStartCap
+                val effEnd = (l.startDeg + l.sweepDeg) - l.endCapSpan
+                val effSweep = maxOf(1f, effEnd - effStart)
+                val midDeg = effStart + effSweep / 2f
                 val midRad = Math.toRadians((midDeg - 90.0).toDouble())
                 val midR = (rIn + rOut) / 2f
                 val posX = centerX + midR * Math.cos(midRad).toFloat()
@@ -1186,7 +1450,7 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 val isDarkSector = lum <= 0.55
                 val textColor = if (isDarkSector) Color.parseColor("#F7F3EE") else Color.parseColor("#1E1A16")
 
-                val iconGlyph = getEventIconGlyph(l.event.title)
+                val iconGlyph = getEventIconGlyph(l.event.title, l.event.iconName)
                 val keyword = distillShortKeyword(l.event.title)
 
                 val durMin = ((l.event.end - l.event.start) / (60 * 1000L)).toInt()
@@ -1360,7 +1624,11 @@ class SectographWidgetProvider : AppWidgetProvider() {
             val intervalsPerHour = if (is24HourMode) 2 else 4
             for (i in 0 until intervals) {
                 if (i % intervalsPerHour == 0) continue // Skip positions where hour numerals sit
-                val deg = (i / intervals.toFloat()) * 360f - 90f
+                val rawDeg = (i / intervals.toFloat()) * 360f
+                val visualDeg = if (isLensEnabled && dynamicFocusAngle >= 0f && dynamicMagnification > 1.001f) {
+                    warpAngle(rawDeg.toDouble(), dynamicFocusAngle.toDouble(), dynamicMagnification.toDouble()).toFloat()
+                } else rawDeg
+                val deg = visualDeg - 90f
                 val rad = Math.toRadians(deg.toDouble())
                 val isHalfHour = (!is24HourMode && i % 2 == 0)
                 val tickLen = (if (isHalfHour) 3.5f else 2.0f) * scale
@@ -1411,7 +1679,11 @@ class SectographWidgetProvider : AppWidgetProvider() {
             val stepHours = if (is24HourMode) 2 else 1
             for (h in 0 until hourCount step stepHours) {
                 val numStr = if (is24HourMode) h.toString() else (if (h == 0) "12" else h.toString())
-                val deg = (h / hourCount.toFloat()) * 360f - 90f
+                val rawDeg = (h / hourCount.toFloat()) * 360f
+                val visualDeg = if (isLensEnabled && dynamicFocusAngle >= 0f && dynamicMagnification > 1.001f) {
+                    warpAngle(rawDeg.toDouble(), dynamicFocusAngle.toDouble(), dynamicMagnification.toDouble()).toFloat()
+                } else rawDeg
+                val deg = visualDeg - 90f
                 val rad = Math.toRadians(deg.toDouble())
                 val nx = centerX + numRadius * Math.cos(rad).toFloat()
                 val ny = centerY + numRadius * Math.sin(rad).toFloat()

@@ -131,14 +131,8 @@ class DialSectorLayoutStretcher {
             : AppLayoutConstants.targetActiveSubtaskSweepDeg12H(
                 ev.subtasks.length,
               );
-        if (isHighPriority) {
-          // Active or selected block with subtasks gets full expansion target
-          baseTargetSweep = math.max(baseTargetSweep, subtaskTarget);
-        } else {
-          // Non-active block with subtasks: moderate expansion target if adjacent gaps allow
-          final subtaskPassiveTarget = is24HourMode ? 30.0 : 42.0;
-          baseTargetSweep = math.max(baseTargetSweep, subtaskPassiveTarget);
-        }
+        // Any block with subtasks targets the full subtask capacity so it has natural breathing room
+        baseTargetSweep = math.max(baseTargetSweep, subtaskTarget);
       } else if (isHighPriority) {
         final priorityFloor = is24HourMode ? 28.0 : 40.0;
         baseTargetSweep = math.max(baseTargetSweep, priorityFloor);
@@ -165,6 +159,79 @@ class DialSectorLayoutStretcher {
 
     final remainingUsable = List<double>.from(usableSpace);
 
+    final grantedFwd = List<double>.filled(n, 0.0);
+    final grantedBwd = List<double>.filled(n, 0.0);
+    final shiftFwd = List<double>.filled(n, 0.0);
+
+    // 4.5. Contiguous Monolithic Rebalancing:
+    // If an event with subtasks has a deficit, first borrow space directly from
+    // contiguous monolithic neighbors (e.g. Sleep with large sweep and no subtasks).
+    // This allows subtask pebble chips to breathe without pushing downstream events!
+    final minMonolithicSweep = is24HourMode ? 28.0 : 45.0;
+    for (int i = 0; i < n; i++) {
+      final ev = sorted[i];
+      if (ev.subtasks.isEmpty) continue;
+      var remDeficit = deficits[i] - (grantedBwd[i] + grantedFwd[i]);
+      if (remDeficit <= 0.001) continue;
+
+      // 1. Borrow backward from contiguous predecessor if monolithic
+      final prevIdx = (i - 1 + n) % n;
+      if (isContiguousWithNext[prevIdx] && sorted[prevIdx].subtasks.isEmpty) {
+        final prevEv = sorted[prevIdx];
+        var minDonorSweep = minMonolithicSweep;
+        if (currentTime != null &&
+            !currentTime.isBefore(prevEv.start) &&
+            currentTime.isBefore(prevEv.end)) {
+          final elapsedMin =
+              currentTime.difference(prevEv.start).inSeconds / 60.0;
+          final rate = is24HourMode ? 0.25 : 0.5;
+          final needleOffsetDeg = elapsedMin * rate;
+          minDonorSweep = math.max(minDonorSweep, needleOffsetDeg + 12.0);
+        }
+
+        final currentPrevSweep = prevEv.sweepAngle +
+            grantedFwd[prevIdx] -
+            grantedBwd[prevIdx];
+        final prevAvail = math.max(0.0, currentPrevSweep - minDonorSweep);
+        if (prevAvail > 0.0) {
+          final take = math.min(remDeficit, prevAvail);
+          grantedBwd[i] += take;
+          grantedFwd[prevIdx] -= take;
+          remDeficit -= take;
+        }
+      }
+
+      // 2. Borrow forward from contiguous successor if monolithic
+      if (remDeficit > 0.001) {
+        final nextIdx = (i + 1) % n;
+        if (isContiguousWithNext[i] && sorted[nextIdx].subtasks.isEmpty) {
+          final nextEv = sorted[nextIdx];
+          var minDonorSweep = minMonolithicSweep;
+          if (currentTime != null &&
+              !currentTime.isBefore(nextEv.start) &&
+              currentTime.isBefore(nextEv.end)) {
+            final remainingMin =
+                nextEv.end.difference(currentTime).inSeconds / 60.0;
+            final rate = is24HourMode ? 0.25 : 0.5;
+            final needleFromEndDeg = remainingMin * rate;
+            minDonorSweep = math.max(minDonorSweep, needleFromEndDeg + 12.0);
+          }
+
+          final currentNextSweep = nextEv.sweepAngle +
+              grantedFwd[nextIdx] -
+              grantedBwd[nextIdx];
+          final nextAvail = math.max(0.0, currentNextSweep - minDonorSweep);
+          if (nextAvail > 0.0) {
+            final takeFwd = math.min(remDeficit, nextAvail);
+            grantedFwd[i] += takeFwd;
+            shiftFwd[nextIdx] += takeFwd;
+            grantedFwd[nextIdx] -= takeFwd;
+            remDeficit -= takeFwd;
+          }
+        }
+      }
+    }
+
     // 5. Pass 1: Compute preferred expansion requests (backward into prev gap, forward into next gap)
     // CRITICAL: Active and selected blocks (isPriority) must NEVER borrow backward across clock time
     // so their start caps (e.g. 3:30 PM) remain strictly anchored to their clock hour mark!
@@ -172,8 +239,9 @@ class DialSectorLayoutStretcher {
     final reqFwd = List<double>.filled(n, 0.0);
 
     for (int i = 0; i < n; i++) {
-      final d = deficits[i];
-      if (d <= 0.0) continue;
+      if (deficits[i] <= 0.001) continue;
+      final d = deficits[i] - (grantedBwd[i] + grantedFwd[i]);
+      if (d <= 0.001) continue;
 
       final prevIdx = (i - 1 + n) % n;
       final prevAvail = usableSpace[prevIdx];
@@ -207,10 +275,6 @@ class DialSectorLayoutStretcher {
     }
 
     // 6. Allocate from each gap k: event k expands forward, event k+1 expands backward
-    final grantedFwd = List<double>.filled(n, 0.0);
-    final grantedBwd = List<double>.filled(n, 0.0);
-    final shiftFwd = List<double>.filled(n, 0.0);
-
     for (int k = 0; k < n; k++) {
       final nextIdx = (k + 1) % n;
       final demand = reqFwd[k] + reqBwd[nextIdx];
@@ -219,8 +283,8 @@ class DialSectorLayoutStretcher {
       if (demand <= 0.0 || avail <= 0.0) continue;
 
       if (demand <= avail) {
-        grantedFwd[k] = reqFwd[k];
-        grantedBwd[nextIdx] = reqBwd[nextIdx];
+        grantedFwd[k] += reqFwd[k];
+        grantedBwd[nextIdx] += reqBwd[nextIdx];
         remainingUsable[k] = avail - demand;
       } else {
         // Prioritize active or selected events if there's contention for the same gap
@@ -231,13 +295,13 @@ class DialSectorLayoutStretcher {
           final fwdShare = (reqFwd[k] * kPrio) / totalWeight;
           final fwdAlloc = math.min(reqFwd[k], avail * fwdShare);
           final bwdAlloc = math.min(reqBwd[nextIdx], avail - fwdAlloc);
-          grantedFwd[k] = fwdAlloc;
-          grantedBwd[nextIdx] = bwdAlloc;
+          grantedFwd[k] += fwdAlloc;
+          grantedBwd[nextIdx] += bwdAlloc;
           remainingUsable[k] = math.max(0.0, avail - (fwdAlloc + bwdAlloc));
         } else {
           final scale = avail / demand;
-          grantedFwd[k] = reqFwd[k] * scale;
-          grantedBwd[nextIdx] = reqBwd[nextIdx] * scale;
+          grantedFwd[k] += reqFwd[k] * scale;
+          grantedBwd[nextIdx] += reqBwd[nextIdx] * scale;
           remainingUsable[k] = 0.0;
         }
       }
@@ -245,6 +309,7 @@ class DialSectorLayoutStretcher {
 
     // 7. Pass 2: Scavenge unused forward gap space for any events still with unsatisfied deficit
     void scavenge(int i) {
+      if (deficits[i] <= 0.001) return;
       final totalGranted = grantedBwd[i] + grantedFwd[i];
       var remainingDeficit = deficits[i] - totalGranted;
       if (remainingDeficit <= 0.001) return;

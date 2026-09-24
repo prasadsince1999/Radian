@@ -116,11 +116,11 @@ class SectorContentRenderer {
     final titleFontSize = dynamicTypeSize;
     final metaFontSize = (dynamicTypeSize * 0.85).clamp(7.5, 10.5);
     final pebbleFontSize = hasSubtasks
-        ? (dynamicTypeSize * 0.90).clamp(
-            is24HourMode || effectiveSweepDeg < 45.0 ? 8.0 : 9.5,
-            12.0,
+        ? (dynamicTypeSize * 0.95).clamp(
+            is24HourMode ? 9.2 : 10.2,
+            12.5,
           )
-        : (dynamicTypeSize * 0.85).clamp(8.0, 11.0);
+        : (dynamicTypeSize * 0.85).clamp(8.5, 11.0);
 
     final iconData = _getEventIcon(event);
     final iconPainter = TextPainter(
@@ -484,16 +484,8 @@ class SectorContentRenderer {
 
     // Safety margins to prevent touching block boundaries or center title,
     // guaranteeing natural breathing room around caps and titles
-    final boundaryBufferDeg = is24HourMode
-        ? 0.8
-        : (effectiveSweepDeg < 35.0
-              ? 0.5
-              : (effectiveSweepDeg < 60.0 ? 1.5 : 2.2));
-    final titleBufferDeg = is24HourMode
-        ? 0.8
-        : (effectiveSweepDeg < 35.0
-              ? 0.6
-              : (effectiveSweepDeg < 60.0 ? 1.5 : 2.5));
+    final boundaryBufferDeg = is24HourMode ? 4.5 : 8.5;
+    final titleBufferDeg = is24HourMode ? 2.0 : 4.0;
 
     // 1. Upstream (Left) Water Bay: between start boundary cap and center title.
     // Note: effectiveSweepDeg already subtracts startCapSpanDeg and endCapSpanDeg,
@@ -569,99 +561,23 @@ class SectorContentRenderer {
         }
       }
     } else if (count == 3) {
-      // 3 pebbles (e.g. Gym, Cardio, Stretch or LeetCode, Mock, PyTorch)
-      final canLeftFit2 = leftBayWidth >= requiredForTwo(0, 1);
-      final canRightFit2 = rightBayWidth >= requiredForTwo(1, 2);
-      final canLeftFit1 = canFitSingle(0, leftBayWidth);
-      final canRightFit1 = canFitSingle(2, rightBayWidth);
-
-      // Prioritize putting 2 pebbles into the larger bay so they have maximum natural space:
+      // 3 pebbles (e.g. Pranayama, Asanas, Meditation or LeetCode, Mock, PyTorch)
+      // Never drop the 3rd subtask! Allocate 2 pebbles to the wider bay and 1 to the other bay:
       if (leftBayWidth >= rightBayWidth) {
-        if (canLeftFit2 && canRightFit1) {
-          leftPebbleIndices.add(0);
-          leftPebbleIndices.add(1);
-          rightPebbleIndices.add(2);
-        } else if (canRightFit2 && canLeftFit1) {
-          leftPebbleIndices.add(0);
-          rightPebbleIndices.add(1);
-          rightPebbleIndices.add(2);
-        } else if (canLeftFit1 && canRightFit1) {
-          leftPebbleIndices.add(0);
-          rightPebbleIndices.add(1);
-        } else if (canLeftFit2) {
-          leftPebbleIndices.add(0);
-          leftPebbleIndices.add(1);
-        } else if (canRightFit2) {
-          rightPebbleIndices.add(0);
-          rightPebbleIndices.add(1);
-        } else if (canLeftFit1) {
-          leftPebbleIndices.add(0);
-        } else if (canRightFit1) {
-          rightPebbleIndices.add(0);
-        }
-      } else {
-        if (canRightFit2 && canLeftFit1) {
-          leftPebbleIndices.add(0);
-          rightPebbleIndices.add(1);
-          rightPebbleIndices.add(2);
-        } else if (canLeftFit2 && canRightFit1) {
-          leftPebbleIndices.add(0);
-          leftPebbleIndices.add(1);
-          rightPebbleIndices.add(2);
-        } else if (canLeftFit1 && canRightFit1) {
-          leftPebbleIndices.add(0);
-          rightPebbleIndices.add(1);
-        } else if (canRightFit2) {
-          rightPebbleIndices.add(0);
-          rightPebbleIndices.add(1);
-        } else if (canLeftFit2) {
-          leftPebbleIndices.add(0);
-          leftPebbleIndices.add(1);
-        } else if (canRightFit1) {
-          rightPebbleIndices.add(0);
-        } else if (canLeftFit1) {
-          leftPebbleIndices.add(0);
-        }
-      }
-    } else {
-      // 4 pebbles
-      final canLeftFit2 = leftBayWidth >= requiredForTwo(0, 1);
-      final canRightFit2 = rightBayWidth >= requiredForTwo(2, 3);
-      final canLeftFit1 = canFitSingle(0, leftBayWidth);
-      final canRightFit1 = canFitSingle(1, rightBayWidth);
-
-      if (canLeftFit2 && canRightFit2) {
         leftPebbleIndices.add(0);
         leftPebbleIndices.add(1);
         rightPebbleIndices.add(2);
-        rightPebbleIndices.add(3);
-      } else if (leftBayWidth >= rightBayWidth) {
-        if (canLeftFit2 && canRightFit1) {
-          leftPebbleIndices.add(0);
-          leftPebbleIndices.add(1);
-          rightPebbleIndices.add(2);
-        } else if (canRightFit2 && canLeftFit1) {
-          leftPebbleIndices.add(0);
-          rightPebbleIndices.add(1);
-          rightPebbleIndices.add(2);
-        } else if (canLeftFit1 && canRightFit1) {
-          leftPebbleIndices.add(0);
-          rightPebbleIndices.add(1);
-        }
       } else {
-        if (canRightFit2 && canLeftFit1) {
-          leftPebbleIndices.add(0);
-          rightPebbleIndices.add(1);
-          rightPebbleIndices.add(2);
-        } else if (canLeftFit2 && canRightFit1) {
-          leftPebbleIndices.add(0);
-          leftPebbleIndices.add(1);
-          rightPebbleIndices.add(2);
-        } else if (canLeftFit1 && canRightFit1) {
-          leftPebbleIndices.add(0);
-          rightPebbleIndices.add(1);
-        }
+        leftPebbleIndices.add(0);
+        rightPebbleIndices.add(1);
+        rightPebbleIndices.add(2);
       }
+    } else {
+      // 4 pebbles: 2 in left bay, 2 in right bay
+      leftPebbleIndices.add(0);
+      leftPebbleIndices.add(1);
+      rightPebbleIndices.add(2);
+      rightPebbleIndices.add(3);
     }
 
     void renderBayPebbles({
@@ -676,10 +592,16 @@ class SectorContentRenderer {
         final idx = indices[0];
         final dim = pebbleDimensions[idx];
         final fullW = dim.halfDeg * 2.0;
-        final scaleFactor = (bayWidth / fullW).clamp(0.55, 1.0);
+        final maxAllowedW = math.max(0.0, bayWidth - 1.2);
+        final scaleFactor = (maxAllowedW / fullW).clamp(0.75, 1.0);
+        final scaledHalf = dim.halfDeg * scaleFactor;
         final scaledH = dim.h * scaleFactor;
 
-        final targetAngle = (bayStart + bayEnd) / 2.0;
+        final minSafeAngle = bayStart + scaledHalf;
+        final maxSafeAngle = bayEnd - scaledHalf;
+        final targetAngle = minSafeAngle <= maxSafeAngle
+            ? ((bayStart + bayEnd) / 2.0).clamp(minSafeAngle, maxSafeAngle)
+            : (bayStart + bayEnd) / 2.0;
 
         final pDeg = midDeg + targetAngle;
         final pRad = SectorMath.dialAngleToCanvasRadians(pDeg);
@@ -688,6 +610,8 @@ class SectorContentRenderer {
           rOut - scaledH / 2.0 - 2.0,
         );
 
+        final tilt = effectiveSweepDeg < 45.0 ? 0.0 : tilts[idx % tilts.length];
+
         _renderSinglePebble(
           canvas: canvas,
           center: center,
@@ -695,7 +619,7 @@ class SectorContentRenderer {
           dim: dim,
           pRad: pRad,
           pR: pR,
-          tilt: tilts[idx % tilts.length],
+          tilt: tilt,
           scaleFactor: scaleFactor,
           pebbleBgPaint: pebbleBgPaint,
           pebbleBorderPaint: pebbleBorderPaint,
@@ -712,7 +636,7 @@ class SectorContentRenderer {
             ? 2.0
             : (effectiveSweepDeg < 45.0 ? 2.8 : 4.0);
         final unscaledRequired = fullW1 + minAirGapDeg + fullW2;
-        final scaleFactor = (bayWidth / unscaledRequired).clamp(0.60, 1.0);
+        final scaleFactor = (bayWidth / unscaledRequired).clamp(0.70, 1.0);
 
         final scaledW1 = fullW1 * scaleFactor;
         final scaledHalf1 = dim1.halfDeg * scaleFactor;
@@ -722,37 +646,86 @@ class SectorContentRenderer {
         final minRequiredWidth = scaledW1 + scaledAirGap + scaledW2;
 
         if (bayWidth < minRequiredWidth) {
-          // Safe fallback to 1 pebble centered:
-          final singleScale = (bayWidth / fullW1).clamp(0.55, 1.0);
-          final sHalf = dim1.halfDeg * singleScale;
-          final sH = dim1.h * singleScale;
+          // RADIAL STAGGERING:
+          // When angular bay width is compact, stagger the 2 pebbles vertically across the
+          // generous radial track thickness so ALL subtasks remain visible with ZERO cap overlap!
+          final maxAllowedW = math.max(0.0, bayWidth - 1.2);
+          final sScale1 = (maxAllowedW / fullW1).clamp(0.72, 1.0);
+          final sScale2 = (maxAllowedW / fullW2).clamp(0.72, 1.0);
+          final sHalf1 = dim1.halfDeg * sScale1;
+          final sHalf2 = dim2.halfDeg * sScale2;
+          final sH1 = dim1.h * sScale1;
+          final sH2 = dim2.h * sScale2;
 
-          final targetAngle = ((bayStart + bayEnd) / 2.0).clamp(
-            math.min(bayStart + sHalf, bayEnd - sHalf),
-            math.max(bayStart + sHalf, bayEnd - sHalf),
+          final radialDelta = (trackThickness * 0.22).clamp(7.0, 14.0);
+          final p1R = (midR + radialDelta).clamp(
+            rIn + sH1 / 2.0 + 2.0,
+            rOut - sH1 / 2.0 - 2.0,
           );
+          final p2R = (midR - radialDelta).clamp(
+            rIn + sH2 / 2.0 + 2.0,
+            rOut - sH2 / 2.0 - 2.0,
+          );
+
+          final bayMid = (bayStart + bayEnd) / 2.0;
+          final angSep = (bayWidth * 0.12).clamp(0.8, 2.0);
+
+          final minSafe1 = bayStart + sHalf1;
+          final maxSafe1 = bayEnd - sHalf1;
+          final p1Angle = minSafe1 <= maxSafe1
+              ? (bayMid - angSep).clamp(minSafe1, maxSafe1)
+              : bayMid;
+
+          final minSafe2 = bayStart + sHalf2;
+          final maxSafe2 = bayEnd - sHalf2;
+          final p2Angle = minSafe2 <= maxSafe2
+              ? (bayMid + angSep).clamp(minSafe2, maxSafe2)
+              : bayMid;
+
+          const tilt1 = 0.0;
+          const tilt2 = 0.0;
+
           _renderSinglePebble(
             canvas: canvas,
             center: center,
             tp: textPainters[idx1],
             dim: dim1,
-            pRad: SectorMath.dialAngleToCanvasRadians(midDeg + targetAngle),
-            pR: midR.clamp(rIn + sH / 2.0 + 2.0, rOut - sH / 2.0 - 2.0),
-            tilt: tilts[idx1 % tilts.length],
-            scaleFactor: singleScale,
+            pRad: SectorMath.dialAngleToCanvasRadians(midDeg + p1Angle),
+            pR: p1R,
+            tilt: tilt1,
+            scaleFactor: sScale1,
+            pebbleBgPaint: pebbleBgPaint,
+            pebbleBorderPaint: pebbleBorderPaint,
+          );
+
+          _renderSinglePebble(
+            canvas: canvas,
+            center: center,
+            tp: textPainters[idx2],
+            dim: dim2,
+            pRad: SectorMath.dialAngleToCanvasRadians(midDeg + p2Angle),
+            pR: p2R,
+            tilt: tilt2,
+            scaleFactor: sScale2,
             pebbleBgPaint: pebbleBgPaint,
             pebbleBorderPaint: pebbleBorderPaint,
           );
           return;
         }
 
-        // Both pebbles fit with guaranteed disjoint intervals & natural spacing:
+        // Both pebbles fit side-by-side with guaranteed disjoint intervals & natural spacing:
         final slack = math.max(0.0, bayWidth - minRequiredWidth);
         final margin = slack / 3.0;
         final betweenGap = scaledAirGap + margin;
 
-        final p1Angle = bayStart + margin + scaledHalf1;
-        final p2Angle = p1Angle + scaledHalf1 + betweenGap + scaledHalf2;
+        final p1Angle = (bayStart + margin + scaledHalf1).clamp(
+          bayStart + scaledHalf1,
+          bayEnd - scaledHalf1,
+        );
+        final p2Angle = (p1Angle + scaledHalf1 + betweenGap + scaledHalf2).clamp(
+          bayStart + scaledHalf2,
+          bayEnd - scaledHalf2,
+        );
 
         final p1R = midR.clamp(
           rIn + (dim1.h * scaleFactor) / 2.0 + 2.0,

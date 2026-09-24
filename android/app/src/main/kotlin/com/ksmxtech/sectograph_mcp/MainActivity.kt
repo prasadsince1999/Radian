@@ -83,6 +83,9 @@ class MainActivity : FlutterActivity() {
             pendingAction = "open_update"
             methodChannel?.invokeMethod("onOpenUpdate", intent.getStringExtra("version") ?: "")
         }
+        if (action == "pin_widget") {
+            widgetSyncHelper.pinWidget()
+        }
 
         // Handle URI schemes: radian://new_block, radian://today, radian://dial, radian://event?id=...
         val dataUri = intent.data
@@ -122,6 +125,7 @@ class MainActivity : FlutterActivity() {
                         val dialBgColor = (call.argument<Number>("dialBgColor"))?.toInt() ?: 0
                         val eventsJson = call.argument<String>("eventsJson")
                         val timestamp = (call.argument<Number>("timestamp"))?.toLong() ?: System.currentTimeMillis()
+                        val activeEventEnd = (call.argument<Number>("activeEventEnd"))?.toLong() ?: 0L
                         val focusAngle = (call.argument<Number>("focusAngle"))?.toFloat() ?: -1f
                         val magnification = (call.argument<Number>("magnification"))?.toFloat() ?: 1.0f
                         val isFocusLensEnabled = call.argument<Boolean>("isFocusLensEnabled") ?: true
@@ -138,6 +142,7 @@ class MainActivity : FlutterActivity() {
                                 dialBgColor,
                                 eventsJson,
                                 timestamp,
+                                activeEventEnd,
                                 focusAngle,
                                 magnification,
                                 isFocusLensEnabled,

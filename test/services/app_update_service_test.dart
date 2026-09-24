@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:sectograph_mcp/core/constants/app_strings.dart';
 import 'package:sectograph_mcp/core/services/app_update_service.dart';
 import 'package:sectograph_mcp/presentation/controllers/app_update_controller.dart';
 
@@ -184,9 +185,9 @@ void main() {
       final mockClient = MockClient((request) async {
         return http.Response(
           jsonEncode({
-            'version': '1.0.21',
-            'tag': 'v1.0.21',
-            'downloadUrl': 'https://example.com/Radian-1.0.21.apk',
+            'version': AppStrings.appVersion,
+            'tag': 'v${AppStrings.appVersion}',
+            'downloadUrl': 'https://example.com/Radian-${AppStrings.appVersion}.apk',
             'apkName': 'Radian.apk',
             'sizeBytes': 50000000,
             'releaseNotes': 'Current release.',
@@ -206,13 +207,13 @@ void main() {
       expect(hasUpdate, isFalse);
       expect(controller.state.status, equals(AppUpdateStatus.upToDate));
       expect(controller.state.isUpToDate, isTrue);
-      expect(controller.state.currentVersion, equals('1.0.21'));
+      expect(controller.state.currentVersion, equals(AppStrings.appVersion));
     });
 
     test('getInstalledVersion falls back to AppStrings.appVersion in test environment', () async {
       final service = AppUpdateService();
       final version = await service.getInstalledVersion();
-      expect(version, equals('1.0.21'));
+      expect(version, equals(AppStrings.appVersion));
     });
 
     test('dismiss resets state to idle', () {

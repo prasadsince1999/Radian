@@ -31,6 +31,7 @@ class WidgetSyncHelper(private val context: Context) {
         dialBgColor: Int = 0,
         eventsJson: String? = null,
         timestamp: Long = System.currentTimeMillis(),
+        activeEventEnd: Long = 0L,
         focusAngle: Float = -1f,
         magnification: Float = 1.0f,
         isFocusLensEnabled: Boolean = true,
@@ -64,6 +65,7 @@ class WidgetSyncHelper(private val context: Context) {
             .putBoolean(SectographWidgetProvider.KEY_IS_24_HOUR, is24HourMode)
             .putInt(SectographWidgetProvider.KEY_DIAL_BG_COLOR, dialBgColor)
             .putLong(SectographWidgetProvider.KEY_BASE_TIMESTAMP, timestamp)
+            .putLong(SectographWidgetProvider.KEY_ACTIVE_EVENT_END, activeEventEnd)
             .putString(SectographWidgetProvider.KEY_BASE_DATE, todayStr)
             .putFloat(SectographWidgetProvider.KEY_FOCUS_ANGLE, focusAngle)
             .putFloat(SectographWidgetProvider.KEY_MAGNIFICATION, magnification)

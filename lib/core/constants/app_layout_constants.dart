@@ -52,30 +52,30 @@ abstract final class AppLayoutConstants {
   static const double minContentSweepDeg12H = 34.0;
 
   /// Minimum sweep angle in 12H mode for an active or focused block with subtasks so river pebble chips fit with generous breathing room.
-  static const double minActiveSubtaskSweepDeg12H = 52.0;
+  static const double minActiveSubtaskSweepDeg12H = 70.0;
 
   /// Minimum sweep angle in 24H mode for an active or focused block with subtasks.
-  static const double minActiveSubtaskSweepDeg24H = 32.0;
+  static const double minActiveSubtaskSweepDeg24H = 40.0;
 
   /// Computes the target sweep angle in 12H mode for an active or focused block based on subtask count.
   static double targetActiveSubtaskSweepDeg12H(int subtaskCount) {
     if (subtaskCount <= 1) return minActiveSubtaskSweepDeg12H;
-    if (subtaskCount == 2) return 58.0;
-    if (subtaskCount == 3) return 64.0;
-    return (64.0 + (subtaskCount - 3) * 5.0).clamp(
+    if (subtaskCount == 2) return 88.0;
+    if (subtaskCount == 3) return 110.0;
+    return (110.0 + (subtaskCount - 3) * 10.0).clamp(
       minActiveSubtaskSweepDeg12H,
-      74.0,
+      130.0,
     );
   }
 
   /// Computes the target sweep angle in 24H mode for an active or focused block based on subtask count.
   static double targetActiveSubtaskSweepDeg24H(int subtaskCount) {
     if (subtaskCount <= 1) return minActiveSubtaskSweepDeg24H;
-    if (subtaskCount == 2) return 36.0;
-    if (subtaskCount == 3) return 42.0;
-    return (42.0 + (subtaskCount - 3) * 4.0).clamp(
+    if (subtaskCount == 2) return 50.0;
+    if (subtaskCount == 3) return 62.0;
+    return (62.0 + (subtaskCount - 3) * 6.0).clamp(
       minActiveSubtaskSweepDeg24H,
-      50.0,
+      80.0,
     );
   }
 

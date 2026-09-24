@@ -221,7 +221,7 @@ void main() {
         activeEventId: 'solo1',
       );
       expect(stretched1.first.startAngle, 105.0);
-      expect(stretched1.first.sweepAngle, 52.0);
+      expect(stretched1.first.sweepAngle, 70.0);
 
       final single3 = SectorEvent(
         id: 'solo3',
@@ -239,7 +239,7 @@ void main() {
         activeEventId: 'solo3',
       );
       expect(stretched3.first.startAngle, 105.0);
-      expect(stretched3.first.sweepAngle, 64.0);
+      expect(stretched3.first.sweepAngle, 110.0);
     });
 
     test('active sector with subtasks contiguous with successor borrows from downstream gaps and expands to full target', () {
@@ -310,6 +310,71 @@ void main() {
       var gapToRead = (stretchedRead.startAngle - workoutEnd) % 360.0;
       if (gapToRead < 0) gapToRead += 360.0;
       expect(gapToRead, greaterThanOrEqualTo(3.5));
+    });
+
+    test('contiguous monolithic rebalancing: Sleep lends space backward to Yoga with subtasks, preserving contiguity and zero overlap with Breakfast', () {
+      final sleep = SectorEvent(
+        id: 'sleep',
+        title: 'Sleep',
+        start: DateTime(2026, 9, 20, 0, 0),
+        end: DateTime(2026, 9, 20, 6, 0),
+        startAngle: 0.0,
+        sweepAngle: 180.0,
+        subtasks: const [],
+      );
+
+      final yoga = SectorEvent(
+        id: 'yoga',
+        title: 'Yoga & Sadhana',
+        start: DateTime(2026, 9, 20, 6, 0),
+        end: DateTime(2026, 9, 20, 7, 15),
+        startAngle: 180.0,
+        sweepAngle: 37.5,
+        subtasks: const ['Pranayama', 'Asanas', 'Meditation'],
+      );
+
+      final breakfast = SectorEvent(
+        id: 'breakfast',
+        title: 'Breakfast',
+        start: DateTime(2026, 9, 20, 7, 15),
+        end: DateTime(2026, 9, 20, 8, 0),
+        startAngle: 217.5,
+        sweepAngle: 22.5,
+        subtasks: const [],
+      );
+
+      final result = DialSectorLayoutStretcher.stretch(
+        [sleep, yoga, breakfast],
+        is24HourMode: false,
+      );
+
+      final stretchedSleep = result.firstWhere((e) => e.id == 'sleep');
+      final stretchedYoga = result.firstWhere((e) => e.id == 'yoga');
+      final stretchedBreakfast = result.firstWhere((e) => e.id == 'breakfast');
+
+      // Yoga must expand to 110.0° by borrowing from Sleep
+      expect(stretchedYoga.sweepAngle, 110.0);
+
+      // Sleep must reduce from 180.0° to 107.5°
+      expect(stretchedSleep.sweepAngle, 107.5);
+      expect(stretchedSleep.startAngle, 0.0);
+
+      // Sleep ends at 107.5° and Yoga starts at 107.5° (100% contiguous!)
+      final sleepEnd = SectorMath.normalizeDegrees(
+        stretchedSleep.startAngle + stretchedSleep.sweepAngle,
+      );
+      expect(sleepEnd, 107.5);
+      expect(stretchedYoga.startAngle, 107.5);
+
+      // Yoga ends at 107.5° + 110.0° = 217.5° (7:15 AM)
+      final yogaEnd = SectorMath.normalizeDegrees(
+        stretchedYoga.startAngle + stretchedYoga.sweepAngle,
+      );
+      expect(yogaEnd, 217.5);
+
+      // Breakfast starts at exactly 217.5° with zero displacement or overlap!
+      expect(stretchedBreakfast.startAngle, 217.5);
+      expect(stretchedBreakfast.sweepAngle, 26.0);
     });
   });
 }

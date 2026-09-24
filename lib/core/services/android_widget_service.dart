@@ -153,6 +153,7 @@ class AndroidWidgetService {
               'end': e.end.millisecondsSinceEpoch,
               'color': e.color.toARGB32(),
               'subtasks': e.subtasks,
+              'iconName': e.iconName,
             },
           )
           .toList();
@@ -169,6 +170,7 @@ class AndroidWidgetService {
         'dialBgColor': dialBgColor,
         'eventsJson': eventsJson,
         'timestamp': currentTime.millisecondsSinceEpoch,
+        'activeEventEnd': activeEvent?.end.millisecondsSinceEpoch ?? 0,
         'focusAngle': lensParams.focusAngle,
         'magnification': lensParams.magnification,
         'isFocusLensEnabled': lensParams.isFocusLensEnabled,
