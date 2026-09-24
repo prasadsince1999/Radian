@@ -58,7 +58,7 @@ class WidgetSyncHelper(private val context: Context) {
 
         // Save prefs
         val prefs = context.getSharedPreferences(SectographWidgetProvider.PREFS_NAME, Context.MODE_PRIVATE)
-        val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(timestamp))
+        val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(timestamp))
         val editor = prefs.edit()
             .putString(SectographWidgetProvider.KEY_TITLE, title)
             .putString(SectographWidgetProvider.KEY_TIME, time)
