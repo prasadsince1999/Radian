@@ -219,11 +219,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       currentTime.month,
       currentTime.day,
     );
-    // Always supply today's projected events so widget has valid timestamps for the current day
+    // Prefer today's projected events. Skip while streams are still loading
+    // so we never overwrite a good widget face with an empty snapshot.
     final events =
         ref.read(eventsForDateProvider(today)).value ??
-        ref.read(dayEventsProvider).value ??
-        const [];
+        ref.read(dayEventsProvider).value;
+    if (events == null) {
+      return;
+    }
     final activeEvent = ref.read(currentActiveEventProvider);
     final settings = ref.read(dialSettingsProvider);
     final theme = Theme.of(context);
