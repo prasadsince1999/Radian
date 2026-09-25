@@ -4,6 +4,7 @@ import 'package:sectograph_mcp/core/geometry/sector_math.dart';
 import 'package:sectograph_mcp/domain/models/free_gap.dart';
 import 'package:sectograph_mcp/domain/models/sector_event.dart';
 import 'package:sectograph_mcp/domain/repositories/event_repository.dart';
+import 'package:sectograph_mcp/domain/schedule/event_day_projector.dart';
 
 /// In-memory fake repository for deterministic widget testing without native SQLite.
 class FakeEventRepository implements EventRepository {
@@ -27,90 +28,7 @@ class FakeEventRepository implements EventRepository {
     List<SectorEvent> events,
     DateTime day,
   ) {
-    final dayEvents = <SectorEvent>[];
-    for (final e in events) {
-      if (e.repeatDays != null && e.repeatDays!.isNotEmpty) {
-        final startBoundary = DateTime(
-          e.start.year,
-          e.start.month,
-          e.start.day,
-        );
-        if (day.isBefore(startBoundary)) continue;
-        if (e.recurrenceEndDate != null) {
-          final endBoundary = DateTime(
-            e.recurrenceEndDate!.year,
-            e.recurrenceEndDate!.month,
-            e.recurrenceEndDate!.day,
-            23,
-            59,
-            59,
-          );
-          if (day.isAfter(endBoundary)) continue;
-        }
-        if (e.repeatDays!.contains(day.weekday)) {
-          final projStart = DateTime(
-            day.year,
-            day.month,
-            day.day,
-            e.start.hour,
-            e.start.minute,
-          );
-          dayEvents.add(
-            e.copyWith(start: projStart, end: projStart.add(e.duration)),
-          );
-        }
-      } else if (e.recurrenceEndDate != null) {
-        final startBoundary = DateTime(
-          e.start.year,
-          e.start.month,
-          e.start.day,
-        );
-        final endBoundary = DateTime(
-          e.recurrenceEndDate!.year,
-          e.recurrenceEndDate!.month,
-          e.recurrenceEndDate!.day,
-          23,
-          59,
-          59,
-        );
-        if (!day.isBefore(startBoundary) && !day.isAfter(endBoundary)) {
-          final projStart = DateTime(
-            day.year,
-            day.month,
-            day.day,
-            e.start.hour,
-            e.start.minute,
-          );
-          dayEvents.add(
-            e.copyWith(start: projStart, end: projStart.add(e.duration)),
-          );
-        }
-      } else {
-        // PERMANENT DAILY ROUTINE BLOCK:
-        // Main blocks are permanent daily rhythms without end date.
-        final projStart = DateTime(
-          day.year,
-          day.month,
-          day.day,
-          e.start.hour,
-          e.start.minute,
-        );
-        dayEvents.add(
-          e.copyWith(start: projStart, end: projStart.add(e.duration)),
-        );
-      }
-    }
-
-    final uniqueDayEvents = <SectorEvent>[];
-    final seenSlots = <String>{};
-    for (final ev in dayEvents) {
-      final slotKey =
-          '${ev.title.trim().toLowerCase()}_${ev.start.hour}:${ev.start.minute}_${ev.end.hour}:${ev.end.minute}';
-      if (seenSlots.add(slotKey)) {
-        uniqueDayEvents.add(ev);
-      }
-    }
-    return uniqueDayEvents;
+    return EventDayProjector.projectAll(events, day);
   }
 
   @override
