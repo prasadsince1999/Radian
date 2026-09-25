@@ -80,7 +80,21 @@ class EventDayProjector {
       );
     }
 
-    if (!isSameDay(event.start, target)) return null;
+    if (!isSameDay(event.start, target)) {
+      final targetEnd = DateTime(
+        target.year,
+        target.month,
+        target.day,
+        23,
+        59,
+        59,
+        999,
+      );
+      if (event.start.isBefore(targetEnd) && event.end.isAfter(target)) {
+        return event;
+      }
+      return null;
+    }
     return event;
   }
 

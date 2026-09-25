@@ -180,23 +180,10 @@ class SectographDial extends ConsumerWidget {
                             ),
                           );
                         }
-                      } else {
-                        // Permanent daily routine block:
-                        // In Radian/Sectograph, main blocks are permanent daily rhythms without end date.
-                        // They project onto every viewing day at their configured time of day.
-                        final projStart = DateTime(
-                          viewingDay.year,
-                          viewingDay.month,
-                          viewingDay.day,
-                          e.start.hour,
-                          e.start.minute,
-                        );
-                        projectedDayEvents.add(
-                          e.copyWith(
-                            start: projStart,
-                            end: projStart.add(e.duration),
-                          ),
-                        );
+                      } else if (e.start.year == viewingDay.year &&
+                          e.start.month == viewingDay.month &&
+                          e.start.day == viewingDay.day) {
+                        projectedDayEvents.add(e);
                       }
                     }
 

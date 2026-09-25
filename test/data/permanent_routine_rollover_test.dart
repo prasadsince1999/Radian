@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sectograph_mcp/data/datasources/sample_events_data.dart';
 import 'package:sectograph_mcp/data/repositories/local_event_repository.dart';
 import 'package:sectograph_mcp/domain/models/sector_event.dart';
+import 'package:sectograph_mcp/domain/schedule/event_day_projector.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -23,6 +24,7 @@ void main() {
         end: DateTime(monday.year, monday.month, monday.day, 6, 0),
         colorHex: '#98A8C8',
         category: 'Rest',
+        repeatDays: EventDayProjector.dailyWeekdays,
       );
       final studyBlock = SectorEvent(
         id: 'in-study',
@@ -31,6 +33,7 @@ void main() {
         end: DateTime(monday.year, monday.month, monday.day, 12, 0),
         colorHex: '#F7C752',
         category: 'Focus',
+        repeatDays: EventDayProjector.dailyWeekdays,
       );
 
       await repo.addEvent(sleepBlock);

@@ -11,6 +11,7 @@ import '../../core/services/reminder_notification_service.dart';
 import '../../domain/models/free_gap.dart';
 import '../../domain/models/sector_event.dart';
 import '../../domain/repositories/event_repository.dart';
+import '../../domain/schedule/event_day_projector.dart';
 import '../datasources/sample_events_data.dart';
 
 class LocalEventRepository implements EventRepository {
@@ -211,6 +212,23 @@ class LocalEventRepository implements EventRepository {
         unawaited(prefs!.setBool('sectograph_cleaned_corrupted_v4', true));
       }
 
+      final didStampDaily =
+          prefs!.getBool('sectograph_stamped_daily_repeat_v1') ?? false;
+      if (!didStampDaily) {
+        for (int i = 0; i < _events.length; i++) {
+          final ev = _events[i];
+          if (ev.repeatDays == null || ev.repeatDays!.isEmpty) {
+            _events[i] = ev.copyWith(
+              repeatDays: EventDayProjector.dailyWeekdays,
+            );
+            hasEnriched = true;
+          }
+        }
+        unawaited(
+          prefs!.setBool('sectograph_stamped_daily_repeat_v1', true),
+        );
+      }
+
       if (hasEnriched) {
         unawaited(_saveToDisk());
       }
@@ -251,92 +269,7 @@ class LocalEventRepository implements EventRepository {
     List<SectorEvent> events,
     DateTime day,
   ) {
-    final dayEvents = <SectorEvent>[];
-    for (final e in events) {
-      if (e.repeatDays != null && e.repeatDays!.isNotEmpty) {
-        final startBoundary = DateTime(
-          e.start.year,
-          e.start.month,
-          e.start.day,
-        );
-        if (day.isBefore(startBoundary)) continue;
-        if (e.recurrenceEndDate != null) {
-          final endBoundary = DateTime(
-            e.recurrenceEndDate!.year,
-            e.recurrenceEndDate!.month,
-            e.recurrenceEndDate!.day,
-            23,
-            59,
-            59,
-          );
-          if (day.isAfter(endBoundary)) continue;
-        }
-        if (e.repeatDays!.contains(day.weekday)) {
-          final projStart = DateTime(
-            day.year,
-            day.month,
-            day.day,
-            e.start.hour,
-            e.start.minute,
-          );
-          dayEvents.add(
-            e.copyWith(start: projStart, end: projStart.add(e.duration)),
-          );
-        }
-      } else if (e.recurrenceEndDate != null) {
-        final startBoundary = DateTime(
-          e.start.year,
-          e.start.month,
-          e.start.day,
-        );
-        final endBoundary = DateTime(
-          e.recurrenceEndDate!.year,
-          e.recurrenceEndDate!.month,
-          e.recurrenceEndDate!.day,
-          23,
-          59,
-          59,
-        );
-        if (!day.isBefore(startBoundary) && !day.isAfter(endBoundary)) {
-          final projStart = DateTime(
-            day.year,
-            day.month,
-            day.day,
-            e.start.hour,
-            e.start.minute,
-          );
-          dayEvents.add(
-            e.copyWith(start: projStart, end: projStart.add(e.duration)),
-          );
-        }
-      } else {
-        // PERMANENT DAILY ROUTINE BLOCK:
-        // In Radian/Sectograph, main blocks are permanent daily rhythms without end date.
-        // They project onto every viewing day at their configured start time and duration.
-        final projStart = DateTime(
-          day.year,
-          day.month,
-          day.day,
-          e.start.hour,
-          e.start.minute,
-        );
-        dayEvents.add(
-          e.copyWith(start: projStart, end: projStart.add(e.duration)),
-        );
-      }
-    }
-
-    // Deduplicate any routine blocks sharing the exact same slot key
-    final uniqueDayEvents = <SectorEvent>[];
-    final seenSlots = <String>{};
-    for (final ev in dayEvents) {
-      final slotKey =
-          '${ev.title.trim().toLowerCase()}_${ev.start.hour}:${ev.start.minute}_${ev.end.hour}:${ev.end.minute}';
-      if (seenSlots.add(slotKey)) {
-        uniqueDayEvents.add(ev);
-      }
-    }
-
+    final uniqueDayEvents = EventDayProjector.projectAll(events, day);
     final deconflictedDayEvents = _deconflictDayEvents(uniqueDayEvents);
     final levels = ConcentricSolver.solve(deconflictedDayEvents);
     return deconflictedDayEvents.map((e) {
