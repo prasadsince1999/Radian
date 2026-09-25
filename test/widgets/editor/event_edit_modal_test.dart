@@ -610,5 +610,85 @@ void main() {
         expect(updated.title, equals('Focus Sprint'));
       },
     );
+
+    testWidgets(
+      'schedule frequency defaults to Once and saves repeatDays as null',
+      (tester) async {
+        tester.view.devicePixelRatio = 1.0;
+        tester.view.physicalSize = const Size(800, 1200);
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
+            child: MaterialApp(
+              home: Scaffold(
+                body: EventEditModal(initialDate: testDate),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const ValueKey('repeat_once_option')), findsOneWidget);
+        expect(find.byKey(const ValueKey('repeat_daily_option')), findsOneWidget);
+
+        // Enter title and save as Once (default)
+        final titleField = find.byType(TextField).first;
+        await tester.enterText(titleField, 'Doctor Appointment');
+        await tester.pumpAndSettle();
+
+        await tester.ensureVisible(find.text('Create Block'));
+        await tester.tap(find.text('Create Block'));
+        await tester.pumpAndSettle();
+
+        final allEvents = await fakeRepo.getAllEvents();
+        final onceEvent = allEvents.firstWhere((e) => e.title == 'Doctor Appointment');
+        expect(onceEvent.repeatDays, isNull);
+      },
+    );
+
+    testWidgets(
+      'selecting Every day saves event with dailyWeekdays repeatDays',
+      (tester) async {
+        tester.view.devicePixelRatio = 1.0;
+        tester.view.physicalSize = const Size(800, 1200);
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [eventRepositoryProvider.overrideWithValue(fakeRepo)],
+            child: MaterialApp(
+              home: Scaffold(
+                body: EventEditModal(initialDate: testDate),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final titleField = find.byType(TextField).first;
+        await tester.enterText(titleField, 'Morning Meditation');
+        await tester.pumpAndSettle();
+
+        // Tap 'Every day'
+        await tester.tap(find.byKey(const ValueKey('repeat_daily_option')));
+        await tester.pumpAndSettle();
+
+        await tester.ensureVisible(find.text('Create Block'));
+        await tester.tap(find.text('Create Block'));
+        await tester.pumpAndSettle();
+
+        final allEvents = await fakeRepo.getAllEvents();
+        final dailyEvent = allEvents.firstWhere((e) => e.title == 'Morning Meditation');
+        expect(dailyEvent.repeatDays, equals([1, 2, 3, 4, 5, 6, 7]));
+      },
+    );
   });
 }

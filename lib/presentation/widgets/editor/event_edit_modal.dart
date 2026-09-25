@@ -8,6 +8,7 @@ import '../../../core/constants/app_presets.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/models/sector_event.dart';
 import '../../../domain/models/subtask_item.dart';
+import '../../../domain/schedule/event_day_projector.dart';
 import '../../../core/utils/time_formatters.dart';
 import '../../controllers/clock_controller.dart';
 import '../../controllers/cloud_sync_controller.dart';
@@ -37,6 +38,7 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
   late String _selectedIconName;
   late List<SubtaskItem> _subtaskItems;
   late bool _isAllDay;
+  late bool _isDailyRoutine;
   int? _selectedReminderMinutes;
 
   late List<String> _palette;
@@ -87,6 +89,7 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
     _selectedIconName = ev?.effectiveIconName ?? '';
     _selectedReminderMinutes = ev?.reminderMinutes;
     _isAllDay = ev?.isAllDay ?? false;
+    _isDailyRoutine = ev?.repeatDays != null && ev!.repeatDays!.isNotEmpty;
   }
 
   IconData? get _selectedIconData {
@@ -242,8 +245,15 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
       endDt = startDt.add(const Duration(hours: 1));
     }
 
-    final effectiveRepeatDays = widget.event?.repeatDays;
-    final effectiveRecurrenceEndDate = widget.event?.recurrenceEndDate;
+    final effectiveRepeatDays = _isDailyRoutine
+        ? (widget.event?.repeatDays != null &&
+                widget.event!.repeatDays!.isNotEmpty
+            ? widget.event!.repeatDays
+            : EventDayProjector.dailyWeekdays)
+        : null;
+    final effectiveRecurrenceEndDate = _isDailyRoutine
+        ? widget.event?.recurrenceEndDate
+        : null;
 
     final newEvent = SectorEvent(
       id: widget.event?.id ?? const Uuid().v4(),
@@ -648,7 +658,69 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
               ),
               const SizedBox(height: 12),
 
-              // 3. Subtasks Card (Moved to Upper Side + In-Block Scheduling)
+              // 3. Schedule Frequency: Once vs Every day
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: cardBorder, width: 1.2),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _isDailyRoutine
+                          ? Icons.repeat_rounded
+                          : Icons.event_available_rounded,
+                      size: 16,
+                      color: currentColor,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'REPEAT',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainer,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildRepeatOption(
+                            key: const ValueKey('repeat_once_option'),
+                            title: 'Once',
+                            isSelected: !_isDailyRoutine,
+                            onTap: () => setState(() => _isDailyRoutine = false),
+                            activeColor: currentColor,
+                          ),
+                          _buildRepeatOption(
+                            key: const ValueKey('repeat_daily_option'),
+                            title: 'Every day',
+                            isSelected: _isDailyRoutine,
+                            onTap: () => setState(() => _isDailyRoutine = true),
+                            activeColor: currentColor,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // 4. Subtasks Card (Moved to Upper Side + In-Block Scheduling)
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -927,6 +999,45 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRepeatOption({
+    Key? key,
+    required String title,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required Color activeColor,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return BouncyPressable(
+      key: key,
+      scaleDownFactor: 0.95,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? activeColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+            color: isSelected
+                ? (ThemeData.estimateBrightnessForColor(activeColor) ==
+                        Brightness.dark
+                    ? Colors.white
+                    : Colors.black87)
+                : colorScheme.onSurfaceVariant,
           ),
         ),
       ),
