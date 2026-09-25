@@ -266,7 +266,7 @@ export default {
       try {
         const ghRes = await fetch('https://api.github.com/repos/prasadsince1999/Radian/releases/latest', {
           headers: {
-            'User-Agent': 'Radian-Updater/1.0.23',
+            'User-Agent': 'Radian-Updater/1.0.24',
             Accept: 'application/vnd.github.v3+json',
           },
           cf: forceRefresh
@@ -279,7 +279,7 @@ export default {
 
         if (ghRes.ok) {
           const release: any = await ghRes.json();
-          const tag = release.tag_name || 'v1.0.23';
+          const tag = release.tag_name || 'v1.0.24';
           const version = tag.replace(/^v/, '');
           const apkAsset =
             release.assets?.find(
@@ -327,16 +327,16 @@ export default {
         JSON.stringify(
           {
             success: true,
-            tag: 'v1.0.23',
-            version: '1.0.23',
+            tag: 'v1.0.24',
+            version: '1.0.24',
             downloadUrl:
-              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.23/Radian-v1.0.23.apk',
-            apkName: 'Radian-v1.0.23.apk',
-            sizeBytes: 74848592,
+              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.24/Radian-v1.0.24.apk',
+            apkName: 'Radian-v1.0.24.apk',
+            sizeBytes: 74865132,
             releaseNotes:
-              '### Radian v1.0.23 - Permanent Dial-Widget Sync & Mathematical Clock Grounding\n\n- **Permanent Clock Grounding**: Completely eliminated `shiftFwd` across events. Every block strictly anchors its start cap to its actual scheduled clock time.\n- **App vs Widget Horizon Parity**: Aligned upcoming blocks count to 3 by default across both Flutter and Android native Kotlin fallback.\n- **Subtask Eligibility Guard**: Only active, immediate next, and selected blocks expand for subtasks; far-future blocks retain their scheduled geometric proportions.\n- **Dial Settings Persistence**: Fully persisted previous/future blocks count across app launches and synced with the home screen widget.\n- **Zero-Drift Timeline Parity**: Pixel-perfect sync between the in-app interactive dial and the Android home screen widget.',
+              '### Radian v1.0.24 - Once vs Routine Projection & Dual-Painter Parity\n\n- **Live EventDayProjector Engine**: Wired canonical projection across both in-app dial and local event repository. Overnight events crossing midnight and single-day events remain strictly bounded to their scheduled days.\n- **Once vs Every day Repeat Selector**: Material 3 animated toggle pill in Time Block Editor allowing instant switching between one-off blocks and daily routines.\n- **Sector Content Renderer Fitting Rules**: Strict boundary fitting for subtask chips, rendering chips only when whole chip fits without title or cap overlap.\n- **Android Widget All-Day Photo Caching**: Native Kotlin widget retains high-res Flutter dial photo all day, eliminating secondary painter drift.\n- **Zero-Blank Home Sync Guard**: Prevents empty day snapshots from overwriting valid widget photos during initial stream load.',
             publishedAt: new Date().toISOString(),
-            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.23',
+            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.24',
           },
           null,
           2
