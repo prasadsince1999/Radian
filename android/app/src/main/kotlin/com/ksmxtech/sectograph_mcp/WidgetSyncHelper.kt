@@ -51,12 +51,10 @@ class WidgetSyncHelper(private val context: Context) {
                 }
                 tempFile.copyTo(targetFile, overwrite = true)
                 tempFile.delete()
-                // Also write to fallback widget_dial.png for backward compatibility
                 targetFile.copyTo(File(context.filesDir, "widget_dial.png"), overwrite = true)
             } catch (_: Exception) {}
         }
 
-        // Save prefs
         val prefs = context.getSharedPreferences(SectographWidgetProvider.PREFS_NAME, Context.MODE_PRIVATE)
         val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(timestamp))
         val editor = prefs.edit()
@@ -80,9 +78,12 @@ class WidgetSyncHelper(private val context: Context) {
         if (eventsJson != null) {
             editor.putString(SectographWidgetProvider.KEY_EVENTS_JSON, eventsJson)
         }
+        val dialHalf = SectographWidgetProvider.currentDialHalf(is24HourMode, timestamp)
+        val signature = SectographWidgetProvider.contentSignature(eventsJson, is24HourMode, timestamp)
+        editor.putString(SectographWidgetProvider.KEY_DIAL_HALF, dialHalf)
+        editor.putString(SectographWidgetProvider.KEY_CONTENT_SIGNATURE, signature)
         editor.apply()
 
-        // Trigger native AppWidget update and schedule minute loop
         SectographWidgetProvider.updateAll(context)
         SectographWidgetProvider.scheduleNextMinuteAlarm(context)
         return true

@@ -32,10 +32,6 @@ abstract final class DialImageRenderer {
     final canvas = Canvas(recorder);
     final paintSize = Size(size, size);
 
-    // Filter events to the active horizon:
-    // In 24-hour mode, show events within the 24-hour calendar day of currentTime.
-    // In 12-hour mode, show events within the rolling 12-hour window around currentTime,
-    // matching the in-app dial display so AM and PM events never collide.
     final List<SectorEvent> positionedEvents;
     if (settings.is24HourMode) {
       final todayStart = DateTime(
@@ -66,31 +62,19 @@ abstract final class DialImageRenderer {
         return e;
       }).toList();
     } else {
-      // Dynamic rolling 12-hour horizon around currentTime:
-      // In 12H mode, only events within 12 hours of currentTime are displayed.
+      // 12-hour face: only the current AM or PM half, matching the in-app dial.
+      final isPm = currentTime.hour >= 12;
+      final halfStart = DateTime(
+        currentTime.year,
+        currentTime.month,
+        currentTime.day,
+        isPm ? 12 : 0,
+      );
+      final halfEnd = halfStart.add(const Duration(hours: 12));
       final rawEvents = <SectorEvent>[];
       for (final e in events) {
-        // Skip events that are more than 12 hours ahead in 12H mode
-        if (e.start.difference(currentTime).inMinutes >= 720) {
+        if (!e.start.isBefore(halfEnd) || !e.end.isAfter(halfStart)) {
           continue;
-        }
-        final isFocusedBlock =
-            settings.pastHoursStyle == PastHoursStyle.focusedBlock;
-        if (isFocusedBlock) {
-          // In focused block mode, allow past events within 12 hours so FocusedBlockLayoutResolver
-          // can select the configured previousBlocksCount (0..3).
-          if (currentTime.difference(e.end).inMinutes >= 720) {
-            continue;
-          }
-        } else {
-          // Skip events that completed more than 15 minutes before currentTime (unless active)
-          if (e.end.isBefore(
-                currentTime.subtract(const Duration(minutes: 15)),
-              ) &&
-              !(!currentTime.isBefore(e.start) &&
-                  currentTime.isBefore(e.end))) {
-            continue;
-          }
         }
 
         final duration = e.end.difference(e.start);
@@ -213,7 +197,6 @@ abstract final class DialImageRenderer {
     return byteData?.buffer.asUint8List();
   }
 
-  /// Computes lens parameters (focusAngle, magnification, isFocusLensEnabled) for widget needle sync.
   static ({double focusAngle, double magnification, bool isFocusLensEnabled})
   computeLensParameters({
     required List<SectorEvent> events,
