@@ -1,3 +1,5 @@
+import 'package:timezone/timezone.dart' as tz;
+
 import 'angular_occupancy.dart';
 import 'dial_input.dart';
 
@@ -203,52 +205,80 @@ class HorizonSelector {
         break;
     }
 
-    // 2. Normalize input occurrences to match now's isUtc representation,
+    // 2. Normalize input occurrences to match now's timezone representation,
     //    filter non-all-day occurrences intersecting the window, and sort chronologically.
     final normalizedOccurrences = input.occurrences.map((o) {
-      if (o.start.isUtc == now.isUtc && o.end.isUtc == now.isUtc) {
+      if (o.start.isUtc == now.isUtc &&
+          o.start.timeZoneOffset == now.timeZoneOffset &&
+          o.end.isUtc == now.isUtc &&
+          o.end.timeZoneOffset == now.timeZoneOffset) {
         return o;
       }
       final s = o.start;
       final e = o.end;
-      final normStart = now.isUtc
-          ? DateTime.utc(
-              s.year,
-              s.month,
-              s.day,
-              s.hour,
-              s.minute,
-              s.second,
-              s.millisecond,
-            )
-          : DateTime(
-              s.year,
-              s.month,
-              s.day,
-              s.hour,
-              s.minute,
-              s.second,
-              s.millisecond,
-            );
-      final normEnd = now.isUtc
-          ? DateTime.utc(
-              e.year,
-              e.month,
-              e.day,
-              e.hour,
-              e.minute,
-              e.second,
-              e.millisecond,
-            )
-          : DateTime(
-              e.year,
-              e.month,
-              e.day,
-              e.hour,
-              e.minute,
-              e.second,
-              e.millisecond,
-            );
+      final DateTime normStart;
+      final DateTime normEnd;
+
+      if (now is tz.TZDateTime) {
+        normStart = tz.TZDateTime(
+          now.location,
+          s.year,
+          s.month,
+          s.day,
+          s.hour,
+          s.minute,
+          s.second,
+          s.millisecond,
+        );
+        normEnd = tz.TZDateTime(
+          now.location,
+          e.year,
+          e.month,
+          e.day,
+          e.hour,
+          e.minute,
+          e.second,
+          e.millisecond,
+        );
+      } else if (now.isUtc) {
+        normStart = DateTime.utc(
+          s.year,
+          s.month,
+          s.day,
+          s.hour,
+          s.minute,
+          s.second,
+          s.millisecond,
+        );
+        normEnd = DateTime.utc(
+          e.year,
+          e.month,
+          e.day,
+          e.hour,
+          e.minute,
+          e.second,
+          e.millisecond,
+        );
+      } else {
+        normStart = DateTime(
+          s.year,
+          s.month,
+          s.day,
+          s.hour,
+          s.minute,
+          s.second,
+          s.millisecond,
+        );
+        normEnd = DateTime(
+          e.year,
+          e.month,
+          e.day,
+          e.hour,
+          e.minute,
+          e.second,
+          e.millisecond,
+        );
+      }
       return o.copyWith(start: normStart, end: normEnd);
     });
 

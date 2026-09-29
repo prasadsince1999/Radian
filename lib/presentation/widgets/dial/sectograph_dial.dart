@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_layout_constants.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/dial_engine_flags.dart';
 import '../../../core/geometry/dial_sector_layout_stretcher.dart';
 import '../../../core/geometry/dial_time_cap_drag_handler.dart';
 import '../../../core/geometry/fisheye_time_lens.dart';
@@ -16,11 +17,17 @@ import '../../../core/geometry/sector_math.dart';
 import '../../../domain/models/dial_settings.dart';
 import '../../../domain/models/sector_event.dart';
 import '../../../domain/rules/block_budget.dart';
+import '../../../domain/schedule/occurrence_adapter.dart';
+import '../../../engine/dial_model.dart';
+import '../../../engine/horizon_selector.dart';
 import '../../controllers/clock_controller.dart';
 import '../../controllers/cloud_sync_controller.dart';
+import '../../controllers/dial_model_controller.dart';
 import '../common/bouncy_pressable.dart';
 import '../editor/event_edit_modal.dart';
 import 'center_summary.dart';
+import 'dial_gesture_controller.dart';
+import 'dial_painter.dart';
 import 'sectograph_painter.dart';
 
 class SectographDial extends ConsumerWidget {
@@ -93,16 +100,52 @@ class SectographDial extends ConsumerWidget {
         const scallopAmp = AppLayoutConstants.scallopAmp;
         final baseRadius = maxRadius - scallopAmp;
         final innerRadius = baseRadius * AppLayoutConstants.innerRadiusRatio;
+        final routineTrackIn =
+            innerRadius + AppLayoutConstants.routineTrackInnerOffset;
+        final routineTrackOut =
+            baseRadius - AppLayoutConstants.routineTrackOuterMargin;
+
+        final allEvents = allEventsAsync.value ?? const <SectorEvent>[];
+        final effectiveAllEvents = allEvents.map((e) {
+          if (liveAdjustedMap.containsKey(e.id)) {
+            return liveAdjustedMap[e.id]!;
+          }
+          if (liveAdjustedEvent != null && e.id == liveAdjustedEvent.id) {
+            return liveAdjustedEvent;
+          }
+          return e;
+        }).toList();
 
         final dialStack = Center(
           child: SizedBox(
             width: dialSize,
             height: dialSize,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Dial Canvas & Hub
-                allEventsAsync.when(
+            child: DialEngineFlags.newEngine
+                ? _buildNewEngineDialStack(
+                    context: context,
+                    ref: ref,
+                    dialSize: dialSize,
+                    innerRadius: innerRadius,
+                    center: center,
+                    routineTrackIn: routineTrackIn,
+                    routineTrackOut: routineTrackOut,
+                    settings: settings,
+                    colorScheme: colorScheme,
+                    theme: theme,
+                    isDialEditing: isDialEditing,
+                    viewingDay: viewingDay,
+                    currentTime: currentTime,
+                    selectedEvent: selectedEvent,
+                    activeDraggingCap: activeDraggingCap,
+                    scrubAngle: scrubAngle,
+                    effectiveAllEvents: effectiveAllEvents,
+                    dialSegment: dialSegment,
+                  )
+                : Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Dial Canvas & Hub
+                      allEventsAsync.when(
                   data: (allEvents) {
                     final effectiveAllEvents = allEvents.map((e) {
                       if (liveAdjustedMap.containsKey(e.id)) {
@@ -939,6 +982,248 @@ class SectographDial extends ConsumerWidget {
         );
       },
     );
+  }
+
+  Widget _buildNewEngineDialStack({
+    required BuildContext context,
+    required WidgetRef ref,
+    required double dialSize,
+    required double innerRadius,
+    required Offset center,
+    required double routineTrackIn,
+    required double routineTrackOut,
+    required DialSettings settings,
+    required ColorScheme colorScheme,
+    required ThemeData theme,
+    required bool isDialEditing,
+    required DateTime viewingDay,
+    required DateTime currentTime,
+    required SectorEvent? selectedEvent,
+    required CapHitResult? activeDraggingCap,
+    required double? scrubAngle,
+    required List<SectorEvent> effectiveAllEvents,
+    required Dial12HourSegment dialSegment,
+  }) {
+    final model = ref.watch(dialModelProvider);
+
+    final gestureController = DialGestureController(
+      ref: ref,
+      model: model,
+      center: center,
+      innerRadius: innerRadius,
+      routineTrackIn: routineTrackIn,
+      routineTrackOut: routineTrackOut,
+      ringDividerRadius: (routineTrackIn + routineTrackOut) / 2.0,
+      is24HourMode: settings.is24HourMode,
+      isDialEditing: isDialEditing,
+      allEvents: effectiveAllEvents,
+      selectedEvent: selectedEvent,
+    );
+
+    final semanticsLabel = _buildSemanticsLabel(model);
+
+    return GestureDetector(
+      onPanDown: gestureController.handlePanDown,
+      onPanStart: gestureController.handlePanStart,
+      onPanUpdate: gestureController.handlePanUpdate,
+      onPanEnd: gestureController.handlePanEnd,
+      onPanCancel: gestureController.handlePanCancel,
+      onTapUp: (details) {
+        final hit = gestureController.hitTestBlock(details.localPosition);
+        if (hit != null) {
+          SectorEvent? matching;
+          for (final ev in effectiveAllEvents) {
+            if (ev.id == hit.eventId) {
+              matching = ev;
+              break;
+            }
+          }
+          matching ??= OccurrenceAdapter.toSectorEvent(
+            hit.occurrence,
+            is24HourMode: settings.is24HourMode,
+          );
+
+          ref.read(selectedEventProvider.notifier).state = matching;
+          HapticFeedback.lightImpact();
+
+          final isTitleTap = DialTimeCapDragHandler.isTitleTextHit(
+            localOffset: details.localPosition,
+            center: center,
+            rIn: routineTrackIn,
+            rOut: routineTrackOut,
+            event: matching,
+            is24HourMode: settings.is24HourMode,
+          );
+
+          if (isTitleTap) {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              showDragHandle: false,
+              backgroundColor: Colors.transparent,
+              builder: (_) => EventEditModal(
+                event: matching!,
+                initialDate: viewingDay,
+              ),
+            );
+          }
+        } else {
+          gestureController.handleTapUp(details);
+        }
+      },
+      child: Semantics(
+        label: semanticsLabel,
+        container: true,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            RepaintBoundary(
+              child: CustomPaint(
+                size: Size(dialSize, dialSize),
+                painter: DialPainter(
+                  model: model,
+                  settings: settings,
+                  theme: theme,
+                  colorScheme: colorScheme,
+                  activeDraggingCap: activeDraggingCap,
+                  scrubAngle: scrubAngle,
+                  selectedEventId: selectedEvent?.id,
+                  showCenterClock: false,
+                  showNeedle: true,
+                ),
+              ),
+            ),
+            ClipOval(
+              child: SizedBox(
+                width: innerRadius * 2 * 0.94,
+                height: innerRadius * 2 * 0.94,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(opacity: animation, child: child);
+                  },
+                  child: isDialEditing
+                      ? Center(
+                          key: const ValueKey('dial_center_edit_btn'),
+                          child: BouncyPressable(
+                            scaleDownFactor: 0.88,
+                            onTap: () {
+                              HapticFeedback.mediumImpact();
+                              final is24H = settings.is24HourMode;
+                              final maxAllowed = is24H
+                                  ? BlockBudget.maxPerWindow24H
+                                  : BlockBudget.maxPerWindow12H;
+                              if (model.blocks.length >= maxAllowed) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Dial limit reached: maximum $maxAllowed blocks allowed in ${is24H ? "24H" : "12H"} mode to prevent dial clutter.',
+                                    ),
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                               showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                showDragHandle: false,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => EventEditModal(
+                                  event: null,
+                                  initialDate: viewingDay,
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primaryContainer,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.18),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Icons.add_rounded,
+                                size: 26,
+                                color: colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                          ),
+                        )
+                      : Center(
+                          key: const ValueKey('dial_center_clock_summary'),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: innerRadius * 1.36,
+                              maxHeight: innerRadius * 1.36,
+                            ),
+                            child: CenterSummary(
+                              currentTime: currentTime,
+                              activeEvent: selectedEvent,
+                              selectedEvent: selectedEvent,
+                              is24HourMode: settings.is24HourMode,
+                              onDismissSelected: () {
+                                ref
+                                    .read(selectedEventProvider.notifier)
+                                    .state = null;
+                              },
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _buildSemanticsLabel(DialModel model) {
+    final sb = StringBuffer();
+    if (model.center.activeTitle.isNotEmpty &&
+        model.center.activeTitle != 'Free Time') {
+      sb.write('Now: ${model.center.activeTitle}');
+      if (model.center.remainingDurationFormatted.isNotEmpty) {
+        sb.write(', until ${model.center.remainingDurationFormatted} remaining. ');
+      } else {
+        sb.write('. ');
+      }
+    } else {
+      sb.write('Now: Free time. ');
+    }
+
+    final nextBlock = model.blocks
+        .where((b) => b.role == BlockRole.next)
+        .firstOrNull;
+    if (nextBlock != null) {
+      sb.write('Next: ${nextBlock.title}');
+      if (nextBlock.caps.startTimeLabel.isNotEmpty &&
+          nextBlock.caps.endTimeLabel.isNotEmpty) {
+        sb.write(
+          ', ${nextBlock.caps.startTimeLabel} to ${nextBlock.caps.endTimeLabel}. ',
+        );
+      } else {
+        sb.write('. ');
+      }
+    }
+
+    sb.write('${model.blocks.length} events on the dial.');
+    return sb.toString();
   }
 }
 

@@ -1,8 +1,11 @@
 import 'dart:math' as math;
 
+import 'package:flutter/material.dart';
+
 import '../../engine/dial_input.dart';
 import '../models/sector_event.dart';
 import '../models/subtask_item.dart';
+import 'zone_day_projector.dart' as zone;
 
 /// Bridges between Flutter-facing SectorEvent domain models and the pure Dart Dial Engine.
 class OccurrenceAdapter {
@@ -35,6 +38,30 @@ class OccurrenceAdapter {
     );
   }
 
+  static Occurrence fromZoneOccurrence(
+    zone.Occurrence occ, {
+    String? occurrenceId,
+  }) {
+    return Occurrence(
+      id: occurrenceId ??
+          '${occ.event.id}_${occ.startLocal.millisecondsSinceEpoch}',
+      eventId: occ.event.id,
+      title: occ.event.title,
+      start: occ.startLocal,
+      end: occ.endLocal,
+      colorHex: occ.event.colorHex,
+      category: occ.event.category,
+      notes: occ.event.notes,
+      iconName: occ.event.iconName,
+      reminderMinutes: occ.event.reminderMinutes,
+      isAllDay: occ.event.isAllDay,
+      subtasks: List.unmodifiable(occ.event.subtasks),
+      subtaskItems: occ.event.subtaskItems
+          .map((s) => fromSubtaskItem(s, occ.startLocal))
+          .toList(),
+    );
+  }
+
   static Occurrence fromSectorEvent(
     SectorEvent event, {
     String? occurrenceId,
@@ -60,5 +87,44 @@ class OccurrenceAdapter {
 
   static List<Occurrence> fromSectorEvents(List<SectorEvent> events) {
     return events.map((e) => fromSectorEvent(e)).toList();
+  }
+
+  static SectorEvent toSectorEvent(
+    Occurrence occ, {
+    required bool is24HourMode,
+  }) {
+    return SectorEvent(
+      id: occ.eventId,
+      title: occ.title,
+      start: occ.start,
+      end: occ.end,
+      colorHex: occ.colorHex,
+      category: occ.category,
+      notes: occ.notes,
+      iconName: occ.iconName,
+      reminderMinutes: occ.reminderMinutes,
+      isAllDay: occ.isAllDay,
+      subtasks: occ.subtasks,
+      subtaskItems: occ.subtaskItems.map((s) {
+        final subStart = s.startMinuteOffset != null
+            ? occ.start.add(Duration(minutes: s.startMinuteOffset!))
+            : null;
+        final subEnd = s.endMinuteOffset != null
+            ? occ.start.add(Duration(minutes: s.endMinuteOffset!))
+            : null;
+        return SubtaskItem(
+          id: s.id,
+          parentEventId: occ.eventId,
+          title: s.title,
+          isCompleted: s.isCompleted,
+          startTime: subStart != null
+              ? TimeOfDay(hour: subStart.hour, minute: subStart.minute)
+              : null,
+          endTime: subEnd != null
+              ? TimeOfDay(hour: subEnd.hour, minute: subEnd.minute)
+              : null,
+        );
+      }).toList(),
+    ).withComputedAngles(is24HourMode: is24HourMode);
   }
 }

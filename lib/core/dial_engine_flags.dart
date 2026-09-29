@@ -18,7 +18,7 @@ abstract final class DialEngineFlags {
   /// `HorizonSelector → WarpSolver → RingAssigner → ContentPlanner → DialModel`.
   ///
   /// Flipped to `true` at the end of Phase 5 after owner sign-off.
-  static bool newEngine = false;
+  static bool newEngine = true;
 
   /// When `true`, the widget uses the Frame Strip architecture (Phase 6)
   /// instead of the per-minute Flutter re-render.
