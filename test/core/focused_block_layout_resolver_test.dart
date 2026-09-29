@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sectograph_mcp/core/geometry/focused_block_layout_resolver.dart';
 import 'package:sectograph_mcp/domain/models/sector_event.dart';
+import 'package:sectograph_mcp/domain/rules/block_budget.dart';
 
 void main() {
   group('FocusedBlockLayoutResolver Tests', () {
@@ -326,7 +327,7 @@ void main() {
       );
     });
 
-    test('enforces maxDialVisibleBlocks limit on circular dial', () {
+    test('enforces BlockBudget.maxVisible limit on circular dial', () {
       // Create 15 non-overlapping 1-hour events
       final events = List.generate(15, (i) => makeEvent('e$i', i, i + 1));
       final effectiveTime = baseDate.add(const Duration(hours: 7, minutes: 30));
@@ -336,7 +337,10 @@ void main() {
         is24HourMode: true,
       );
 
-      expect(result.visibleEvents.length, lessThanOrEqualTo(10));
+      expect(
+        result.visibleEvents.length,
+        lessThanOrEqualTo(BlockBudget.maxVisible(1, 3)),
+      );
     });
   });
 }

@@ -9,6 +9,7 @@ import '../domain/models/sector_event.dart';
 import '../domain/models/subtask_item.dart';
 import '../domain/repositories/event_repository.dart';
 import '../domain/repositories/health_repository.dart';
+import '../domain/rules/edit_validator.dart';
 import '../domain/use_cases/sync_health_sessions_use_case.dart';
 
 /// Catalog and executor for all MCP tools supported by Sectograph.
@@ -770,6 +771,25 @@ class McpTools {
           subtaskItems: _parseSubtaskItems(rawSubtasks, id),
           assumedZone: assumedZone,
         );
+
+        if (arguments['force'] != true) {
+          final existingDayEvents = await repository.getEventsForDay(start);
+          final validation = EditValidator.validateEvent(
+            candidate: event,
+            existingEvents: existingDayEvents,
+            is24HourMode: getSettings().is24HourMode,
+          );
+          if (!validation.isValid) {
+            return {
+              'success': false,
+              'error': validation.issues.first.message,
+              'issues': validation.issues.map((i) => i.toJson()).toList(),
+              'suggestions':
+                  validation.suggestions.map((s) => s.toJson()).toList(),
+            };
+          }
+        }
+
         await repository.addEvent(event);
         return {
           'success': true,
@@ -832,6 +852,26 @@ class McpTools {
           notes: arguments['notes'] as String?,
           subtaskItems: updatedSubtaskItems ?? existing.subtaskItems,
         );
+
+        if (arguments['force'] != true) {
+          final existingDayEvents =
+              await repository.getEventsForDay(effectiveStart);
+          final validation = EditValidator.validateEvent(
+            candidate: updated,
+            existingEvents: existingDayEvents,
+            is24HourMode: getSettings().is24HourMode,
+          );
+          if (!validation.isValid) {
+            return {
+              'success': false,
+              'error': validation.issues.first.message,
+              'issues': validation.issues.map((i) => i.toJson()).toList(),
+              'suggestions':
+                  validation.suggestions.map((s) => s.toJson()).toList(),
+            };
+          }
+        }
+
         await repository.updateEvent(updated);
         return {'success': true, 'sector': updated.toJson()};
 

@@ -8,6 +8,7 @@ import '../../../core/theme/expressive_shapes.dart';
 import '../../../core/utils/time_formatters.dart';
 import '../../../domain/models/sector_event.dart';
 import '../../../domain/models/subtask_item.dart';
+import '../../../domain/rules/edit_validator.dart';
 import '../../controllers/clock_controller.dart';
 import '../common/bouncy_pressable.dart';
 import 'components/subtask_timeline_slider.dart';
@@ -226,6 +227,12 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
       reminderMinutes: _selectedReminderMinutes,
     );
 
+    final clampedSubtask = EditValidator.clampSubtask(
+      subtask,
+      targetParent.start,
+      targetParent.end,
+    );
+
     // If existing subtask moved from another parent, remove from old parent
     if (widget.existingSubtask != null &&
         widget.existingSubtask!.parentEventId != targetParent.id) {
@@ -242,11 +249,11 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
 
     // Add or update in target parent
     final currentSubtasks = List<SubtaskItem>.from(targetParent.subtaskItems);
-    final existingIdx = currentSubtasks.indexWhere((s) => s.id == subtask.id);
+    final existingIdx = currentSubtasks.indexWhere((s) => s.id == clampedSubtask.id);
     if (existingIdx != -1) {
-      currentSubtasks[existingIdx] = subtask;
+      currentSubtasks[existingIdx] = clampedSubtask;
     } else {
-      currentSubtasks.add(subtask);
+      currentSubtasks.add(clampedSubtask);
     }
 
     final updatedParent = targetParent.copyWith(subtaskItems: currentSubtasks);
@@ -256,7 +263,7 @@ class _SubtaskEditSheetState extends ConsumerState<SubtaskEditSheet> {
     final nav = Navigator.of(context);
 
     HapticFeedback.mediumImpact();
-    nav.pop(subtask);
+    nav.pop(clampedSubtask);
 
     messenger.clearSnackBars();
     messenger.showSnackBar(

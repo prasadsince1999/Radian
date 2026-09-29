@@ -1,3 +1,5 @@
+import '../../domain/rules/block_budget.dart';
+
 /// Central layout dimensions, responsive breakpoints, and geometry constants.
 abstract final class AppLayoutConstants {
   // --- Material 3 Window Size Class Breakpoints ---
@@ -36,9 +38,8 @@ abstract final class AppLayoutConstants {
   static const double dragHandleHeight = 4.0;
 
   // --- Dial Capacity & Time Badge Geometry ---
-  static const int maxDialVisibleBlocks = 10;
-  static const int maxBlocks12H = 12;
-  static const int maxBlocks24H = 18;
+  static const int maxBlocks12H = BlockBudget.maxPerWindow12H;
+  static const int maxBlocks24H = BlockBudget.maxPerWindow24H;
   static const double standardCapSpanDeg24H = 7.2;
   static const double standardCapSpanDeg12H = 9.2;
   static const double minSweepForCaps24H = 10.0;

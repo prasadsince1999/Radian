@@ -1744,5 +1744,71 @@ void main() {
         throwsA(isA<Exception>()),
       );
     });
+
+    test(
+      'schedule_sector detects overlap conflict and returns structured issues and suggestions',
+      () async {
+        final today = DateTime(2026, 9, 29);
+        final start1 = DateTime(today.year, today.month, today.day, 10, 0);
+        final end1 = DateTime(today.year, today.month, today.day, 11, 30);
+
+        // Schedule first sector
+        final res1 = await McpTools.executeTool(
+          name: 'schedule_sector',
+          arguments: {
+            'title': 'Sprint Review',
+            'start': start1.toIso8601String(),
+            'end': end1.toIso8601String(),
+          },
+          repository: repository,
+          getSettings: () => settings,
+          updateSettings: (s) async => settings = s,
+        );
+        expect(res1['success'], isTrue);
+
+        // Attempt to schedule conflicting sector: 11:00 - 12:00 (overlaps by 30 mins)
+        final start2 = DateTime(today.year, today.month, today.day, 11, 0);
+        final end2 = DateTime(today.year, today.month, today.day, 12, 0);
+        final res2 = await McpTools.executeTool(
+          name: 'schedule_sector',
+          arguments: {
+            'title': 'Design Workshop',
+            'start': start2.toIso8601String(),
+            'end': end2.toIso8601String(),
+          },
+          repository: repository,
+          getSettings: () => settings,
+          updateSettings: (s) async => settings = s,
+        );
+
+        expect(res2['success'], isFalse);
+        expect(res2['error'], contains('Collides with existing block'));
+        final issues = res2['issues'] as List<dynamic>;
+        expect(issues, isNotEmpty);
+        expect(issues.first['kind'], 'overlap');
+
+        final suggestions = res2['suggestions'] as List<dynamic>;
+        expect(suggestions, isNotEmpty);
+        // Expect shortenEarlier and shiftToNextFree suggestions
+        final actions = suggestions.map((s) => s['action']).toList();
+        expect(actions, contains('shortenEarlier'));
+        expect(actions, contains('shiftToNextFree'));
+
+        // Can bypass with force: true
+        final res3 = await McpTools.executeTool(
+          name: 'schedule_sector',
+          arguments: {
+            'title': 'Design Workshop',
+            'start': start2.toIso8601String(),
+            'end': end2.toIso8601String(),
+            'force': true,
+          },
+          repository: repository,
+          getSettings: () => settings,
+          updateSettings: (s) async => settings = s,
+        );
+        expect(res3['success'], isTrue);
+      },
+    );
   });
 }

@@ -15,6 +15,7 @@ import '../../../core/geometry/polar_hit_test.dart';
 import '../../../core/geometry/sector_math.dart';
 import '../../../domain/models/dial_settings.dart';
 import '../../../domain/models/sector_event.dart';
+import '../../../domain/rules/block_budget.dart';
 import '../../controllers/clock_controller.dart';
 import '../../controllers/cloud_sync_controller.dart';
 import '../common/bouncy_pressable.dart';
@@ -186,20 +187,6 @@ class SectographDial extends ConsumerWidget {
                         projectedDayEvents.add(e);
                       }
                     }
-
-                    // Deduplicate any routine blocks sharing the exact same slot key
-                    final uniqueProjected = <SectorEvent>[];
-                    final seenSlots = <String>{};
-                    for (final ev in projectedDayEvents) {
-                      final slotKey =
-                          '${ev.title.trim().toLowerCase()}_${ev.start.hour}:${ev.start.minute}_${ev.end.hour}:${ev.end.minute}';
-                      if (seenSlots.add(slotKey)) {
-                        uniqueProjected.add(ev);
-                      }
-                    }
-                    projectedDayEvents
-                      ..clear()
-                      ..addAll(uniqueProjected);
 
                     List<SectorEvent> computedEvents;
                     DateTime refTime = isToday
@@ -793,10 +780,8 @@ class SectographDial extends ConsumerWidget {
                                             HapticFeedback.mediumImpact();
                                             final is24H = settings.is24HourMode;
                                             final maxAllowed = is24H
-                                                ? AppLayoutConstants
-                                                      .maxBlocks24H
-                                                : AppLayoutConstants
-                                                      .maxBlocks12H;
+                                                ? BlockBudget.maxPerWindow24H
+                                                : BlockBudget.maxPerWindow12H;
                                             if (projectedDayEvents.length >=
                                                 maxAllowed) {
                                               ScaffoldMessenger.of(

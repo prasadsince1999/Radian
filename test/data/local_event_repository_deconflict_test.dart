@@ -1,6 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sectograph_mcp/data/repositories/local_event_repository.dart';
 import 'package:sectograph_mcp/domain/models/sector_event.dart';
+import 'package:sectograph_mcp/domain/models/subtask_item.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -72,5 +74,59 @@ void main() {
         expect(ev2.end, DateTime(2026, 9, 13, 11, 30));
       },
     );
+
+    test('addEvent auto-clamps subtasks exceeding parent block interval', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final repo = LocalEventRepository(prefs: prefs);
+
+      // Parent event: 14:00 - 15:00
+      final parentEvent = SectorEvent(
+        id: 'parent-1',
+        title: 'Deep Coding',
+        start: DateTime(2026, 9, 29, 14, 0),
+        end: DateTime(2026, 9, 29, 15, 0),
+        subtaskItems: const [
+          SubtaskItem(
+            id: 'sub-1',
+            parentEventId: 'parent-1',
+            title: 'Early Prep',
+            isCompleted: false,
+            // Starts at 13:30 (before parent start 14:00)
+            startTime: TimeOfDay(hour: 13, minute: 30),
+            // Ends at 15:30 (after parent end 15:00)
+            endTime: TimeOfDay(hour: 15, minute: 30),
+          ),
+        ],
+      );
+
+      await repo.addEvent(parentEvent);
+
+      final events = await repo.getEventsForDay(DateTime(2026, 9, 29));
+      expect(events, isNotEmpty);
+      final savedParent = events.firstWhere((e) => e.id == 'parent-1');
+      expect(savedParent.subtaskItems, hasLength(1));
+
+      final clampedSub = savedParent.subtaskItems.first;
+      // Clamped to 14:00 start and 15:00 end
+      expect(clampedSub.startTime, const TimeOfDay(hour: 14, minute: 0));
+      expect(clampedSub.endTime, const TimeOfDay(hour: 15, minute: 0));
+    });
+
+    test('startup migration sectograph_deduped_v1 deduplicates identical blocks', () async {
+      SharedPreferences.setMockInitialValues({
+        'radian_events_v1':
+            '[{"id":"ev-1","title":"Yoga","start":"2026-09-29T07:00:00.000","end":"2026-09-29T08:00:00.000","colorHex":"#6366F1"},'
+            '{"id":"ev-dup","title":"Yoga","start":"2026-09-29T07:00:00.000","end":"2026-09-29T08:00:00.000","colorHex":"#6366F1"}]',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final repo = LocalEventRepository(prefs: prefs);
+
+      final events = await repo.getAllEvents();
+      // Duplicates removed by sectograph_deduped_v1
+      expect(events.length, 1);
+      expect(events.first.title, 'Yoga');
+      expect(prefs.getBool('sectograph_deduped_v1'), isTrue);
+    });
   });
 }

@@ -3,11 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../core/constants/app_layout_constants.dart';
 import '../../../core/constants/app_presets.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/models/sector_event.dart';
 import '../../../domain/models/subtask_item.dart';
+import '../../../domain/repositories/event_repository.dart';
+import '../../../domain/rules/edit_validator.dart';
 import '../../../domain/schedule/event_day_projector.dart';
 import '../../../core/utils/time_formatters.dart';
 import '../../controllers/clock_controller.dart';
@@ -206,30 +207,6 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
         ? DateTime(_startDate.year, _startDate.month, _startDate.day, 0, 0)
         : _combine(_startDate, _startTime);
 
-    if (widget.event == null) {
-      final dialSettings = ref.read(dialSettingsProvider);
-      final is24H = dialSettings.is24HourMode;
-      final maxAllowed = is24H
-          ? AppLayoutConstants.maxBlocks24H
-          : AppLayoutConstants.maxBlocks12H;
-      final existingEvents = await repo.getEventsForDay(startDt);
-      if (existingEvents.length >= maxAllowed) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Dial limit reached: maximum $maxAllowed blocks allowed in ${is24H ? "24H" : "12H"} mode to prevent visual clutter.',
-            ),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-        return;
-      }
-    }
-
     final isOvernight =
         _endTime.hour * 60 + _endTime.minute <=
         _startTime.hour * 60 + _startTime.minute;
@@ -255,6 +232,12 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
         ? widget.event?.recurrenceEndDate
         : null;
 
+    final clampedSubtasks = EditValidator.clampAllSubtasks(
+      _subtaskItems,
+      startDt,
+      endDt,
+    );
+
     final newEvent = SectorEvent(
       id: widget.event?.id ?? const Uuid().v4(),
       title: title,
@@ -268,8 +251,51 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
       reminderMinutes: _selectedReminderMinutes,
       repeatDays: effectiveRepeatDays,
       recurrenceEndDate: effectiveRecurrenceEndDate,
-      subtaskItems: _subtaskItems,
+      subtaskItems: clampedSubtasks,
     );
+
+    final existingEvents = await repo.getEventsForDay(startDt);
+    final dialSettings = ref.read(dialSettingsProvider);
+    final is24H = dialSettings.is24HourMode;
+
+    final validation = EditValidator.validateEvent(
+      candidate: newEvent,
+      existingEvents: existingEvents,
+      is24HourMode: is24H,
+    );
+
+    if (!validation.isValid) {
+      if (!mounted) return;
+      if (validation.issues.any(
+          (i) => i.kind == ValidationIssueKind.invalidDuration)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(validation.issues.first.message),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+      if (validation.issues.any((i) => i.kind == ValidationIssueKind.budgetFull)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(validation.issues.first.message),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+      if (validation.issues.any((i) => i.kind == ValidationIssueKind.overlap)) {
+        await _showOverlapConflictSheet(
+          context,
+          validation: validation,
+          candidate: newEvent,
+          existingEvents: existingEvents,
+          repo: repo,
+        );
+        return;
+      }
+    }
 
     if (widget.event == null) {
       repo.addEvent(newEvent);
@@ -287,6 +313,224 @@ class _EventEditModalState extends ConsumerState<EventEditModal> {
 
     if (!mounted) return;
     Navigator.of(context).pop();
+  }
+
+  Future<void> _showOverlapConflictSheet(
+    BuildContext context, {
+    required ValidationResult validation,
+    required SectorEvent candidate,
+    required List<SectorEvent> existingEvents,
+    required EventRepository repo,
+  }) async {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final parentNavigator = Navigator.of(context);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (bottomSheetContext) {
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark
+                ? colorScheme.surfaceContainerLow
+                : colorScheme.surface,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: colorScheme.errorContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.warning_amber_rounded,
+                      color: colorScheme.onErrorContainer,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Schedule Conflict Detected',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          validation.issues.first.message,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Resolve with one tap:',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 10),
+              ...validation.suggestions.map((suggestion) {
+                final isShorten =
+                    suggestion.action == SuggestionAction.shortenEarlier;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: BouncyPressable(
+                    scaleDownFactor: 0.96,
+                    onTap: () async {
+                      Navigator.of(bottomSheetContext).pop();
+                      if (isShorten &&
+                          suggestion.targetEventId != null &&
+                          suggestion.proposedEnd != null) {
+                        final target = existingEvents
+                            .where((e) => e.id == suggestion.targetEventId)
+                            .firstOrNull;
+                        if (target != null) {
+                          await repo.updateEvent(
+                            target.copyWith(end: suggestion.proposedEnd),
+                          );
+                        }
+                        if (widget.event == null) {
+                          await repo.addEvent(candidate);
+                          ref.read(selectedEventProvider.notifier).state =
+                              candidate;
+                        } else {
+                          await repo.updateEvent(candidate);
+                          ref.read(selectedEventProvider.notifier).state =
+                              candidate;
+                        }
+                      } else if (suggestion.action ==
+                              SuggestionAction.shiftToNextFree &&
+                          suggestion.proposedStart != null &&
+                          suggestion.proposedEnd != null) {
+                        final shifted = candidate.copyWith(
+                          start: suggestion.proposedStart,
+                          end: suggestion.proposedEnd,
+                        );
+                        if (widget.event == null) {
+                          await repo.addEvent(shifted);
+                          ref.read(selectedEventProvider.notifier).state =
+                              shifted;
+                        } else {
+                          await repo.updateEvent(shifted);
+                          ref.read(selectedEventProvider.notifier).state =
+                              shifted;
+                        }
+                      }
+                      ref.read(cloudSyncServiceProvider).queueUpsert(candidate);
+                      ref.read(cloudSyncControllerProvider.notifier).syncNow();
+                      if (mounted) {
+                        parentNavigator.pop();
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: colorScheme.outlineVariant,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isShorten
+                                ? Icons.content_cut_rounded
+                                : Icons.fast_forward_rounded,
+                            color: colorScheme.primary,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  suggestion.label,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  suggestion.description,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: colorScheme.onSurfaceVariant,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 4),
+              TextButton(
+                onPressed: () => Navigator.of(bottomSheetContext).pop(),
+                child: Text(
+                  'Cancel and Edit Manually',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override

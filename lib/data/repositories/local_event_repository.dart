@@ -15,6 +15,7 @@ import '../../core/services/reminder_notification_service.dart';
 import '../../domain/models/free_gap.dart';
 import '../../domain/models/sector_event.dart';
 import '../../domain/repositories/event_repository.dart';
+import '../../domain/rules/edit_validator.dart';
 import '../../domain/schedule/event_day_projector.dart';
 import '../../domain/schedule/zone_day_projector.dart';
 import '../datasources/sample_events_data.dart';
@@ -250,6 +251,25 @@ class LocalEventRepository implements EventRepository {
         );
       }
 
+      final didDedupeV1 =
+          prefs!.getBool('sectograph_deduped_v1') ?? false;
+      if (!didDedupeV1) {
+        final seenEvents = <String>{};
+        final deduped = <SectorEvent>[];
+        for (final ev in _events) {
+          final key =
+              '${ev.title.trim().toLowerCase()}_${ev.start.toIso8601String()}_${ev.end.toIso8601String()}';
+          if (seenEvents.add(key)) {
+            deduped.add(ev);
+          } else {
+            hasEnriched = true;
+          }
+        }
+        _events.clear();
+        _events.addAll(deduped);
+        unawaited(prefs!.setBool('sectograph_deduped_v1', true));
+      }
+
       if (hasEnriched) {
         unawaited(_saveToDisk());
       }
@@ -336,30 +356,42 @@ class LocalEventRepository implements EventRepository {
 
   @override
   Future<void> addEvent(SectorEvent event) async {
-    _events.add(event);
+    final clampedSubtasks = EditValidator.clampAllSubtasks(
+      event.subtaskItems,
+      event.start,
+      event.end,
+    );
+    final sanitized = event.copyWith(subtaskItems: clampedSubtasks);
+    _events.add(sanitized);
     await _saveToDisk();
     _notify();
-    _mutationController.add(EventMutation.upsert(event));
-    if (event.reminderMinutes != null) {
-      unawaited(ReminderNotificationService.scheduleReminder(event));
+    _mutationController.add(EventMutation.upsert(sanitized));
+    if (sanitized.reminderMinutes != null) {
+      unawaited(ReminderNotificationService.scheduleReminder(sanitized));
     }
   }
 
   @override
   Future<void> updateEvent(SectorEvent event) async {
-    final idx = _events.indexWhere((e) => e.id == event.id);
+    final clampedSubtasks = EditValidator.clampAllSubtasks(
+      event.subtaskItems,
+      event.start,
+      event.end,
+    );
+    final sanitized = event.copyWith(subtaskItems: clampedSubtasks);
+    final idx = _events.indexWhere((e) => e.id == sanitized.id);
     if (idx != -1) {
-      _events[idx] = event;
+      _events[idx] = sanitized;
     } else {
-      _events.add(event);
+      _events.add(sanitized);
     }
     await _saveToDisk();
     _notify();
-    _mutationController.add(EventMutation.upsert(event));
-    if (event.reminderMinutes != null) {
-      unawaited(ReminderNotificationService.scheduleReminder(event));
+    _mutationController.add(EventMutation.upsert(sanitized));
+    if (sanitized.reminderMinutes != null) {
+      unawaited(ReminderNotificationService.scheduleReminder(sanitized));
     } else {
-      unawaited(ReminderNotificationService.cancelReminder(event.id));
+      unawaited(ReminderNotificationService.cancelReminder(sanitized.id));
     }
   }
 

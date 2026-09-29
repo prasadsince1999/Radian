@@ -1,5 +1,5 @@
-import '../constants/app_layout_constants.dart';
 import '../../domain/models/sector_event.dart';
+import '../../domain/rules/block_budget.dart';
 
 /// Represents the resolved 7-block horizon for Focused Block concentric dial mode.
 class FocusedHorizonResult {
@@ -284,9 +284,12 @@ class FocusedBlockLayoutResolver {
           : _arcsOverlap12H(e, existing);
     }
 
+    final maxAllowedVisible =
+        BlockBudget.maxVisible(previousBlocksCount, futureBlocksCount);
+
     void tryAdd(SectorEvent? e) {
       if (e == null) return;
-      if (visibleEvents.length >= AppLayoutConstants.maxDialVisibleBlocks) {
+      if (visibleEvents.length >= maxAllowedVisible) {
         return;
       }
       if (visibleEvents.any((existing) => existing.id == e.id)) return;
