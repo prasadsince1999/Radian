@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/clock.dart';
+
 import '../../data/repositories/local_event_repository.dart';
 import '../../domain/models/dial_settings.dart';
 import '../../domain/models/sector_event.dart';
@@ -34,7 +36,7 @@ final selectedDayProvider = Provider<DateTime>((ref) {
   if (custom != null) {
     return DateTime(custom.year, custom.month, custom.day);
   }
-  final now = ref.watch(currentTimeProvider).value ?? DateTime.now();
+  final now = ref.watch(currentTimeProvider).value ?? ref.read(clockProvider).now();
   return DateTime(now.year, now.month, now.day);
 });
 
@@ -68,14 +70,21 @@ final dialScrubAngleProvider = StateProvider<double?>((ref) => null);
 /// In 12H mode, which half of the day is visible: true = PM (12:00-24:00), false = AM (00:00-12:00), null = auto.
 final viewing12HourHalfProvider = StateProvider<bool?>((ref) => null);
 
+/// Injectable clock for the entire provider graph.
+///
+/// Tests override this with `FixedClock` or `TickingClock` to get
+/// deterministic time without touching any other provider.
+final clockProvider = Provider<Clock>((ref) => Clock.system);
+
 /// Live real-time clock ticker updating every second.
 final currentTimeProvider = StreamProvider<DateTime>((ref) {
-  return Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now());
+  final clock = ref.watch(clockProvider);
+  return Stream.periodic(const Duration(seconds: 1), (_) => clock.now());
 });
 
 /// Active event taking place right now.
 final currentActiveEventProvider = Provider<SectorEvent?>((ref) {
-  final now = ref.watch(currentTimeProvider).value ?? DateTime.now();
+  final now = ref.watch(currentTimeProvider).value ?? ref.read(clockProvider).now();
   final today = DateTime(now.year, now.month, now.day);
   final eventsAsync = ref.watch(eventsForDateProvider(today));
 
@@ -299,7 +308,7 @@ final quickScheduleBlockUseCaseProvider = Provider<QuickScheduleBlockUseCase>((
   final repo = ref.watch(eventRepositoryProvider);
   return QuickScheduleBlockUseCase(
     eventRepository: repo,
-    nowProvider: () => ref.read(currentTimeProvider).value ?? DateTime.now(),
+    nowProvider: () => ref.read(currentTimeProvider).value ?? ref.read(clockProvider).now(),
   );
 });
 
@@ -333,7 +342,7 @@ enum Dial12HourSegment { am, pm }
 
 /// Currently focused 12-hour segment on the 12H dial face.
 final dial12HourSegmentProvider = StateProvider<Dial12HourSegment>((ref) {
-  return DateTime.now().hour < 12 ? Dial12HourSegment.am : Dial12HourSegment.pm;
+  return ref.read(clockProvider).now().hour < 12 ? Dial12HourSegment.am : Dial12HourSegment.pm;
 });
 
 /// Tracks whether any block positions were dragged/modified during an edit session.

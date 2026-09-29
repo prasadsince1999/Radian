@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/clock.dart';
+
 import '../../core/constants/app_strings.dart';
 import '../../core/geometry/concentric_solver.dart';
 import '../../core/geometry/sector_math.dart';
@@ -17,6 +19,7 @@ import '../datasources/sample_events_data.dart';
 class LocalEventRepository implements EventRepository {
   static const _storageKey = AppStrings.eventsStorageKey;
   final SharedPreferences? prefs;
+  final Clock clock;
   final List<SectorEvent> _events = [];
   final _controller = StreamController<List<SectorEvent>>.broadcast();
   final _mutationController = StreamController<EventMutation>.broadcast();
@@ -24,7 +27,8 @@ class LocalEventRepository implements EventRepository {
   @override
   Stream<EventMutation> get mutations => _mutationController.stream;
 
-  LocalEventRepository({this.prefs}) {
+  LocalEventRepository({this.prefs, Clock? clock})
+      : clock = clock ?? Clock.system {
     _init();
   }
 
@@ -48,7 +52,7 @@ class LocalEventRepository implements EventRepository {
 
       var hasEnriched = false;
 
-      final now = DateTime.now();
+      final now = clock.now();
       String? urlPreset;
       String? urlMode;
       if (kIsWeb) {
@@ -479,7 +483,7 @@ class LocalEventRepository implements EventRepository {
 
   @override
   Future<void> loadPreset(String preset) async {
-    final now = DateTime.now();
+    final now = clock.now();
     final newEvents = preset == 'international_24h'
         ? SampleEventsData.generateInternational24hSchedule(now)
         : SampleEventsData.generateIndian12hSchedule(now);

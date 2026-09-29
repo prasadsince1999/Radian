@@ -31,7 +31,7 @@ class SectographDial extends ConsumerWidget {
     final allEventsAsync = ref.watch(allEventsProvider);
     final selectedEvent = ref.watch(selectedEventProvider);
     final activeEvent = ref.watch(currentActiveEventProvider);
-    final currentTime = ref.watch(currentTimeProvider).value ?? DateTime.now();
+    final currentTime = ref.watch(currentTimeProvider).value ?? ref.read(clockProvider).now();
     final scrubAngle = ref.watch(dialScrubAngleProvider);
     final settings = ref.watch(dialSettingsProvider);
     final isDialEditing = ref.watch(isDialEditingProvider);
@@ -1005,7 +1005,7 @@ class _DialFooterControlBar extends ConsumerWidget {
                 ref.read(selectedEventProvider.notifier).state = null;
                 ref
                     .read(dial12HourSegmentProvider.notifier)
-                    .state = DateTime.now().hour < 12
+                    .state = ref.read(clockProvider).now().hour < 12
                     ? Dial12HourSegment.am
                     : Dial12HourSegment.pm;
               },
