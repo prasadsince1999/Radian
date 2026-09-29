@@ -35,6 +35,52 @@ class ZoneClockSnapshot {
     required this.formattedOffset,
   });
 
+  /// Creates a frozen snapshot directly from a [DateTime] interpreted in [tzid].
+  factory ZoneClockSnapshot.fromDateTime(
+    DateTime dt, {
+    String tzid = 'UTC',
+  }) {
+    ensureTimeZonesInitialized();
+    final tz.Location loc = () {
+      try {
+        return tz.getLocation(tzid);
+      } catch (_) {
+        return tz.UTC;
+      }
+    }();
+    final local = tz.TZDateTime(
+      loc,
+      dt.year,
+      dt.month,
+      dt.day,
+      dt.hour,
+      dt.minute,
+      dt.second,
+      dt.millisecond,
+    );
+    final minuteOfDay = (local.hour * 60) + local.minute;
+    final wallClockMinutes =
+        minuteOfDay + (local.second / 60.0) + (local.millisecond / 60000.0);
+    final offsetMs = local.timeZoneOffset.inMilliseconds;
+    final totalMinutes = local.timeZoneOffset.inMinutes;
+    final sign = totalMinutes >= 0 ? '+' : '-';
+    final absMin = totalMinutes.abs();
+    final h = (absMin ~/ 60).toString().padLeft(2, '0');
+    final m = (absMin % 60).toString().padLeft(2, '0');
+    final formattedOffset = '$sign$h:$m';
+
+    return ZoneClockSnapshot(
+      utcNow: local.toUtc(),
+      localNow: local,
+      tzid: loc.name,
+      offsetMillis: offsetMs,
+      isDst: local.timeZone.isDst,
+      minuteOfDay: minuteOfDay,
+      wallClockMinutes: wallClockMinutes,
+      formattedOffset: formattedOffset,
+    );
+  }
+
   @override
   String toString() =>
       'ZoneClockSnapshot($tzid $formattedOffset, local: $localNow, DST: $isDst)';
