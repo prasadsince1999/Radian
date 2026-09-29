@@ -23,29 +23,61 @@ class CapsulePlacement {
   final String subtaskId;
   final String title;
   final double centerDeg;
+  final double angularWidthDeg;
+  final double radiusRatio;
+  final int lane;
+  final double widthPx;
+  final double heightPx;
+  final bool isFolded;
+  final int foldedCount;
   final bool isCompleted;
 
   const CapsulePlacement({
     required this.subtaskId,
     required this.title,
     required this.centerDeg,
+    this.angularWidthDeg = 12.0,
+    this.radiusRatio = 0.5,
+    this.lane = 0,
+    this.widthPx = 40.0,
+    this.heightPx = 14.0,
+    this.isFolded = false,
+    this.foldedCount = 0,
     this.isCompleted = false,
   });
 
   Map<String, dynamic> toJson() => {
-        'subtaskId': subtaskId,
-        'title': title,
-        'centerDeg': centerDeg,
-        'isCompleted': isCompleted,
-      };
+    'subtaskId': subtaskId,
+    'title': title,
+    'centerDeg': centerDeg,
+    'angularWidthDeg': angularWidthDeg,
+    'radiusRatio': radiusRatio,
+    'lane': lane,
+    'widthPx': widthPx,
+    'heightPx': heightPx,
+    'isFolded': isFolded,
+    'foldedCount': foldedCount,
+    'isCompleted': isCompleted,
+  };
 
   factory CapsulePlacement.fromJson(Map<String, dynamic> json) =>
       CapsulePlacement(
         subtaskId: json['subtaskId'] as String,
         title: json['title'] as String,
         centerDeg: (json['centerDeg'] as num).toDouble(),
+        angularWidthDeg: (json['angularWidthDeg'] as num?)?.toDouble() ?? 12.0,
+        radiusRatio: (json['radiusRatio'] as num?)?.toDouble() ?? 0.5,
+        lane: json['lane'] as int? ?? 0,
+        widthPx: (json['widthPx'] as num?)?.toDouble() ?? 40.0,
+        heightPx: (json['heightPx'] as num?)?.toDouble() ?? 14.0,
+        isFolded: json['isFolded'] as bool? ?? false,
+        foldedCount: json['foldedCount'] as int? ?? 0,
         isCompleted: json['isCompleted'] as bool? ?? false,
       );
+
+  @override
+  String toString() =>
+      'CapsulePlacement($title @ ${centerDeg.toStringAsFixed(1)}°, lane: $lane, span: ${angularWidthDeg.toStringAsFixed(1)}°)';
 }
 
 class CapLabels {
@@ -53,6 +85,8 @@ class CapLabels {
   final String endTimeLabel;
   final double startAngleDeg;
   final double endAngleDeg;
+  final double startCapSpanDeg;
+  final double endCapSpanDeg;
   final bool isVisible;
 
   const CapLabels({
@@ -60,24 +94,30 @@ class CapLabels {
     required this.endTimeLabel,
     required this.startAngleDeg,
     required this.endAngleDeg,
+    this.startCapSpanDeg = 9.2,
+    this.endCapSpanDeg = 9.2,
     this.isVisible = true,
   });
 
   Map<String, dynamic> toJson() => {
-        'startTimeLabel': startTimeLabel,
-        'endTimeLabel': endTimeLabel,
-        'startAngleDeg': startAngleDeg,
-        'endAngleDeg': endAngleDeg,
-        'isVisible': isVisible,
-      };
+    'startTimeLabel': startTimeLabel,
+    'endTimeLabel': endTimeLabel,
+    'startAngleDeg': startAngleDeg,
+    'endAngleDeg': endAngleDeg,
+    'startCapSpanDeg': startCapSpanDeg,
+    'endCapSpanDeg': endCapSpanDeg,
+    'isVisible': isVisible,
+  };
 
   factory CapLabels.fromJson(Map<String, dynamic> json) => CapLabels(
-        startTimeLabel: json['startTimeLabel'] as String? ?? '',
-        endTimeLabel: json['endTimeLabel'] as String? ?? '',
-        startAngleDeg: (json['startAngleDeg'] as num).toDouble(),
-        endAngleDeg: (json['endAngleDeg'] as num).toDouble(),
-        isVisible: json['isVisible'] as bool? ?? true,
-      );
+    startTimeLabel: json['startTimeLabel'] as String? ?? '',
+    endTimeLabel: json['endTimeLabel'] as String? ?? '',
+    startAngleDeg: (json['startAngleDeg'] as num).toDouble(),
+    endAngleDeg: (json['endAngleDeg'] as num).toDouble(),
+    startCapSpanDeg: (json['startCapSpanDeg'] as num?)?.toDouble() ?? 9.2,
+    endCapSpanDeg: (json['endCapSpanDeg'] as num?)?.toDouble() ?? 9.2,
+    isVisible: json['isVisible'] as bool? ?? true,
+  );
 }
 
 class DialBlock {
@@ -118,22 +158,22 @@ class DialBlock {
   double get endDeg => (startDeg + sweepDeg) % 360.0;
 
   Map<String, dynamic> toJson() => {
-        'eventId': eventId,
-        'segmentIndex': segmentIndex,
-        'title': title,
-        'tier': tier.name,
-        'role': role.name,
-        'startDeg': startDeg,
-        'sweepDeg': sweepDeg,
-        'ring': ring.name,
-        'content': content.name,
-        'colorHex': colorHex,
-        'category': category,
-        'subtasks': subtasks,
-        'capsules': capsules.map((c) => c.toJson()).toList(),
-        'caps': caps.toJson(),
-        'occurrence': occurrence.toJson(),
-      };
+    'eventId': eventId,
+    'segmentIndex': segmentIndex,
+    'title': title,
+    'tier': tier.name,
+    'role': role.name,
+    'startDeg': startDeg,
+    'sweepDeg': sweepDeg,
+    'ring': ring.name,
+    'content': content.name,
+    'colorHex': colorHex,
+    'category': category,
+    'subtasks': subtasks,
+    'capsules': capsules.map((c) => c.toJson()).toList(),
+    'caps': caps.toJson(),
+    'occurrence': occurrence.toJson(),
+  };
 
   factory DialBlock.fromJson(Map<String, dynamic> json) {
     return DialBlock(
@@ -148,17 +188,20 @@ class DialBlock {
       content: ContentMode.values.byName(json['content'] as String),
       colorHex: json['colorHex'] as String? ?? '#6366F1',
       category: json['category'] as String? ?? 'General',
-      subtasks: (json['subtasks'] as List<dynamic>?)
+      subtasks:
+          (json['subtasks'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],
-      capsules: (json['capsules'] as List<dynamic>?)
+      capsules:
+          (json['capsules'] as List<dynamic>?)
               ?.map((c) => CapsulePlacement.fromJson(c as Map<String, dynamic>))
               .toList() ??
           const [],
       caps: CapLabels.fromJson(json['caps'] as Map<String, dynamic>),
-      occurrence:
-          Occurrence.fromJson(json['occurrence'] as Map<String, dynamic>),
+      occurrence: Occurrence.fromJson(
+        json['occurrence'] as Map<String, dynamic>,
+      ),
     );
   }
 
@@ -181,18 +224,18 @@ class NeedleModel {
   });
 
   Map<String, dynamic> toJson() => {
-        'displayDeg': displayDeg,
-        'naturalDeg': naturalDeg,
-        'isInsideActiveBlock': isInsideActiveBlock,
-        if (activeEventId != null) 'activeEventId': activeEventId,
-      };
+    'displayDeg': displayDeg,
+    'naturalDeg': naturalDeg,
+    'isInsideActiveBlock': isInsideActiveBlock,
+    if (activeEventId != null) 'activeEventId': activeEventId,
+  };
 
   factory NeedleModel.fromJson(Map<String, dynamic> json) => NeedleModel(
-        displayDeg: (json['displayDeg'] as num).toDouble(),
-        naturalDeg: (json['naturalDeg'] as num).toDouble(),
-        isInsideActiveBlock: json['isInsideActiveBlock'] as bool? ?? false,
-        activeEventId: json['activeEventId'] as String?,
-      );
+    displayDeg: (json['displayDeg'] as num).toDouble(),
+    naturalDeg: (json['naturalDeg'] as num).toDouble(),
+    isInsideActiveBlock: json['isInsideActiveBlock'] as bool? ?? false,
+    activeEventId: json['activeEventId'] as String?,
+  );
 
   @override
   String toString() =>
@@ -215,20 +258,20 @@ class TickModel {
   });
 
   Map<String, dynamic> toJson() => {
-        'hour': hour,
-        'displayDeg': displayDeg,
-        'naturalDeg': naturalDeg,
-        'label': label,
-        'isMajor': isMajor,
-      };
+    'hour': hour,
+    'displayDeg': displayDeg,
+    'naturalDeg': naturalDeg,
+    'label': label,
+    'isMajor': isMajor,
+  };
 
   factory TickModel.fromJson(Map<String, dynamic> json) => TickModel(
-        hour: json['hour'] as int,
-        displayDeg: (json['displayDeg'] as num).toDouble(),
-        naturalDeg: (json['naturalDeg'] as num).toDouble(),
-        label: json['label'] as String,
-        isMajor: json['isMajor'] as bool,
-      );
+    hour: json['hour'] as int,
+    displayDeg: (json['displayDeg'] as num).toDouble(),
+    naturalDeg: (json['naturalDeg'] as num).toDouble(),
+    label: json['label'] as String,
+    isMajor: json['isMajor'] as bool,
+  );
 
   @override
   String toString() =>
@@ -249,19 +292,19 @@ class CenterModel {
   });
 
   Map<String, dynamic> toJson() => {
-        'activeTitle': activeTitle,
-        'activeCategory': activeCategory,
-        'remainingDurationFormatted': remainingDurationFormatted,
-        'modeName': modeName,
-      };
+    'activeTitle': activeTitle,
+    'activeCategory': activeCategory,
+    'remainingDurationFormatted': remainingDurationFormatted,
+    'modeName': modeName,
+  };
 
   factory CenterModel.fromJson(Map<String, dynamic> json) => CenterModel(
-        activeTitle: json['activeTitle'] as String? ?? '',
-        activeCategory: json['activeCategory'] as String? ?? '',
-        remainingDurationFormatted:
-            json['remainingDurationFormatted'] as String? ?? '',
-        modeName: json['modeName'] as String? ?? 'digital',
-      );
+    activeTitle: json['activeTitle'] as String? ?? '',
+    activeCategory: json['activeCategory'] as String? ?? '',
+    remainingDurationFormatted:
+        json['remainingDurationFormatted'] as String? ?? '',
+    modeName: json['modeName'] as String? ?? 'digital',
+  );
 }
 
 /// The unified, immutable dial state produced by the engine core (§3.3, §4).
@@ -328,17 +371,17 @@ class DialModel {
   }
 
   Map<String, dynamic> toJson() => {
-        'schemaVersion': schemaVersion,
-        'signature': signature,
-        'warpKey': warpKey,
-        'is24HourMode': is24HourMode,
-        'blocks': blocks.map((b) => b.toJson()).toList(),
-        'hidden': hidden.toJson(),
-        'warp': warp.toJson(),
-        'needle': needle.toJson(),
-        'ticks': ticks.map((t) => t.toJson()).toList(),
-        'center': center.toJson(),
-      };
+    'schemaVersion': schemaVersion,
+    'signature': signature,
+    'warpKey': warpKey,
+    'is24HourMode': is24HourMode,
+    'blocks': blocks.map((b) => b.toJson()).toList(),
+    'hidden': hidden.toJson(),
+    'warp': warp.toJson(),
+    'needle': needle.toJson(),
+    'ticks': ticks.map((t) => t.toJson()).toList(),
+    'center': center.toJson(),
+  };
 
   @override
   String toString() =>

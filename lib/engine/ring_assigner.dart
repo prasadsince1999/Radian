@@ -29,11 +29,11 @@ class RingAssignedSegment {
   BlockRole get role => segment.role;
 
   Map<String, dynamic> toJson() => {
-        'segment': segment.toJson(),
-        'displayStartDeg': displayStartDeg,
-        'displaySweepDeg': displaySweepDeg,
-        'ring': ring.name,
-      };
+    'segment': segment.toJson(),
+    'displayStartDeg': displayStartDeg,
+    'displaySweepDeg': displaySweepDeg,
+    'ring': ring.name,
+  };
 
   @override
   String toString() =>
@@ -74,7 +74,11 @@ class RingAssigner {
     // 1. Pass 1: Assign Tier A blocks to Outer Ring
     for (final ds in displaySegments) {
       if (ds.segment.tier == BlockTier.A) {
-        outerOccupancy.admit(ds.displayStartDeg, ds.displaySweepDeg, ds.segment.eventId);
+        outerOccupancy.admit(
+          ds.displayStartDeg,
+          ds.displaySweepDeg,
+          ds.segment.eventId,
+        );
         results.add(
           RingAssignedSegment(
             segment: ds.segment,
@@ -89,8 +93,10 @@ class RingAssigner {
     // 2. Pass 2: Assign Tier B and C blocks (in priority order)
     for (final ds in displaySegments) {
       if (ds.segment.tier != BlockTier.A) {
-        final canFitOuter =
-            outerOccupancy.canAdmit(ds.displayStartDeg, ds.displaySweepDeg);
+        final canFitOuter = outerOccupancy.canAdmit(
+          ds.displayStartDeg,
+          ds.displaySweepDeg,
+        );
 
         if (canFitOuter) {
           outerOccupancy.admit(

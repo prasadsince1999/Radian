@@ -25,10 +25,7 @@ class _DialPartition {
   bool get isTierB => block?.tier == BlockTier.B;
   bool get isTierC => block?.tier == BlockTier.C;
 
-  _DialPartition copyWith({
-    double? minSweep,
-    double? wantSweep,
-  }) {
+  _DialPartition copyWith({double? minSweep, double? wantSweep}) {
     return _DialPartition(
       block: block,
       naturalStart: naturalStart,
@@ -121,7 +118,10 @@ class WarpSolver {
       }
 
       // Determine min and want sweep for this block
-      final subtaskCount = seg.occurrence.subtasks.length;
+      final subtaskCount = math.max(
+        seg.occurrence.subtasks.length,
+        seg.occurrence.subtaskItems.length,
+      );
       final double minSweep;
       final double wantSweep;
 
@@ -130,8 +130,11 @@ class WarpSolver {
             ? _contentIdeal24H(subtaskCount, segSweep)
             : _contentIdeal12H(subtaskCount, segSweep);
         final magnified = segSweep * prefs.lensMagnification;
-        minSweep = is24 ? 34.0 : 45.0;
-        wantSweep = math.max(ideal, magnified).clamp(minSweep, is24 ? 90.0 : 135.0);
+        final baseMin = is24 ? 34.0 : 45.0;
+        minSweep = math.max(baseMin, math.min(ideal, is24 ? 75.0 : 110.0));
+        wantSweep = math
+            .max(ideal, magnified)
+            .clamp(minSweep, is24 ? 90.0 : 135.0);
       } else if (seg.tier == BlockTier.B) {
         minSweep = is24 ? 20.0 : 28.0;
         wantSweep = math.max(segSweep, minSweep);
@@ -209,10 +212,12 @@ class WarpSolver {
       // Safety scale: clamp all minimums proportionally to strictly fit in 360.0
       final scale = 360.0 / totalMin;
       partitions = partitions
-          .map((p) => p.copyWith(
-                minSweep: p.minSweep * scale,
-                wantSweep: p.wantSweep * scale,
-              ))
+          .map(
+            (p) => p.copyWith(
+              minSweep: p.minSweep * scale,
+              wantSweep: p.wantSweep * scale,
+            ),
+          )
           .toList();
     }
 
@@ -270,15 +275,14 @@ class WarpSolver {
 
       for (int i = 0; i < n; i++) {
         if (!clamped[i]) {
-          displaySweeps[i] = (partitions[i].wantSweep / remainingWant) * remBudget;
+          displaySweeps[i] =
+              (partitions[i].wantSweep / remainingWant) * remBudget;
         }
       }
     }
 
     // 5. Construct Breakpoints [(0.0, 0.0), ..., (360.0, 360.0)]
-    final breakpoints = <WarpBreakpoint>[
-      const WarpBreakpoint(0.0, 0.0),
-    ];
+    final breakpoints = <WarpBreakpoint>[const WarpBreakpoint(0.0, 0.0)];
 
     double currNatural = 0.0;
     double currDisplay = 0.0;

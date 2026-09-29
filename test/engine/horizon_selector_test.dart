@@ -41,9 +41,15 @@ void main() {
 
       final result = HorizonSelector.select(input);
 
-      expect(result.visible.any((o) => o.end.isBefore(baseDate)), isFalse,
-          reason: 'No blocks ending before now should be admitted when P=0');
-      expect(result.visible.map((o) => o.id), containsAll(['active', 'next-1']));
+      expect(
+        result.visible.any((o) => o.end.isBefore(baseDate)),
+        isFalse,
+        reason: 'No blocks ending before now should be admitted when P=0',
+      );
+      expect(
+        result.visible.map((o) => o.id),
+        containsAll(['active', 'next-1']),
+      );
       expect(result.visible.map((o) => o.id), isNot(contains('prev-1')));
     });
 
@@ -112,8 +118,11 @@ void main() {
       final resSelected = HorizonSelector.select(inputSelected);
       final idsSelected = resSelected.visible.map((o) => o.id).toList();
 
-      expect(idsSelected.first, equals('next-2'),
-          reason: 'Selected focus must take absolute highest priority');
+      expect(
+        idsSelected.first,
+        equals('next-2'),
+        reason: 'Selected focus must take absolute highest priority',
+      );
     });
 
     test('12H Aliasing Deconfliction (RC1 & I2): 11 PM with tomorrow 6 AM and yesterday 6 PM', () {
@@ -150,13 +159,21 @@ void main() {
       final input = DialInput(
         now: nightNow,
         occurrences: occurrences,
-        prefs: const DialPrefs(previousBlocks: 2, nextBlocks: 2, is24HourMode: false),
+        prefs: const DialPrefs(
+          previousBlocks: 2,
+          nextBlocks: 2,
+          is24HourMode: false,
+        ),
       );
 
       final result = HorizonSelector.select(input);
       final visibleIds = result.visible.map((o) => o.id).toList();
 
-      expect(visibleIds, contains('night-reading'), reason: 'Active block must be visible');
+      expect(
+        visibleIds,
+        contains('night-reading'),
+        reason: 'Active block must be visible',
+      );
       // Due to priority order (active -> next1 -> prev1):
       // tomorrow-yoga is next1 (rank 1 next). It is admitted at angles 180°-210°.
       // today-dinner is prev1. Its angle interval (180°-210°) conflicts with tomorrow-yoga!
@@ -190,8 +207,11 @@ void main() {
       );
 
       final result = HorizonSelector.select(input);
-      expect(result.visibleSegments.length, equals(2),
-          reason: 'A midnight-crossing block should be split into 2 segments: #0 and #1');
+      expect(
+        result.visibleSegments.length,
+        equals(2),
+        reason: 'A midnight-crossing block should be split into 2 segments: #0 and #1',
+      );
       expect(result.visibleSegments[0].segmentIndex, equals(0));
       expect(result.visibleSegments[1].segmentIndex, equals(1));
       expect(result.visibleSegments[0].segmentEnd.hour, equals(0));
@@ -221,8 +241,12 @@ void main() {
           final res = HorizonSelector.select(input);
           // Count distinct logical events
           final distinctIds = res.visible.map((o) => o.eventId).toSet();
-          expect(distinctIds.length, lessThanOrEqualTo(1 + p + n),
-              reason: 'Distinct admitted events must be <= 1 + P + N (P=$p, N=$n)');
+          expect(
+            distinctIds.length,
+            lessThanOrEqualTo(1 + p + n),
+            reason:
+                'Distinct admitted events must be <= 1 + P + N (P=$p, N=$n)',
+          );
         }
       }
     });
@@ -275,76 +299,103 @@ void main() {
       );
       final resRev = HorizonSelector.select(inputRev);
 
-      expect(resAsc.visible.map((o) => o.id).toList(),
-          equals(resRev.visible.map((o) => o.id).toList()));
+      expect(
+        resAsc.visible.map((o) => o.id).toList(),
+        equals(resRev.visible.map((o) => o.id).toList()),
+      );
     });
   });
 
-  group('HorizonSelector Property-Based Tests (>= 1,000 Seeded Iterations)', () {
-    test('1,000 seeded random days invariant verification', () {
-      final rng = math.Random(42893); // Deterministic seed
+  group(
+    'HorizonSelector Property-Based Tests (>= 1,000 Seeded Iterations)',
+    () {
+      test('1,000 seeded random days invariant verification', () {
+        final rng = math.Random(42893); // Deterministic seed
 
-      for (int iter = 0; iter < 1000; iter++) {
-        final startHour = rng.nextInt(24);
-        final startMinute = rng.nextInt(60);
-        final now = DateTime(2026, 9, 29, startHour, startMinute);
+        for (int iter = 0; iter < 1000; iter++) {
+          final startHour = rng.nextInt(24);
+          final startMinute = rng.nextInt(60);
+          final now = DateTime(2026, 9, 29, startHour, startMinute);
 
-        final p = rng.nextInt(4); // 0..3
-        final n = rng.nextInt(4); // 0..3
-        final is24 = rng.nextBool();
+          final p = rng.nextInt(4); // 0..3
+          final n = rng.nextInt(4); // 0..3
+          final is24 = rng.nextBool();
 
-        final numEvents = rng.nextInt(15) + 1; // 1..15 events
-        final events = <Occurrence>[];
+          final numEvents = rng.nextInt(15) + 1; // 1..15 events
+          final events = <Occurrence>[];
 
-        // Generate non-overlapping random events throughout a 48-hour span around now
-        var cursor = now.subtract(const Duration(hours: 14));
-        for (int i = 0; i < numEvents; i++) {
-          final gapMinutes = rng.nextInt(60) + 10;
-          final durationMinutes = rng.nextInt(120) + 30;
-          final evStart = cursor.add(Duration(minutes: gapMinutes));
-          final evEnd = evStart.add(Duration(minutes: durationMinutes));
-          cursor = evEnd;
+          // Generate non-overlapping random events throughout a 48-hour span around now
+          var cursor = now.subtract(const Duration(hours: 14));
+          for (int i = 0; i < numEvents; i++) {
+            final gapMinutes = rng.nextInt(60) + 10;
+            final durationMinutes = rng.nextInt(120) + 30;
+            final evStart = cursor.add(Duration(minutes: gapMinutes));
+            final evEnd = evStart.add(Duration(minutes: durationMinutes));
+            cursor = evEnd;
 
-          events.add(Occurrence(
-            id: 'rand-ev-$iter-$i',
-            eventId: 'rand-ev-$iter-$i',
-            title: 'Random Block $i',
-            start: evStart,
-            end: evEnd,
-          ));
-        }
+            events.add(
+              Occurrence(
+                id: 'rand-ev-$iter-$i',
+                eventId: 'rand-ev-$iter-$i',
+                title: 'Random Block $i',
+                start: evStart,
+                end: evEnd,
+              ),
+            );
+          }
 
-        final input = DialInput(
-          now: now,
-          occurrences: events,
-          prefs: DialPrefs(previousBlocks: p, nextBlocks: n, is24HourMode: is24),
-        );
+          final input = DialInput(
+            now: now,
+            occurrences: events,
+            prefs: DialPrefs(
+              previousBlocks: p,
+              nextBlocks: n,
+              is24HourMode: is24,
+            ),
+          );
 
-        final result = HorizonSelector.select(input);
+          final result = HorizonSelector.select(input);
 
-        // Invariant 1: Distinct admitted logical events <= 1 + P + N
-        final distinctAdmitted = result.visible.map((o) => o.eventId).toSet();
-        expect(distinctAdmitted.length, lessThanOrEqualTo(1 + p + n),
-            reason: 'Iteration $iter: Admitted events exceed 1 + P + N');
+          // Invariant 1: Distinct admitted logical events <= 1 + P + N
+          final distinctAdmitted = result.visible.map((o) => o.eventId).toSet();
+          expect(
+            distinctAdmitted.length,
+            lessThanOrEqualTo(1 + p + n),
+            reason: 'Iteration $iter: Admitted events exceed 1 + P + N',
+          );
 
-        // Invariant 2: When P = 0, no admitted block ends strictly before now
-        if (p == 0) {
-          final anyStrictPrev = result.visible.any((o) => o.end.isBefore(now));
-          expect(anyStrictPrev, isFalse,
-              reason: 'Iteration $iter: P=0 admitted a previous block');
-        }
+          // Invariant 2: When P = 0, no admitted block ends strictly before now
+          if (p == 0) {
+            final anyStrictPrev = result.visible.any(
+              (o) => o.end.isBefore(now),
+            );
+            expect(
+              anyStrictPrev,
+              isFalse,
+              reason: 'Iteration $iter: P=0 admitted a previous block',
+            );
+          }
 
-        // Invariant 3: Permutation invariance
-        final shuffledEvents = List<Occurrence>.from(events)..shuffle(rng);
-        final permutedResult = HorizonSelector.select(DialInput(
-          now: now,
-          occurrences: shuffledEvents,
-          prefs: DialPrefs(previousBlocks: p, nextBlocks: n, is24HourMode: is24),
-        ));
-        expect(result.visible.map((o) => o.id).toSet(),
+          // Invariant 3: Permutation invariance
+          final shuffledEvents = List<Occurrence>.from(events)..shuffle(rng);
+          final permutedResult = HorizonSelector.select(
+            DialInput(
+              now: now,
+              occurrences: shuffledEvents,
+              prefs: DialPrefs(
+                previousBlocks: p,
+                nextBlocks: n,
+                is24HourMode: is24,
+              ),
+            ),
+          );
+          expect(
+            result.visible.map((o) => o.id).toSet(),
             equals(permutedResult.visible.map((o) => o.id).toSet()),
-            reason: 'Iteration $iter: Admitted set differs under permutation');
-      }
-    });
-  });
+            reason: 'Iteration $iter: Admitted set differs under permutation',
+          );
+        }
+      });
+    },
+  );
 }

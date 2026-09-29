@@ -61,8 +61,12 @@ class AngularOccupancy {
   /// Finds the ID of the existing event whose occupied arc collides with the candidate arc,
   /// or null if free.
   String? conflictingEventId(double startDeg, double sweepDeg) {
-    final candidateIntervals =
-        _decomposeArc(startDeg, sweepDeg, '', guardGapDeg / 2.0);
+    final candidateIntervals = _decomposeArc(
+      startDeg,
+      sweepDeg,
+      '',
+      guardGapDeg / 2.0,
+    );
 
     for (final candidate in candidateIntervals) {
       for (final existing in _intervals) {
@@ -76,8 +80,12 @@ class AngularOccupancy {
 
   /// Admits a candidate arc into the occupancy set.
   void admit(double startDeg, double sweepDeg, String eventId) {
-    final newIntervals =
-        _decomposeArc(startDeg, sweepDeg, eventId, guardGapDeg / 2.0);
+    final newIntervals = _decomposeArc(
+      startDeg,
+      sweepDeg,
+      eventId,
+      guardGapDeg / 2.0,
+    );
     _intervals.addAll(newIntervals);
   }
 

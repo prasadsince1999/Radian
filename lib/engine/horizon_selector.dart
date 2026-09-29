@@ -13,12 +13,7 @@ enum BlockTier {
   C,
 }
 
-enum BlockRole {
-  selected,
-  active,
-  next,
-  prev,
-}
+enum BlockRole { selected, active, next, prev }
 
 /// A contiguous segment of an event occurrence on the dial face.
 ///
@@ -51,18 +46,18 @@ class OccurrenceSegment {
   Duration get duration => segmentEnd.difference(segmentStart);
 
   Map<String, dynamic> toJson() => {
-        'id': '${occurrence.id}#$segmentIndex',
-        'eventId': occurrence.eventId,
-        'segmentIndex': segmentIndex,
-        'title': occurrence.title,
-        'start': segmentStart.toIso8601String(),
-        'end': segmentEnd.toIso8601String(),
-        'naturalStartDeg': naturalStartDeg,
-        'naturalSweepDeg': naturalSweepDeg,
-        'tier': tier.name,
-        'role': role.name,
-        'rank': rank,
-      };
+    'id': '${occurrence.id}#$segmentIndex',
+    'eventId': occurrence.eventId,
+    'segmentIndex': segmentIndex,
+    'title': occurrence.title,
+    'start': segmentStart.toIso8601String(),
+    'end': segmentEnd.toIso8601String(),
+    'naturalStartDeg': naturalStartDeg,
+    'naturalSweepDeg': naturalSweepDeg,
+    'tier': tier.name,
+    'role': role.name,
+    'rank': rank,
+  };
 
   @override
   String toString() =>
@@ -81,10 +76,10 @@ class HiddenEventInfo {
   });
 
   Map<String, dynamic> toJson() => {
-        'eventId': eventId,
-        'title': title,
-        'reason': reason,
-      };
+    'eventId': eventId,
+    'title': title,
+    'reason': reason,
+  };
 
   @override
   String toString() => 'HiddenEventInfo($eventId "$title": $reason)';
@@ -94,19 +89,14 @@ class HiddenSummary {
   final int hiddenCount;
   final List<HiddenEventInfo> hiddenEvents;
 
-  const HiddenSummary({
-    this.hiddenCount = 0,
-    this.hiddenEvents = const [],
-  });
+  const HiddenSummary({this.hiddenCount = 0, this.hiddenEvents = const []});
 
-  const HiddenSummary.empty()
-      : hiddenCount = 0,
-        hiddenEvents = const [];
+  const HiddenSummary.empty() : hiddenCount = 0, hiddenEvents = const [];
 
   Map<String, dynamic> toJson() => {
-        'hiddenCount': hiddenCount,
-        'hiddenEvents': hiddenEvents.map((e) => e.toJson()).toList(),
-      };
+    'hiddenCount': hiddenCount,
+    'hiddenEvents': hiddenEvents.map((e) => e.toJson()).toList(),
+  };
 
   @override
   String toString() => 'HiddenSummary(count: $hiddenCount)';
@@ -148,7 +138,8 @@ class HorizonSelector {
 
   /// Calculates natural dial angle in degrees [0, 360) from a wall-clock DateTime.
   static double naturalAngleDeg(DateTime time, {required bool is24HourMode}) {
-    final double minutesOfDay = time.hour * 60.0 + time.minute + time.second / 60.0;
+    final double minutesOfDay =
+        time.hour * 60.0 + time.minute + time.second / 60.0;
     if (is24HourMode) {
       // 24 hours = 1440 minutes -> 0.25 deg/min
       return (minutesOfDay * 0.25) % 360.0;
@@ -159,7 +150,10 @@ class HorizonSelector {
   }
 
   /// Calculates natural sweep in degrees [0, 360] from duration.
-  static double naturalSweepDeg(Duration duration, {required bool is24HourMode}) {
+  static double naturalSweepDeg(
+    Duration duration, {
+    required bool is24HourMode,
+  }) {
     final double minutes = duration.inSeconds / 60.0;
     final double degPerMin = is24HourMode ? 0.25 : 0.5;
     final double rawSweep = minutes * degPerMin;
@@ -218,19 +212,50 @@ class HorizonSelector {
       final s = o.start;
       final e = o.end;
       final normStart = now.isUtc
-          ? DateTime.utc(s.year, s.month, s.day, s.hour, s.minute, s.second, s.millisecond)
-          : DateTime(s.year, s.month, s.day, s.hour, s.minute, s.second, s.millisecond);
+          ? DateTime.utc(
+              s.year,
+              s.month,
+              s.day,
+              s.hour,
+              s.minute,
+              s.second,
+              s.millisecond,
+            )
+          : DateTime(
+              s.year,
+              s.month,
+              s.day,
+              s.hour,
+              s.minute,
+              s.second,
+              s.millisecond,
+            );
       final normEnd = now.isUtc
-          ? DateTime.utc(e.year, e.month, e.day, e.hour, e.minute, e.second, e.millisecond)
-          : DateTime(e.year, e.month, e.day, e.hour, e.minute, e.second, e.millisecond);
+          ? DateTime.utc(
+              e.year,
+              e.month,
+              e.day,
+              e.hour,
+              e.minute,
+              e.second,
+              e.millisecond,
+            )
+          : DateTime(
+              e.year,
+              e.month,
+              e.day,
+              e.hour,
+              e.minute,
+              e.second,
+              e.millisecond,
+            );
       return o.copyWith(start: normStart, end: normEnd);
     });
 
     final windowOccurrences = normalizedOccurrences.where((o) {
       if (o.isAllDay) return false;
       return o.end.isAfter(windowStart) && o.start.isBefore(windowEnd);
-    }).toList()
-      ..sort((a, b) => a.start.compareTo(b.start));
+    }).toList()..sort((a, b) => a.start.compareTo(b.start));
 
     // 3. Identify Active block (covering now)
     Occurrence? active;
@@ -245,7 +270,9 @@ class HorizonSelector {
     Occurrence? selected;
     final selectedId = input.focus.selectedEventId;
     if (selectedId != null) {
-      selected = windowOccurrences.where((o) => o.eventId == selectedId).firstOrNull;
+      selected = windowOccurrences
+          .where((o) => o.eventId == selectedId)
+          .firstOrNull;
     }
 
     // 5. Partition Remaining into Upcoming (next) and Preceding (prev)
@@ -256,14 +283,15 @@ class HorizonSelector {
     final upcomingCandidates = windowOccurrences.where((o) {
       if (o.id == active?.id || o.id == selected?.id) return false;
       return o.start.isAfter(anchorTime) || o.start == anchorTime;
-    }).toList()
-      ..sort((a, b) => a.start.compareTo(b.start)); // Ascending
+    }).toList()..sort((a, b) => a.start.compareTo(b.start)); // Ascending
 
-    final previousCandidates = windowOccurrences.where((o) {
-      if (o.id == active?.id || o.id == selected?.id) return false;
-      return o.end.isBefore(prevAnchorTime) || o.end == prevAnchorTime;
-    }).toList()
-      ..sort((a, b) => b.end.compareTo(a.end)); // Descending (most recent first)
+    final previousCandidates =
+        windowOccurrences.where((o) {
+          if (o.id == active?.id || o.id == selected?.id) return false;
+          return o.end.isBefore(prevAnchorTime) || o.end == prevAnchorTime;
+        }).toList()..sort(
+          (a, b) => b.end.compareTo(a.end),
+        ); // Descending (most recent first)
 
     // 6. Build prioritized candidate list:
     // Priority order: selected -> active -> next1 -> prev1 -> next2 -> prev2 -> next3 -> prev3
@@ -298,7 +326,9 @@ class HorizonSelector {
       if (r <= nLimit && r <= upcomingCandidates.length) {
         final occ = upcomingCandidates[r - 1];
         if (occ.id != selected?.id) {
-          final tier = r == 1 ? BlockTier.A : (r == 2 ? BlockTier.B : BlockTier.C);
+          final tier = r == 1
+              ? BlockTier.A
+              : (r == 2 ? BlockTier.B : BlockTier.C);
           orderedCandidates.add(
             _RankedCandidate(
               occurrence: occ,
@@ -339,7 +369,10 @@ class HorizonSelector {
 
       if (!is24) {
         // 12-Hour Angular Occupancy Test
-        final conflictingId = occupancy.conflictingEventId(startAngle, sweepAngle);
+        final conflictingId = occupancy.conflictingEventId(
+          startAngle,
+          sweepAngle,
+        );
         if (conflictingId != null) {
           hiddenEvents.add(
             HiddenEventInfo(
@@ -356,8 +389,20 @@ class HorizonSelector {
       if (occ.start.day != occ.end.day &&
           occ.end.difference(occ.start) < const Duration(hours: 24)) {
         final midnight = occ.start.isUtc
-            ? DateTime.utc(occ.start.year, occ.start.month, occ.start.day + 1, 0, 0)
-            : DateTime(occ.start.year, occ.start.month, occ.start.day + 1, 0, 0);
+            ? DateTime.utc(
+                occ.start.year,
+                occ.start.month,
+                occ.start.day + 1,
+                0,
+                0,
+              )
+            : DateTime(
+                occ.start.year,
+                occ.start.month,
+                occ.start.day + 1,
+                0,
+                0,
+              );
         final seg0Duration = midnight.difference(occ.start);
         final seg1Duration = occ.end.difference(midnight);
 

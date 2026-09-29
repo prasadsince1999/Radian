@@ -12,8 +12,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// resume events to ensure the dial never stays out-of-sync when the user returns
 /// to the app or changes their device clock.
 class SystemTimeChangeService with WidgetsBindingObserver {
-  static const EventChannel _eventChannel =
-      EventChannel('com.ksmxtech.sectograph_mcp/time_changes');
+  static const EventChannel _eventChannel = EventChannel(
+    'com.ksmxtech.sectograph_mcp/time_changes',
+  );
 
   final _controller = StreamController<String>.broadcast();
   StreamSubscription<dynamic>? _platformSubscription;
@@ -56,8 +57,9 @@ class SystemTimeChangeService with WidgetsBindingObserver {
 }
 
 /// Provider for listening to system time, timezone, and date changes.
-final systemTimeChangeServiceProvider =
-    Provider<SystemTimeChangeService>((ref) {
+final systemTimeChangeServiceProvider = Provider<SystemTimeChangeService>((
+  ref,
+) {
   final service = SystemTimeChangeService();
   ref.onDispose(service.dispose);
   return service;

@@ -51,11 +51,7 @@ class DialFocusScrub extends DialFocus {
 }
 
 /// Surface environment where the dial is being drawn.
-enum DialSurfaceType {
-  app,
-  widget,
-  wear,
-}
+enum DialSurfaceType { app, widget, wear }
 
 class DialSurface {
   final DialSurfaceType type;
@@ -93,9 +89,9 @@ class DialPrefs {
     bool? isFocusLensEnabled,
     bool? lensEnabled,
     this.lensMagnification = 1.8,
-  })  : previousBlocksCount = previousBlocksCount ?? previousBlocks ?? 1,
-        futureBlocksCount = futureBlocksCount ?? nextBlocks ?? 3,
-        isFocusLensEnabled = isFocusLensEnabled ?? lensEnabled ?? true;
+  }) : previousBlocksCount = previousBlocksCount ?? previousBlocks ?? 1,
+       futureBlocksCount = futureBlocksCount ?? nextBlocks ?? 3,
+       isFocusLensEnabled = isFocusLensEnabled ?? lensEnabled ?? true;
 
   DialPrefs copyWith({
     bool? is24HourMode,
@@ -145,12 +141,12 @@ class SubtaskItemOccurrence {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'isCompleted': isCompleted,
-        if (startMinuteOffset != null) 'startMinuteOffset': startMinuteOffset,
-        if (endMinuteOffset != null) 'endMinuteOffset': endMinuteOffset,
-      };
+    'id': id,
+    'title': title,
+    'isCompleted': isCompleted,
+    if (startMinuteOffset != null) 'startMinuteOffset': startMinuteOffset,
+    if (endMinuteOffset != null) 'endMinuteOffset': endMinuteOffset,
+  };
 }
 
 /// Single occurrence of an event on the timeline in wall-clock time.
@@ -200,13 +196,17 @@ class Occurrence {
       iconName: json['iconName'] as String?,
       reminderMinutes: json['reminderMinutes'] as int?,
       isAllDay: json['isAllDay'] as bool? ?? false,
-      subtasks: (json['subtasks'] as List<dynamic>?)
+      subtasks:
+          (json['subtasks'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],
-      subtaskItems: (json['subtaskItems'] as List<dynamic>?)
-              ?.map((s) =>
-                  SubtaskItemOccurrence.fromJson(s as Map<String, dynamic>))
+      subtaskItems:
+          (json['subtaskItems'] as List<dynamic>?)
+              ?.map(
+                (s) =>
+                    SubtaskItemOccurrence.fromJson(s as Map<String, dynamic>),
+              )
               .toList() ??
           const [],
     );
@@ -245,20 +245,20 @@ class Occurrence {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'eventId': eventId,
-        'title': title,
-        'start': start.toIso8601String(),
-        'end': end.toIso8601String(),
-        'colorHex': colorHex,
-        'category': category,
-        if (notes.isNotEmpty) 'notes': notes,
-        if (iconName != null) 'iconName': iconName,
-        if (reminderMinutes != null) 'reminderMinutes': reminderMinutes,
-        'isAllDay': isAllDay,
-        'subtasks': subtasks,
-        'subtaskItems': subtaskItems.map((s) => s.toJson()).toList(),
-      };
+    'id': id,
+    'eventId': eventId,
+    'title': title,
+    'start': start.toIso8601String(),
+    'end': end.toIso8601String(),
+    'colorHex': colorHex,
+    'category': category,
+    if (notes.isNotEmpty) 'notes': notes,
+    if (iconName != null) 'iconName': iconName,
+    if (reminderMinutes != null) 'reminderMinutes': reminderMinutes,
+    'isAllDay': isAllDay,
+    'subtasks': subtasks,
+    'subtaskItems': subtaskItems.map((s) => s.toJson()).toList(),
+  };
 
   @override
   String toString() => 'Occurrence($title, $start - $end)';
@@ -292,7 +292,8 @@ class DialInput {
     DialFocus focus = const DialFocus.none(),
     DialSurface surface = const DialSurface(),
   }) {
-    final effectiveClock = clock ??
+    final effectiveClock =
+        clock ??
         (now != null
             ? ZoneClockSnapshot.fromDateTime(now, tzid: tzid)
             : ZoneClock.fixedZone(tzid: tzid).snapshot());

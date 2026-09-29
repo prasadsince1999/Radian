@@ -59,7 +59,10 @@ void main() {
 
       // Ticks assertions
       expect(model.ticks.length, equals(12));
-      expect(model.ticks.where((t) => t.isMajor).length, equals(4)); // 12, 3, 6, 9
+      expect(
+        model.ticks.where((t) => t.isMajor).length,
+        equals(4),
+      ); // 12, 3, 6, 9
 
       // Center model
       expect(model.center.activeTitle, equals('Deep Work'));
@@ -99,38 +102,50 @@ void main() {
       final model1 = DialModelBuilder.build(input1);
       final model2 = DialModelBuilder.build(input2);
 
-      expect(model1.signature, equals(model2.signature),
-          reason: 'Signatures must be strictly deterministic across calls');
+      expect(
+        model1.signature,
+        equals(model2.signature),
+        reason: 'Signatures must be strictly deterministic across calls',
+      );
     });
 
-    test('WarpKey stability: minute tick during active block keeps same warpKey', () {
-      final occurrences = [
-        Occurrence(
-          id: 'ev-work',
-          eventId: 'ev-work',
-          title: 'Deep Work',
-          start: DateTime(2026, 9, 29, 9, 0),
-          end: DateTime(2026, 9, 29, 12, 0),
-        ),
-      ];
+    test(
+      'WarpKey stability: minute tick during active block keeps same warpKey',
+      () {
+        final occurrences = [
+          Occurrence(
+            id: 'ev-work',
+            eventId: 'ev-work',
+            title: 'Deep Work',
+            start: DateTime(2026, 9, 29, 9, 0),
+            end: DateTime(2026, 9, 29, 12, 0),
+          ),
+        ];
 
-      final inputAt1000 = DialInput(
-        now: DateTime(2026, 9, 29, 10, 0),
-        occurrences: occurrences,
-      );
-      final inputAt1001 = DialInput(
-        now: DateTime(2026, 9, 29, 10, 1),
-        occurrences: occurrences,
-      );
+        final inputAt1000 = DialInput(
+          now: DateTime(2026, 9, 29, 10, 0),
+          occurrences: occurrences,
+        );
+        final inputAt1001 = DialInput(
+          now: DateTime(2026, 9, 29, 10, 1),
+          occurrences: occurrences,
+        );
 
-      final model1000 = DialModelBuilder.build(inputAt1000);
-      final model1001 = DialModelBuilder.build(inputAt1001);
+        final model1000 = DialModelBuilder.build(inputAt1000);
+        final model1001 = DialModelBuilder.build(inputAt1001);
 
-      expect(model1000.warpKey, equals(model1001.warpKey),
-          reason: 'Advancing 1 minute without structural change must preserve WarpKey');
-      expect(model1000.needle.displayDeg, isNot(equals(model1001.needle.displayDeg)),
-          reason: 'Advancing 1 minute must move the needle');
-    });
+        expect(
+          model1000.warpKey,
+          equals(model1001.warpKey),
+          reason: 'Advancing 1 minute without structural change must preserve WarpKey',
+        );
+        expect(
+          model1000.needle.displayDeg,
+          isNot(equals(model1001.needle.displayDeg)),
+          reason: 'Advancing 1 minute must move the needle',
+        );
+      },
+    );
 
     test('OccurrenceAdapter bridges domain SectorEvent accurately', () {
       final domainEvents = [
@@ -188,8 +203,11 @@ void main() {
       final model = DialModelBuilder.build(input);
 
       for (final b in model.blocks) {
-        expect(b.ring, equals(RingLevel.outer),
-            reason: 'Non-overlapping blocks should both be on outer ring');
+        expect(
+          b.ring,
+          equals(RingLevel.outer),
+          reason: 'Non-overlapping blocks should both be on outer ring',
+        );
       }
     });
   });

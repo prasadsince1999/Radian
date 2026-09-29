@@ -1,7 +1,10 @@
+import 'content_planner.dart';
 import 'dial_input.dart';
 import 'dial_model.dart';
 import 'horizon_selector.dart';
 import 'ring_assigner.dart';
+import 'subtask_placer.dart';
+import 'text_measurer.dart';
 import 'warp_solver.dart';
 
 /// Single, authoritative DialModel builder (§3.2, §3.3).
@@ -11,7 +14,10 @@ class DialModelBuilder {
   const DialModelBuilder._();
 
   /// Builds a complete immutable DialModel from a DialInput state.
-  static DialModel build(DialInput input) {
+  static DialModel build(
+    DialInput input, {
+    TextMeasurer textMeasurer = const FastTextMeasurer(),
+  }) {
     final prefs = input.prefs;
     final is24 = prefs.is24HourMode;
 
@@ -28,8 +34,10 @@ class DialModelBuilder {
     );
 
     // 4. Needle Model (I7: needle is inside active block arc by construction)
-    final nowNaturalDeg =
-        HorizonSelector.naturalAngleDeg(input.now, is24HourMode: is24);
+    final nowNaturalDeg = HorizonSelector.naturalAngleDeg(
+      input.now,
+      is24HourMode: is24,
+    );
     final nowDisplayDeg = warp.forward(nowNaturalDeg);
     final isInsideActive = horizon.activeEvent != null;
 
@@ -45,58 +53,28 @@ class DialModelBuilder {
     for (final rs in ringSegments) {
       final seg = rs.segment;
       final occ = seg.occurrence;
-      final sweep = rs.displaySweepDeg;
 
-      // Determine ContentMode
-      final ContentMode content;
-      if (sweep >= (is24 ? 38.0 : 50.0)) {
-        content = ContentMode.full;
-      } else if (sweep >= (is24 ? 22.0 : 28.0)) {
-        content = ContentMode.compact;
-      } else if (sweep >= (is24 ? 12.0 : 16.0)) {
-        content = ContentMode.iconKeyword;
-      } else {
-        content = ContentMode.iconOnly;
-      }
-
-      // Start / End Cap Labels
-      final startLabel = _formatTime(seg.segmentStart);
-      final endLabel = _formatTime(seg.segmentEnd);
-      final caps = CapLabels(
-        startTimeLabel: startLabel,
-        endTimeLabel: endLabel,
-        startAngleDeg: rs.displayStartDeg,
-        endAngleDeg: (rs.displayStartDeg + rs.displaySweepDeg) % 360.0,
-        isVisible: sweep >= (is24 ? 16.0 : 20.0),
+      // Plan content mode, caps, and reserved zones (§4.5)
+      final contentPlan = ContentPlanner.planContent(
+        segment: seg,
+        displayStartDeg: rs.displayStartDeg,
+        displaySweepDeg: rs.displaySweepDeg,
+        is24HourMode: is24,
+        textMeasurer: textMeasurer,
+        dialRadius: input.surface.size / 2.0,
       );
 
-      // Subtask Capsules
-      final capsules = <CapsulePlacement>[];
-      final subCount = occ.subtaskItems.length;
-
-      for (int i = 0; i < subCount; i++) {
-        final sub = occ.subtaskItems[i];
-        final double capsuleAngle;
-
-        if (sub.startMinuteOffset != null) {
-          final subDt = seg.segmentStart.add(Duration(minutes: sub.startMinuteOffset!));
-          final natAngle = HorizonSelector.naturalAngleDeg(subDt, is24HourMode: is24);
-          capsuleAngle = warp.forward(natAngle);
-        } else {
-          // Spread evenly across block arc
-          final frac = (i + 1) / (subCount + 1);
-          capsuleAngle = (rs.displayStartDeg + rs.displaySweepDeg * frac) % 360.0;
-        }
-
-        capsules.add(
-          CapsulePlacement(
-            subtaskId: sub.id,
-            title: sub.title,
-            centerDeg: capsuleAngle,
-            isCompleted: sub.isCompleted,
-          ),
-        );
-      }
+      // Place subtask capsules avoiding reserved zones and collisions
+      final capsules = SubtaskPlacer.place(
+        segment: seg,
+        displayStartDeg: rs.displayStartDeg,
+        displaySweepDeg: rs.displaySweepDeg,
+        warp: warp,
+        is24HourMode: is24,
+        contentPlan: contentPlan,
+        textMeasurer: textMeasurer,
+        dialRadius: input.surface.size / 2.0,
+      );
 
       blocks.add(
         DialBlock(
@@ -108,12 +86,12 @@ class DialModelBuilder {
           startDeg: rs.displayStartDeg,
           sweepDeg: rs.displaySweepDeg,
           ring: rs.ring,
-          content: content,
+          content: contentPlan.mode,
           colorHex: occ.colorHex,
           category: occ.category,
           subtasks: occ.subtasks,
           capsules: capsules,
-          caps: caps,
+          caps: contentPlan.caps,
           occurrence: occ,
         ),
       );
@@ -211,12 +189,6 @@ class DialModelBuilder {
       );
     }
     return sb.toString();
-  }
-
-  static String _formatTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
   }
 
   static String _formatDurationRemaining(Duration d) {

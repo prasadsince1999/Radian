@@ -6,9 +6,9 @@ class WarpBreakpoint {
   const WarpBreakpoint(this.naturalDeg, this.displayDeg);
 
   Map<String, dynamic> toJson() => {
-        'naturalDeg': naturalDeg,
-        'displayDeg': displayDeg,
-      };
+    'naturalDeg': naturalDeg,
+    'displayDeg': displayDeg,
+  };
 
   factory WarpBreakpoint.fromJson(Map<String, dynamic> json) {
     return WarpBreakpoint(
@@ -31,10 +31,10 @@ class WarpMap {
 
   /// Identity map (uniform 1:1 circular clock).
   const WarpMap.identity()
-      : breakpoints = const [
-          WarpBreakpoint(0.0, 0.0),
-          WarpBreakpoint(360.0, 360.0),
-        ];
+    : breakpoints = const [
+        WarpBreakpoint(0.0, 0.0),
+        WarpBreakpoint(360.0, 360.0),
+      ];
 
   /// Transforms a natural linear clock angle in degrees [0, 360) into the stretched
   /// dial display angle in degrees [0, 360).
@@ -117,8 +117,8 @@ class WarpMap {
   }
 
   Map<String, dynamic> toJson() => {
-        'breakpoints': breakpoints.map((b) => b.toJson()).toList(),
-      };
+    'breakpoints': breakpoints.map((b) => b.toJson()).toList(),
+  };
 
   factory WarpMap.fromJson(Map<String, dynamic> json) {
     final list = json['breakpoints'] as List<dynamic>?;
