@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/clock.dart';
+import '../../core/dial_engine_flags.dart';
+import '../../core/time/zone_clock.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/geometry/concentric_solver.dart';
@@ -14,10 +16,14 @@ import '../../domain/models/free_gap.dart';
 import '../../domain/models/sector_event.dart';
 import '../../domain/repositories/event_repository.dart';
 import '../../domain/schedule/event_day_projector.dart';
+import '../../domain/schedule/zone_day_projector.dart';
 import '../datasources/sample_events_data.dart';
 
 class LocalEventRepository implements EventRepository {
   static const _storageKey = AppStrings.eventsStorageKey;
+  static const String schemaVersionKey = 'radian_schema_version';
+  static const String migrationBackupKey = 'sectograph_events_backup_v1_0_24';
+  static const int currentSchemaVersion = 2;
   final SharedPreferences? prefs;
   final Clock clock;
   final List<SectorEvent> _events = [];
@@ -38,8 +44,17 @@ class LocalEventRepository implements EventRepository {
       prefs!.remove('sectograph_events_v2');
       prefs!.remove('sectograph_events_v3');
       prefs!.remove('sectograph_events_v4');
+      var hasEnriched = false;
       final raw = prefs!.getString(_storageKey);
+      final schemaVersion = prefs!.getInt(schemaVersionKey) ?? 1;
+
       if (raw != null && raw.isNotEmpty) {
+        if (schemaVersion < 2) {
+          // Backup legacy data before timezone migration (kept for 2 releases per Refinement R3)
+          prefs!.setString(migrationBackupKey, raw);
+          hasEnriched = true;
+        }
+
         try {
           final List<dynamic> decoded = jsonDecode(raw);
           _events.addAll(
@@ -50,7 +65,9 @@ class LocalEventRepository implements EventRepository {
         }
       }
 
-      var hasEnriched = false;
+      if (schemaVersion < 2) {
+        prefs!.setInt(schemaVersionKey, currentSchemaVersion);
+      }
 
       final now = clock.now();
       String? urlPreset;
@@ -273,7 +290,14 @@ class LocalEventRepository implements EventRepository {
     List<SectorEvent> events,
     DateTime day,
   ) {
-    final uniqueDayEvents = EventDayProjector.projectAll(events, day);
+    final uniqueDayEvents = DialEngineFlags.timeZoneAware
+        ? ZoneDayProjector.projectAllEvents(
+            events: events,
+            targetDay: day,
+            displayZone: ZoneClock().location,
+            is24HourMode: prefs?.getBool('setting_is24h') ?? false,
+          )
+        : EventDayProjector.projectAll(events, day);
     final deconflictedDayEvents = _deconflictDayEvents(uniqueDayEvents);
     final levels = ConcentricSolver.solve(deconflictedDayEvents);
     return deconflictedDayEvents.map((e) {

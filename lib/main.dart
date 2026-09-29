@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/constants/app_strings.dart';
 import 'core/theme/expressive_theme.dart';
+import 'core/time/zone_clock.dart';
 import 'presentation/controllers/clock_controller.dart';
 import 'presentation/controllers/cloud_sync_controller.dart';
 import 'presentation/controllers/mcp_server_controller.dart';
@@ -12,6 +13,7 @@ import 'presentation/screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  ensureTimeZonesInitialized();
   final prefs = await SharedPreferences.getInstance();
 
   final queryParams = Uri.base.queryParameters;

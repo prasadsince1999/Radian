@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../core/services/health_service.dart';
+import '../core/time/zone_clock.dart';
 import '../data/repositories/health_repository_impl.dart';
 import '../domain/models/dial_settings.dart';
 import '../domain/models/sector_event.dart';
@@ -560,8 +561,11 @@ class McpTools {
         final upcoming = events.where((e) => e.start.isAfter(now)).toList()
           ..sort((a, b) => a.start.compareTo(b.start));
 
+        final zoneSnapshot = ZoneClock().snapshot();
         return {
           'currentTime': now.toIso8601String(),
+          'tzid': zoneSnapshot.tzid,
+          'formattedOffset': zoneSnapshot.formattedOffset,
           'date': targetDate.toIso8601String().substring(0, 10),
           'is24HourMode': settings.is24HourMode,
           'centerClockDisplay': settings.centerClockDisplay.name,
@@ -746,6 +750,13 @@ class McpTools {
             'error': 'End time must be strictly after start time',
           };
         }
+        final startRaw = arguments['start']?.toString() ?? '';
+        final hasOffset = startRaw.endsWith('Z') ||
+            (startRaw.length > 19 &&
+                (startRaw.contains('+') ||
+                    startRaw.substring(19).contains('-')));
+        final assumedZone = !hasOffset;
+
         final id = const Uuid().v4();
         final rawSubtasks = arguments['subtaskItems'] ?? arguments['subtasks'];
         final event = SectorEvent(
@@ -757,9 +768,14 @@ class McpTools {
           colorHex: arguments['colorHex'] as String? ?? '#6366F1',
           notes: arguments['notes'] as String? ?? '',
           subtaskItems: _parseSubtaskItems(rawSubtasks, id),
+          assumedZone: assumedZone,
         );
         await repository.addEvent(event);
-        return {'success': true, 'sector': event.toJson()};
+        return {
+          'success': true,
+          'sector': event.toJson(),
+          'assumedZone': assumedZone,
+        };
 
       case 'update_sector':
         final id = arguments['id'] as String? ?? '';

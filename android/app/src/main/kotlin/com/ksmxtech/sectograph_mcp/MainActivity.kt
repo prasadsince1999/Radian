@@ -4,8 +4,10 @@ import android.Manifest
 import android.app.AlarmManager
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -15,6 +17,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import org.json.JSONObject
@@ -28,9 +31,11 @@ class MainActivity : FlutterActivity() {
     private val WIDGET_CHANNEL = "com.ksmxtech.sectograph_mcp/widget"
     private val NOTIFICATIONS_CHANNEL = "com.ksmxtech.sectograph_mcp/notifications"
     private val UPDATER_CHANNEL = "com.ksmxtech.sectograph_mcp/updater"
+    private val TIME_CHANGES_CHANNEL = "com.ksmxtech.sectograph_mcp/time_changes"
 
     private var methodChannel: MethodChannel? = null
     private var pendingAction: String? = null
+    private var timeChangesReceiver: BroadcastReceiver? = null
 
     private lateinit var stepSensorHelper: StepSensorHelper
     private lateinit var widgetSyncHelper: WidgetSyncHelper
@@ -311,6 +316,35 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        // 4. Time, Date, Zone, Locale Change EventChannel
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, TIME_CHANGES_CHANNEL).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    timeChangesReceiver = object : BroadcastReceiver() {
+                        override fun onReceive(context: Context?, intent: Intent?) {
+                            events?.success(intent?.action ?: "ACTION_TIME_CHANGED")
+                        }
+                    }
+                    val filter = IntentFilter().apply {
+                        addAction(Intent.ACTION_TIMEZONE_CHANGED)
+                        addAction(Intent.ACTION_TIME_CHANGED)
+                        addAction(Intent.ACTION_DATE_CHANGED)
+                        addAction(Intent.ACTION_LOCALE_CHANGED)
+                    }
+                    registerReceiver(timeChangesReceiver, filter)
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    timeChangesReceiver?.let {
+                        try {
+                            unregisterReceiver(it)
+                        } catch (_: Exception) {}
+                        timeChangesReceiver = null
+                    }
+                }
+            }
+        )
     }
 
     private fun areNotificationsEnabled(): Boolean {
@@ -458,5 +492,15 @@ class MainActivity : FlutterActivity() {
             prefs.edit().clear().apply()
         } catch (_: Exception) {}
         result.success(true)
+    }
+
+    override fun onDestroy() {
+        timeChangesReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (_: Exception) {}
+            timeChangesReceiver = null
+        }
+        super.onDestroy()
     }
 }

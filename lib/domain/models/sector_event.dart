@@ -4,6 +4,7 @@ import '../../core/constants/app_presets.dart';
 import '../../core/geometry/concentric_solver.dart';
 import '../../core/geometry/polar_hit_test.dart';
 import '../../core/geometry/sector_math.dart';
+import '../../core/time/time_spec.dart';
 import 'subtask_item.dart';
 
 /// Immutable domain model representing a time block sector on the circular dial.
@@ -38,6 +39,10 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
   @override
   final double sweepAngle;
 
+  final TimeSpec? timeSpec;
+  final bool assumedZone;
+  final String? tzid;
+
   SectorEvent({
     required this.id,
     required this.title,
@@ -57,6 +62,9 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
     this.bottomLevel = 1000,
     this.startAngle = 0.0,
     this.sweepAngle = 0.0,
+    this.timeSpec,
+    this.assumedZone = false,
+    this.tzid,
   }) : subtaskItems =
            subtaskItems ??
            (subtasks != null
@@ -64,6 +72,24 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
                      .map((s) => SubtaskItem.fromString(s, parentEventId: id))
                      .toList()
                : const []);
+
+  /// Resolves the active [TimeSpec] for this event, inferring one if not explicitly set.
+  TimeSpec get effectiveTimeSpec {
+    if (timeSpec != null) return timeSpec!;
+    if (repeatDays != null && repeatDays!.isNotEmpty) {
+      return FloatingTime.fromTimes(
+        startHour: start.hour,
+        startMinute: start.minute,
+        durationMinutes: duration.inMinutes,
+        assumedZone: assumedZone,
+      );
+    }
+    return InstantTime(
+      utcMillis: start.toUtc().millisecondsSinceEpoch,
+      tzid: tzid ?? (start.isUtc ? 'UTC' : 'local'),
+      assumedZone: assumedZone,
+    );
+  }
 
   IconData get iconData => AppPresets.getIconById(iconName);
 
@@ -204,6 +230,9 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
     int? bottomLevel,
     double? startAngle,
     double? sweepAngle,
+    TimeSpec? timeSpec,
+    bool? assumedZone,
+    String? tzid,
   }) {
     return SectorEvent(
       id: id ?? this.id,
@@ -238,6 +267,9 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
       bottomLevel: bottomLevel ?? this.bottomLevel,
       startAngle: startAngle ?? this.startAngle,
       sweepAngle: sweepAngle ?? this.sweepAngle,
+      timeSpec: timeSpec ?? this.timeSpec,
+      assumedZone: assumedZone ?? this.assumedZone,
+      tzid: tzid ?? this.tzid,
     );
   }
 
@@ -260,6 +292,9 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
     'bottomLevel': bottomLevel,
     'startAngle': startAngle,
     'sweepAngle': sweepAngle,
+    'timeSpec': effectiveTimeSpec.toJson(),
+    'assumedZone': assumedZone,
+    if (tzid != null) 'tzid': tzid,
   };
 
   factory SectorEvent.fromJson(Map<String, dynamic> json) {
@@ -275,11 +310,28 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
           .toList();
     }
 
+    final startStr = json['start'] as String;
+    final endStr = json['end'] as String;
+
+    // Detect if stored ISO string had explicit offset ('Z', '+', or '-' after T)
+    final hasOffset = startStr.endsWith('Z') ||
+        (startStr.length > 19 &&
+            (startStr.contains('+') || startStr.substring(19).contains('-')));
+    final assumedZone = json['assumedZone'] as bool? ?? !hasOffset;
+    final tzid = json['tzid'] as String?;
+
+    TimeSpec? timeSpec;
+    if (json['timeSpec'] is Map<String, dynamic>) {
+      try {
+        timeSpec = TimeSpec.fromJson(json['timeSpec'] as Map<String, dynamic>);
+      } catch (_) {}
+    }
+
     return SectorEvent(
       id: id,
       title: json['title'] as String,
-      start: DateTime.parse(json['start'] as String),
-      end: DateTime.parse(json['end'] as String),
+      start: DateTime.parse(startStr),
+      end: DateTime.parse(endStr),
       colorHex: json['colorHex'] as String? ?? '#3B82F6',
       category: json['category'] as String? ?? 'General',
       notes: json['notes'] as String? ?? '',
@@ -297,6 +349,9 @@ class SectorEvent extends ConcentricItem implements HitTestableSector {
       bottomLevel: json['bottomLevel'] as int? ?? 1000,
       startAngle: (json['startAngle'] as num?)?.toDouble() ?? 0.0,
       sweepAngle: (json['sweepAngle'] as num?)?.toDouble() ?? 0.0,
+      timeSpec: timeSpec,
+      assumedZone: assumedZone,
+      tzid: tzid,
     );
   }
 

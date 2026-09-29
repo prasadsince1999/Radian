@@ -19,6 +19,10 @@ enum DialShape { circle, waveRounded }
 
 enum PastHoursStyle { focusedBlock }
 
+enum DialZoneMode { device, fixed }
+
+enum TravelBehavior { followDevice, stayHome }
+
 /// Dial and aesthetic preferences that can be customized via UI or AI/MCP.
 @immutable
 class DialSettings {
@@ -38,6 +42,9 @@ class DialSettings {
   final DateTime? dateOfBirth;
   final int previousBlocksCount;
   final int futureBlocksCount;
+  final DialZoneMode dialZoneMode;
+  final String? fixedZoneId;
+  final TravelBehavior travelBehavior;
 
   const DialSettings({
     this.is24HourMode = false,
@@ -56,6 +63,9 @@ class DialSettings {
     this.dateOfBirth,
     this.previousBlocksCount = 1,
     this.futureBlocksCount = 3,
+    this.dialZoneMode = DialZoneMode.device,
+    this.fixedZoneId,
+    this.travelBehavior = TravelBehavior.followDevice,
   });
 
   Color get seedColor {
@@ -86,6 +96,10 @@ class DialSettings {
     bool clearDateOfBirth = false,
     int? previousBlocksCount,
     int? futureBlocksCount,
+    DialZoneMode? dialZoneMode,
+    String? fixedZoneId,
+    bool clearFixedZoneId = false,
+    TravelBehavior? travelBehavior,
   }) {
     return DialSettings(
       is24HourMode: is24HourMode ?? this.is24HourMode,
@@ -108,6 +122,11 @@ class DialSettings {
         0,
         3,
       ),
+      dialZoneMode: dialZoneMode ?? this.dialZoneMode,
+      fixedZoneId: clearFixedZoneId
+          ? null
+          : (fixedZoneId ?? this.fixedZoneId),
+      travelBehavior: travelBehavior ?? this.travelBehavior,
     );
   }
 
@@ -128,6 +147,9 @@ class DialSettings {
     'dateOfBirth': dateOfBirth?.toIso8601String(),
     'previousBlocksCount': previousBlocksCount,
     'futureBlocksCount': futureBlocksCount,
+    'dialZoneMode': dialZoneMode.name,
+    if (fixedZoneId != null) 'fixedZoneId': fixedZoneId,
+    'travelBehavior': travelBehavior.name,
   };
 
   factory DialSettings.fromJson(Map<String, dynamic> json) {
@@ -174,6 +196,15 @@ class DialSettings {
           (json['previousBlocksCount'] as num?)?.toInt().clamp(0, 3) ?? 1,
       futureBlocksCount:
           (json['futureBlocksCount'] as num?)?.toInt().clamp(0, 3) ?? 3,
+      dialZoneMode: DialZoneMode.values.firstWhere(
+        (e) => e.name == json['dialZoneMode'],
+        orElse: () => DialZoneMode.device,
+      ),
+      fixedZoneId: json['fixedZoneId'] as String?,
+      travelBehavior: TravelBehavior.values.firstWhere(
+        (e) => e.name == json['travelBehavior'],
+        orElse: () => TravelBehavior.followDevice,
+      ),
     );
   }
 }

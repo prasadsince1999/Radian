@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/clock.dart';
+import '../../core/time/zone_clock.dart';
 
 import '../../data/repositories/local_event_repository.dart';
 import '../../domain/models/dial_settings.dart';
@@ -75,6 +76,23 @@ final viewing12HourHalfProvider = StateProvider<bool?>((ref) => null);
 /// Tests override this with `FixedClock` or `TickingClock` to get
 /// deterministic time without touching any other provider.
 final clockProvider = Provider<Clock>((ref) => Clock.system);
+
+/// Injectable timezone-aware clock for the provider graph.
+final zoneClockProvider = Provider<ZoneClock>((ref) {
+  final baseClock = ref.watch(clockProvider);
+  final settings = ref.watch(dialSettingsProvider);
+  return ZoneClock(
+    baseClock: baseClock,
+    zoneIdProvider: () {
+      if (settings.dialZoneMode == DialZoneMode.fixed &&
+          settings.fixedZoneId != null &&
+          settings.fixedZoneId!.isNotEmpty) {
+        return settings.fixedZoneId!;
+      }
+      return 'UTC';
+    },
+  );
+});
 
 /// Live real-time clock ticker updating every second.
 final currentTimeProvider = StreamProvider<DateTime>((ref) {

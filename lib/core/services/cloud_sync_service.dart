@@ -214,6 +214,8 @@ class CloudSyncService {
         'recurrence_end_date': event.recurrenceEndDate?.toIso8601String(),
         'subtasks': subtasksSerialized,
         'sync_key': _syncKey,
+        if (event.tzid != null) 'tzid': event.tzid,
+        'assumed_zone': event.assumedZone ? 1 : 0,
       },
     });
     _savePendingMutations();
@@ -342,6 +344,8 @@ class CloudSyncService {
                       : null,
                   subtasks: subtasks,
                   subtaskItems: subtaskItems,
+                  tzid: map['tzid'] as String?,
+                  assumedZone: (map['assumed_zone'] as int? ?? 0) == 1,
                 ),
               );
             }

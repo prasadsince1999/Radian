@@ -11,7 +11,7 @@ Each root cause is mapped to the phase that removes it.
 | RC4 | **Two-stage warp with hidden coupling.** `FisheyeTimeLens` then `DialSectorLayoutStretcher` (which also reads `currentTime`). Widget receives only `focusAngle` + `magnification`, not stretcher's result. | `dial_image_renderer.dart`, `android_widget_service.dart` | P3, P6 | Open |
 | RC5 | **Stale widget image.** Sync fires only from `ref.listen` inside `HomeScreen.build`, only while the app screen is alive. | `home_screen.dart` | P6 | Open |
 | RC6 | **Sync inputs differ by entry point.** Auto-sync uses today's projected events. "Sync widget" button uses `allEventsProvider ?? []`. | `dial_system_integrations_section.dart` | P6 | Open |
-| RC7 | **No time-zone model.** Events stored with `toIso8601String()` on local `DateTime` (no offset). Cloud sync and MCP use the same strings. | `sector_event.dart`, `cloud_sync_service.dart`, `mcp_tools.dart` | P1 | Open |
+| RC7 | **No time-zone model.** Events stored with `toIso8601String()` on local `DateTime` (no offset). Cloud sync and MCP use the same strings. | `sector_event.dart`, `cloud_sync_service.dart`, `mcp_tools.dart` | P1 | **Fixed** (`ZoneClock`, `TimeSpec`, `ZoneDayProjector`, migration backup) |
 | RC8 | **Content collision uses 12° midpoint heuristic**, not real geometry. Titles, pebbles and time caps overlap once the lens stretches a block. | `sectograph_painter.dart` | P4 | Open |
 | RC9 | **Build blocker:** `SectographWidgetProvider.kt` was `PLACEHOLDER`. | `SectographWidgetProvider.kt` | P0 | **Fixed** (restored from `e6ce02f`) |
 | RC10 | Widget `syncWidget` re-renders a 1080² PNG every minute and copies it to three files. Wastes battery and exposed to torn reads. | `WidgetSyncHelper.kt` | P6 | Open |
