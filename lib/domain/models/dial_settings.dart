@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/i18n/numeral_system.dart';
+
 enum DialFaceStyle { classicTicks, minimal, numbered, radialSegments }
 
 enum SectorVisualTheme { solid, outline, softGradient, roundedCaps }
@@ -45,6 +47,8 @@ class DialSettings {
   final DialZoneMode dialZoneMode;
   final String? fixedZoneId;
   final TravelBehavior travelBehavior;
+  final NumeralSystem numeralSystem;
+  final bool enableColorBlindPatterns;
 
   const DialSettings({
     this.is24HourMode = false,
@@ -66,6 +70,8 @@ class DialSettings {
     this.dialZoneMode = DialZoneMode.device,
     this.fixedZoneId,
     this.travelBehavior = TravelBehavior.followDevice,
+    this.numeralSystem = NumeralSystem.latin,
+    this.enableColorBlindPatterns = false,
   });
 
   Color get seedColor {
@@ -100,6 +106,8 @@ class DialSettings {
     String? fixedZoneId,
     bool clearFixedZoneId = false,
     TravelBehavior? travelBehavior,
+    NumeralSystem? numeralSystem,
+    bool? enableColorBlindPatterns,
   }) {
     return DialSettings(
       is24HourMode: is24HourMode ?? this.is24HourMode,
@@ -127,6 +135,9 @@ class DialSettings {
           ? null
           : (fixedZoneId ?? this.fixedZoneId),
       travelBehavior: travelBehavior ?? this.travelBehavior,
+      numeralSystem: numeralSystem ?? this.numeralSystem,
+      enableColorBlindPatterns:
+          enableColorBlindPatterns ?? this.enableColorBlindPatterns,
     );
   }
 
@@ -150,6 +161,8 @@ class DialSettings {
     'dialZoneMode': dialZoneMode.name,
     if (fixedZoneId != null) 'fixedZoneId': fixedZoneId,
     'travelBehavior': travelBehavior.name,
+    'numeralSystem': numeralSystem.name,
+    'enableColorBlindPatterns': enableColorBlindPatterns,
   };
 
   factory DialSettings.fromJson(Map<String, dynamic> json) {
@@ -205,6 +218,12 @@ class DialSettings {
         (e) => e.name == json['travelBehavior'],
         orElse: () => TravelBehavior.followDevice,
       ),
+      numeralSystem: NumeralSystem.values.firstWhere(
+        (e) => e.name == json['numeralSystem'],
+        orElse: () => NumeralSystem.latin,
+      ),
+      enableColorBlindPatterns:
+          json['enableColorBlindPatterns'] as bool? ?? false,
     );
   }
 }

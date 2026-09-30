@@ -6,10 +6,14 @@ import '../../../core/constants/app_layout_constants.dart';
 import '../../../core/constants/app_presets.dart';
 import '../../../core/geometry/dial_time_cap_drag_handler.dart';
 import '../../../core/geometry/sector_math.dart';
+import '../../../core/i18n/numeral_system.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/color_contrast.dart';
 import '../../../domain/models/dial_settings.dart';
 import '../../../engine/dial_model.dart';
 import '../../../engine/ring_assigner.dart';
 import 'components/hour_needle_renderer.dart';
+import 'components/sector_pattern_renderer.dart';
 import 'components/sector_pill_renderer.dart';
 
 /// Pure, high-performance dial painter driven strictly by [DialModel] (§3.3, §4).
@@ -267,6 +271,17 @@ class DialPainter extends CustomPainter {
         ..style = PaintingStyle.fill;
       canvas.drawPath(pillPath, fillPaint);
 
+      // Color-blind-safe geometric pattern overlay (§7 Phase 7)
+      if (settings.enableColorBlindPatterns) {
+        SectorPatternRenderer.drawPattern(
+          canvas: canvas,
+          pillPath: pillPath,
+          bounds: pillPath.getBounds(),
+          category: block.category,
+          sectorColor: color,
+        );
+      }
+
       // Selection outline
       if (isSelected) {
         final highlightPaint = Paint()
@@ -426,14 +441,16 @@ class DialPainter extends CustomPainter {
     );
 
     final fontSize = isDragging ? 12.0 : (model.is24HourMode ? 8.6 : 9.5);
+    final displayLabel = NumeralConverter.convert(label, settings.numeralSystem);
     final textPainter = TextPainter(
       text: TextSpan(
-        text: label,
+        text: displayLabel,
         style: TextStyle(
           fontSize: fontSize,
           fontWeight: FontWeight.w900,
           color: isDragging ? Colors.black87 : Colors.white,
           letterSpacing: -0.1,
+          fontFamilyFallback: AppTypography.fontFamilyFallback,
           fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),
@@ -510,10 +527,7 @@ class DialPainter extends CustomPainter {
       center.dy + midR * math.sin(midRad),
     );
 
-    final isDarkSector =
-        ThemeData.estimateBrightnessForColor(eventColor) == Brightness.dark;
-    final textColor =
-        isDarkSector ? const Color(0xFFF7F3EE) : const Color(0xFF1E1A16);
+    final textColor = ColorContrast.getHighContrastTextColor(eventColor);
 
     final iconData = _resolveIcon(block);
     final iconPainter = TextPainter(
@@ -537,6 +551,7 @@ class DialPainter extends CustomPainter {
           fontWeight: FontWeight.w700,
           color: textColor,
           letterSpacing: -0.2,
+          fontFamilyFallback: AppTypography.fontFamilyFallback,
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -621,11 +636,10 @@ class DialPainter extends CustomPainter {
   }) {
     final isDarkSector =
         ThemeData.estimateBrightnessForColor(eventColor) == Brightness.dark;
-    final chipTextColor =
-        isDarkSector ? const Color(0xFFFFFFFF) : const Color(0xFF111827);
     final chipBgColor = isDarkSector
         ? Colors.black.withValues(alpha: 0.38)
         : Colors.white.withValues(alpha: 0.85);
+    final chipTextColor = ColorContrast.getHighContrastTextColor(chipBgColor);
 
     for (final capsule in block.capsules) {
       final rad = SectorMath.dialAngleToCanvasRadians(capsule.centerDeg);
@@ -636,7 +650,7 @@ class DialPainter extends CustomPainter {
       );
 
       final label = capsule.isFolded
-          ? '+${capsule.foldedCount}'
+          ? '+${NumeralConverter.formatInt(capsule.foldedCount, settings.numeralSystem)}'
           : capsule.title;
       final textPainter = TextPainter(
         text: TextSpan(
@@ -646,6 +660,7 @@ class DialPainter extends CustomPainter {
             fontWeight: FontWeight.w600,
             color: chipTextColor,
             letterSpacing: -0.1,
+            fontFamilyFallback: AppTypography.fontFamilyFallback,
             decoration: capsule.isCompleted
                 ? TextDecoration.lineThrough
                 : TextDecoration.none,
@@ -763,14 +778,17 @@ class DialPainter extends CustomPainter {
 
       final fontSize = tick.isMajor ? 11.0 : 9.5;
       final fontWeight = tick.isMajor ? FontWeight.w900 : FontWeight.w600;
+      final displayLabel =
+          NumeralConverter.convert(tick.label, settings.numeralSystem);
 
       final textPainter = TextPainter(
         text: TextSpan(
-          text: tick.label,
+          text: displayLabel,
           style: TextStyle(
             fontSize: fontSize,
             fontWeight: fontWeight,
             color: tickColor,
+            fontFamilyFallback: AppTypography.fontFamilyFallback,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
@@ -811,6 +829,8 @@ class DialPainter extends CustomPainter {
     final isDark = colorScheme.brightness == Brightness.dark;
     final title = model.center.activeTitle;
     final remaining = model.center.remainingDurationFormatted;
+    final displayRemaining =
+        NumeralConverter.convert(remaining, settings.numeralSystem);
 
     final titlePainter = TextPainter(
       text: TextSpan(
@@ -819,6 +839,7 @@ class DialPainter extends CustomPainter {
           fontSize: 12.0,
           fontWeight: FontWeight.w700,
           color: isDark ? Colors.white : Colors.black87,
+          fontFamilyFallback: AppTypography.fontFamilyFallback,
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -826,14 +847,15 @@ class DialPainter extends CustomPainter {
       ellipsis: '…',
     )..layout();
 
-    final remainingPainter = remaining.isNotEmpty
+    final remainingPainter = displayRemaining.isNotEmpty
         ? (TextPainter(
             text: TextSpan(
-              text: remaining,
+              text: displayRemaining,
               style: TextStyle(
                 fontSize: 10.0,
                 fontWeight: FontWeight.w500,
                 color: isDark ? Colors.white70 : Colors.black54,
+                fontFamilyFallback: AppTypography.fontFamilyFallback,
               ),
             ),
             textDirection: TextDirection.ltr,

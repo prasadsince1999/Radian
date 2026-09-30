@@ -1223,7 +1223,30 @@ class SectographDial extends ConsumerWidget {
     }
 
     sb.write('${model.blocks.length} events on the dial.');
-    return sb.toString();
+    if (model.blocks.isNotEmpty) {
+      sb.write(' Events: ');
+      for (final block in model.blocks) {
+        sb.write('${_buildBlockSemanticsLabel(block)} ');
+      }
+    }
+    return sb.toString().trim();
+  }
+
+  static String _buildBlockSemanticsLabel(DialBlock block) {
+    final prefix = block.role == BlockRole.active
+        ? 'Current event'
+        : (block.role == BlockRole.next ? 'Next event' : 'Scheduled event');
+    final timeRange =
+        block.caps.startTimeLabel.isNotEmpty && block.caps.endTimeLabel.isNotEmpty
+            ? 'from ${block.caps.startTimeLabel} to ${block.caps.endTimeLabel}'
+            : '';
+    final subtaskInfo = block.subtasks.isNotEmpty
+        ? ', ${block.subtasks.length} subtasks'
+        : '';
+    final categoryInfo =
+        block.category.isNotEmpty ? ', category ${block.category}' : '';
+    return '$prefix: ${block.title}, $timeRange$categoryInfo$subtaskInfo.'
+        .trim();
   }
 }
 

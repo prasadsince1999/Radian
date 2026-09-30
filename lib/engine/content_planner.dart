@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import '../core/i18n/numeral_system.dart';
 import 'dial_model.dart';
 import 'horizon_selector.dart';
 import 'text_measurer.dart';
@@ -138,13 +139,17 @@ class ContentPlanner {
     TextMeasurer textMeasurer = const FastTextMeasurer(),
     double dialRadius = 140.0,
     double ringThickness = 36.0,
+    double textScale = 1.0,
+    NumeralSystem numeralSystem = NumeralSystem.latin,
   }) {
     // 1. ContentMode ladder per §4.5 (full -> compact -> iconKeyword -> iconOnly)
-    final ContentMode mode;
-    final double fullThreshold = is24HourMode ? 24.0 : 38.0;
-    final double compactThreshold = is24HourMode ? 16.0 : 24.0;
-    final double keywordThreshold = is24HourMode ? 10.0 : 14.0;
+    // Dynamic text scaling up to 200% adjusts thresholds so text degrades gracefully (§7 Phase 7).
+    final double scaleFactor = textScale.clamp(1.0, 2.5);
+    final double fullThreshold = (is24HourMode ? 24.0 : 38.0) * scaleFactor;
+    final double compactThreshold = (is24HourMode ? 16.0 : 24.0) * scaleFactor;
+    final double keywordThreshold = (is24HourMode ? 10.0 : 14.0) * scaleFactor;
 
+    final ContentMode mode;
     if (displaySweepDeg >= fullThreshold) {
       mode = ContentMode.full;
     } else if (displaySweepDeg >= compactThreshold) {
@@ -156,15 +161,16 @@ class ContentPlanner {
     }
 
     // 2. Cap Labels Geometry
-    final double minSweepForCaps = is24HourMode ? 10.0 : 14.0;
+    final double minSweepForCaps = (is24HourMode ? 10.0 : 14.0) * scaleFactor;
     final bool capsVisible = displaySweepDeg >= minSweepForCaps;
-    final double capSpan = is24HourMode ? 7.2 : 9.2;
+    final double capSpan =
+        (is24HourMode ? 7.2 : 9.2) * (1.0 + (scaleFactor - 1.0) * 0.4);
 
     final startAngle = displayStartDeg % 360.0;
     final endAngle = (displayStartDeg + displaySweepDeg) % 360.0;
 
-    final startLabel = _formatTime(segment.segmentStart);
-    final endLabel = _formatTime(segment.segmentEnd);
+    final startLabel = _formatTime(segment.segmentStart, numeralSystem);
+    final endLabel = _formatTime(segment.segmentEnd, numeralSystem);
 
     final caps = CapLabels(
       startTimeLabel: startLabel,
@@ -256,9 +262,12 @@ class ContentPlanner {
     );
   }
 
-  static String _formatTime(DateTime dt) {
+  static String _formatTime(
+    DateTime dt, [
+    NumeralSystem numeralSystem = NumeralSystem.latin,
+  ]) {
     final h = dt.hour.toString().padLeft(2, '0');
     final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
+    return NumeralConverter.convert('$h:$m', numeralSystem);
   }
 }

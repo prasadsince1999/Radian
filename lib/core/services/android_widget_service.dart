@@ -4,11 +4,11 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 
 import '../../domain/models/dial_settings.dart';
 import '../../domain/models/sector_event.dart';
 import '../constants/app_layout_constants.dart';
+import '../i18n/date_labels.dart';
 import '../utils/time_formatters.dart';
 import 'dial_image_renderer.dart';
 
@@ -94,7 +94,10 @@ class AndroidWidgetService {
       String title;
       String time;
       String status;
-      final date = DateFormat('EEE, d MMM').format(currentTime);
+      final date = DateLabels.formatDialDate(
+        currentTime,
+        numeralSystem: settings.numeralSystem,
+      );
 
       if (activeEvent != null) {
         title = activeEvent.title;

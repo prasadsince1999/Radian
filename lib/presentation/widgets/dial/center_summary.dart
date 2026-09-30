@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/i18n/date_labels.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/time_formatters.dart';
 import '../../../domain/models/dial_settings.dart';
 import '../../../domain/models/sector_event.dart';
@@ -191,24 +193,34 @@ class CenterSummary extends ConsumerWidget {
                 ),
               const SizedBox(height: 2),
               Text(
-                DateFormat(is24HourMode ? 'HH:mm' : 'h:mm').format(currentTime),
+                DateLabels.formatTime(
+                  currentTime,
+                  is24Hour: is24HourMode,
+                  showAmPm: false,
+                  numeralSystem: settings.numeralSystem,
+                ),
                 style: TextStyle(
                   fontSize: 34,
                   fontWeight: FontWeight.w900,
                   color: colorScheme.onSurface,
                   letterSpacing: -0.5,
                   height: 1.0,
+                  fontFamilyFallback: AppTypography.fontFamilyFallback,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
               const SizedBox(height: 3),
               Text(
-                DateFormat('EEE, d MMM').format(currentTime),
+                DateLabels.formatDialDate(
+                  currentTime,
+                  numeralSystem: settings.numeralSystem,
+                ),
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   color: colorScheme.onSurfaceVariant,
                   fontSize: 12.0,
                   letterSpacing: 0.1,
+                  fontFamilyFallback: AppTypography.fontFamilyFallback,
                 ),
               ),
             ],
@@ -296,12 +308,17 @@ class CenterSummary extends ConsumerWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    DateFormat(is24HourMode ? 'HH:mm' : 'h:mm a')
-                        .format(currentTime),
+                    DateLabels.formatTime(
+                      currentTime,
+                      is24Hour: is24HourMode,
+                      showAmPm: true,
+                      numeralSystem: settings.numeralSystem,
+                    ),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: colorScheme.onSurfaceVariant,
+                      fontFamilyFallback: AppTypography.fontFamilyFallback,
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),

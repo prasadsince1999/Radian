@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+
+import '../i18n/date_labels.dart';
 
 class TimeFormatters {
   TimeFormatters._();
 
   static String formatTime(DateTime time, {required bool is24Hour}) {
-    if (is24Hour) {
-      return DateFormat('HH:mm').format(time);
-    } else {
-      return DateFormat('h:mm a').format(time);
-    }
+    return DateLabels.formatTime(time, is24Hour: is24Hour);
   }
 
   static String formatTimeOfDay(TimeOfDay tod, {bool is24Hour = false}) {
@@ -23,36 +20,14 @@ class TimeFormatters {
     DateTime end, {
     required bool is24Hour,
   }) {
-    final s = formatTime(start, is24Hour: is24Hour);
-    final e = formatTime(end, is24Hour: is24Hour);
-    return '$s – $e';
+    return DateLabels.formatTimeRange(start, end, is24Hour: is24Hour);
   }
 
   static String formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes % 60;
-    if (hours > 0 && minutes > 0) {
-      return '${hours}h ${minutes}m';
-    } else if (hours > 0) {
-      return '${hours}h';
-    } else {
-      return '${minutes}m';
-    }
+    return DateLabels.formatRemainingDuration(duration);
   }
 
   static String formatDateHeading(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final target = DateTime(date.year, date.month, date.day);
-
-    if (target == today) {
-      return 'Today, ${DateFormat('EEEE, MMM d').format(date)}';
-    } else if (target == today.add(const Duration(days: 1))) {
-      return 'Tomorrow, ${DateFormat('EEEE, MMM d').format(date)}';
-    } else if (target == today.subtract(const Duration(days: 1))) {
-      return 'Yesterday, ${DateFormat('EEEE, MMM d').format(date)}';
-    } else {
-      return DateFormat('EEEE, MMM d, yyyy').format(date);
-    }
+    return DateLabels.formatDateHeading(date, DateTime.now());
   }
 }

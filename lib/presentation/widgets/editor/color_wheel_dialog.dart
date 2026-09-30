@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/color_contrast.dart';
 
 /// Interactive color picker dialog featuring a circular HSV spectrum wheel,
 /// preview swatch, recent color palette, and CANCEL/OK actions.
@@ -128,22 +129,85 @@ class _ColorWheelDialogState extends State<ColorWheelDialog> {
             ),
             const SizedBox(height: 16),
 
-            // Selected Color Preview Swatch
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: _currentColor,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white, width: 2.0),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+            // Selected Color Preview Swatch & WCAG Contrast Evaluation (§7 Phase 7)
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: _currentColor,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white, width: 2.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                  child: Center(
+                    child: Text(
+                      'Aa',
+                      style: TextStyle(
+                        color: ColorContrast.getHighContrastTextColor(_currentColor),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Builder(builder: (context) {
+                    final eval = ColorContrast.evaluateSectorColor(_currentColor);
+                    final ratioStr = '${eval.textContrastRatio.toStringAsFixed(1)}:1';
+                    final isWcag = eval.textContrastRatio >= 4.5;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              isWcag
+                                  ? Icons.check_circle_rounded
+                                  : Icons.warning_amber_rounded,
+                              size: 15,
+                              color: isWcag
+                                  ? const Color(0xFF10B981)
+                                  : const Color(0xFFF59E0B),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              isWcag
+                                  ? 'WCAG AA ($ratioStr)'
+                                  : 'Low Contrast ($ratioStr)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: isWcag
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFFF59E0B),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (eval.warningMessage != null)
+                          Text(
+                            eval.warningMessage!,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    );
+                  }),
+                ),
+              ],
             ),
             const SizedBox(height: 14),
 

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_layout_constants.dart';
 import '../../../../core/geometry/sector_math.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/color_contrast.dart';
 import '../../../../core/utils/time_formatters.dart';
 import '../../../../domain/models/sector_event.dart';
 import 'sector_pill_renderer.dart';
@@ -20,7 +22,7 @@ class SectorContentRenderer {
   static const List<String> fontFallbacks = [
     'Patrick Hand',
     'Caveat',
-    'sans-serif',
+    ...AppTypography.fontFamilyFallback,
   ];
 
   /// Distills a verbose task or title string into a punchy, single keyword (1 word, max 10 chars)
@@ -90,12 +92,9 @@ class SectorContentRenderer {
 
     final trackThickness = rOut - rIn;
 
-    // Adaptive contrast: high-contrast white on dark sectors, dark charcoal on light sectors
-    final isDarkSector =
-        ThemeData.estimateBrightnessForColor(event.color) == Brightness.dark;
-    final textColor = isDarkSector
-        ? const Color(0xFFF7F3EE)
-        : const Color(0xFF1E1A16);
+    // Adaptive WCAG 2.2 AA contrast: high-contrast text color
+    final textColor = ColorContrast.getHighContrastTextColor(event.color);
+    final isDarkSector = textColor == ColorContrast.lightText;
 
     // --- TRUE POLAR BOUNDING BOX & NEVER-TOUCH AUDIT ---
     final hasCaps = startCapSpanDeg > 0.0 || endCapSpanDeg > 0.0;

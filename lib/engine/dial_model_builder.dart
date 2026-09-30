@@ -1,3 +1,4 @@
+import '../core/i18n/numeral_system.dart';
 import 'content_planner.dart';
 import 'dial_input.dart';
 import 'dial_model.dart';
@@ -54,7 +55,7 @@ class DialModelBuilder {
       final seg = rs.segment;
       final occ = seg.occurrence;
 
-      // Plan content mode, caps, and reserved zones (§4.5)
+      // Plan content mode, caps, and reserved zones (§4.5, §5.4, §7 Phase 7)
       final contentPlan = ContentPlanner.planContent(
         segment: seg,
         displayStartDeg: rs.displayStartDeg,
@@ -62,6 +63,8 @@ class DialModelBuilder {
         is24HourMode: is24,
         textMeasurer: textMeasurer,
         dialRadius: input.surface.size / 2.0,
+        textScale: input.surface.textScale,
+        numeralSystem: prefs.numeralSystem,
       );
 
       // Place subtask capsules avoiding reserved zones and collisions
@@ -107,12 +110,12 @@ class DialModelBuilder {
 
       if (is24) {
         naturalDeg = (h * 15.0) % 360.0;
-        label = h.toString();
+        label = NumeralConverter.formatInt(h, prefs.numeralSystem);
         isMajor = h % 6 == 0; // 0, 6, 12, 18
       } else {
         final hour12 = h == 0 ? 12 : h;
         naturalDeg = (hour12 * 30.0) % 360.0;
-        label = hour12.toString();
+        label = NumeralConverter.formatInt(hour12, prefs.numeralSystem);
         isMajor = hour12 % 3 == 0; // 12, 3, 6, 9
       }
 
@@ -138,7 +141,7 @@ class DialModelBuilder {
       centerTitle = active.title;
       centerCategory = active.category;
       final diff = active.end.difference(input.now);
-      centerRemaining = _formatDurationRemaining(diff);
+      centerRemaining = _formatDurationRemaining(diff, prefs.numeralSystem);
     } else {
       centerTitle = 'Free Time';
       centerCategory = '';
@@ -201,14 +204,20 @@ class DialModelBuilder {
     return sb.toString();
   }
 
-  static String _formatDurationRemaining(Duration d) {
-    if (d.isNegative) return '0m';
+  static String _formatDurationRemaining(
+    Duration d, [
+    NumeralSystem numeralSystem = NumeralSystem.latin,
+  ]) {
+    if (d.isNegative) return NumeralConverter.convert('0m', numeralSystem);
     final totalMinutes = d.inMinutes;
+    final String raw;
     if (totalMinutes < 60) {
-      return '${totalMinutes}m';
+      raw = '${totalMinutes}m';
+    } else {
+      final hours = totalMinutes ~/ 60;
+      final mins = totalMinutes % 60;
+      raw = mins > 0 ? '${hours}h ${mins}m' : '${hours}h';
     }
-    final hours = totalMinutes ~/ 60;
-    final mins = totalMinutes % 60;
-    return mins > 0 ? '${hours}h ${mins}m' : '${hours}h';
+    return NumeralConverter.convert(raw, numeralSystem);
   }
 }

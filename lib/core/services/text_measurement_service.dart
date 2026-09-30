@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'package:flutter/material.dart';
 
 import '../../engine/text_measurer.dart';
+import '../theme/app_typography.dart';
 
 /// Flutter TextPainter-backed text measurement service with an LRU cache (§4.5).
 ///
@@ -34,12 +35,17 @@ class TextMeasurementService extends TextMeasurer {
       return cached;
     }
 
+    final isRtl = locale != null && (locale.startsWith('ar') || locale.startsWith('he') || locale.startsWith('fa') || locale.startsWith('ur'));
     final tp = TextPainter(
       text: TextSpan(
         text: text,
-        style: TextStyle(fontSize: fontSize, fontFamily: fontFamily),
+        style: TextStyle(
+          fontSize: fontSize,
+          fontFamily: fontFamily,
+          fontFamilyFallback: AppTypography.fontFamilyFallback,
+        ),
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
       locale: locale != null ? Locale(locale) : null,
     )..layout();
 

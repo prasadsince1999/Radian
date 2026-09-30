@@ -1,3 +1,4 @@
+import '../core/i18n/numeral_system.dart';
 import '../core/time/zone_clock.dart';
 
 /// Viewing window mode for the dial.
@@ -75,6 +76,7 @@ class DialPrefs {
   final int futureBlocksCount; // N: 0..3
   final bool isFocusLensEnabled;
   final double lensMagnification;
+  final NumeralSystem numeralSystem;
 
   int get previousBlocks => previousBlocksCount;
   int get nextBlocks => futureBlocksCount;
@@ -89,6 +91,7 @@ class DialPrefs {
     bool? isFocusLensEnabled,
     bool? lensEnabled,
     this.lensMagnification = 1.8,
+    this.numeralSystem = NumeralSystem.latin,
   }) : previousBlocksCount = previousBlocksCount ?? previousBlocks ?? 1,
        futureBlocksCount = futureBlocksCount ?? nextBlocks ?? 3,
        isFocusLensEnabled = isFocusLensEnabled ?? lensEnabled ?? true;
@@ -99,6 +102,7 @@ class DialPrefs {
     int? futureBlocksCount,
     bool? isFocusLensEnabled,
     double? lensMagnification,
+    NumeralSystem? numeralSystem,
   }) {
     return DialPrefs(
       is24HourMode: is24HourMode ?? this.is24HourMode,
@@ -106,12 +110,13 @@ class DialPrefs {
       futureBlocksCount: futureBlocksCount ?? this.futureBlocksCount,
       isFocusLensEnabled: isFocusLensEnabled ?? this.isFocusLensEnabled,
       lensMagnification: lensMagnification ?? this.lensMagnification,
+      numeralSystem: numeralSystem ?? this.numeralSystem,
     );
   }
 
   @override
   String toString() =>
-      'DialPrefs(24H: $is24HourMode, P: $previousBlocksCount, N: $futureBlocksCount, lens: $isFocusLensEnabled, mag: $lensMagnification)';
+      'DialPrefs(24H: $is24HourMode, P: $previousBlocksCount, N: $futureBlocksCount, lens: $isFocusLensEnabled, mag: $lensMagnification, digits: $numeralSystem)';
 }
 
 /// Subtask occurrence within a scheduled block.
