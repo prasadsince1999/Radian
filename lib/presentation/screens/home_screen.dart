@@ -15,6 +15,7 @@ import '../controllers/clock_controller.dart';
 import '../controllers/cloud_sync_controller.dart';
 import '../controllers/app_update_controller.dart';
 import '../controllers/mcp_server_controller.dart';
+import '../controllers/widget_sync_coordinator.dart';
 import '../widgets/calendar/calendar_sheet.dart';
 import '../widgets/common/bouncy_pressable.dart';
 import '../widgets/common/radian_logo.dart';
@@ -213,33 +214,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _syncAndroidWidget() {
-    final currentTime = DateTime.now();
-    final today = DateTime(
-      currentTime.year,
-      currentTime.month,
-      currentTime.day,
+    ref.read(widgetSyncCoordinatorProvider.notifier).syncNow(
+      theme: mounted ? Theme.of(context) : null,
     );
-    // Prefer today's projected events. Skip while streams are still loading
-    // so we never overwrite a good widget face with an empty snapshot.
-    final events =
-        ref.read(eventsForDateProvider(today)).value ??
-        ref.read(dayEventsProvider).value;
-    if (events == null) {
-      return;
-    }
-    final activeEvent = ref.read(currentActiveEventProvider);
-    final settings = ref.read(dialSettingsProvider);
-    final theme = Theme.of(context);
-
-    ref
-        .read(syncDialWidgetUseCaseProvider)
-        .execute(
-          events: events,
-          activeEvent: activeEvent,
-          currentTime: currentTime,
-          settings: settings,
-          theme: theme,
-        );
   }
 
   @override
@@ -247,18 +224,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    // Keep Android Home Screen Widget in sync (throttled to minute boundaries & state changes)
-    ref.listen(allEventsProvider, (_, _) => _syncAndroidWidget());
-    ref.listen(dayEventsProvider, (_, _) => _syncAndroidWidget());
-    ref.listen(currentActiveEventProvider, (_, _) => _syncAndroidWidget());
-    ref.listen(dialSettingsProvider, (_, _) => _syncAndroidWidget());
-    ref.listen(currentTimeProvider, (prev, next) {
-      final prevMin = prev?.value?.minute;
-      final nextMin = next.value?.minute;
-      if (prevMin != nextMin) {
-        _syncAndroidWidget();
-      }
-    });
+    // Activate the unified widget sync coordinator (§6.3)
+    ref.watch(widgetSyncCoordinatorProvider);
 
     final cloudSyncState = ref.watch(cloudSyncControllerProvider);
     final isBatteryIgnored =

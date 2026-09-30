@@ -315,6 +315,7 @@ class DialModel {
 
   final int schemaVersion;
   final String signature;
+  final String layoutSignature;
   final String warpKey;
   final bool is24HourMode;
   final List<DialBlock> blocks;
@@ -327,6 +328,7 @@ class DialModel {
   const DialModel({
     this.schemaVersion = currentSchemaVersion,
     required this.signature,
+    String? layoutSignature,
     required this.warpKey,
     required this.is24HourMode,
     required this.blocks,
@@ -335,7 +337,7 @@ class DialModel {
     required this.needle,
     required this.ticks,
     required this.center,
-  });
+  }) : layoutSignature = layoutSignature ?? signature;
 
   /// Computes a deterministic 64-bit FNV-1a hex signature over the canonical layout.
   static String computeSignature({
@@ -370,9 +372,43 @@ class DialModel {
     return hash.toRadixString(16).padLeft(16, '0');
   }
 
+  /// Computes a deterministic 64-bit FNV-1a hex signature over the static background dial layout
+  /// (excluding the needle position). This identifies identical frames for widget precomputation.
+  static String computeLayoutSignature({
+    required List<DialBlock> blocks,
+    required HiddenSummary hidden,
+    required WarpMap warp,
+    required bool is24HourMode,
+    required String activeTitle,
+  }) {
+    final sb = StringBuffer();
+    sb.write('mode:$is24HourMode;');
+    sb.write('active:$activeTitle;');
+    sb.write('hidden:${hidden.hiddenCount};');
+
+    for (final b in blocks) {
+      sb.write(
+        'b:${b.eventId}#${b.segmentIndex}:${b.startDeg.toStringAsFixed(2)}:${b.sweepDeg.toStringAsFixed(2)}:${b.ring.name}:${b.content.name};',
+      );
+    }
+
+    final bytes = utf8.encode(sb.toString());
+    BigInt hash = BigInt.parse('cbf29ce484222325', radix: 16);
+    final fnvPrime = BigInt.parse('100000001b3', radix: 16);
+    final mask64 = BigInt.parse('ffffffffffffffff', radix: 16);
+
+    for (final byte in bytes) {
+      hash = hash ^ BigInt.from(byte);
+      hash = (hash * fnvPrime) & mask64;
+    }
+
+    return hash.toRadixString(16).padLeft(16, '0');
+  }
+
   Map<String, dynamic> toJson() => {
     'schemaVersion': schemaVersion,
     'signature': signature,
+    'layoutSignature': layoutSignature,
     'warpKey': warpKey,
     'is24HourMode': is24HourMode,
     'blocks': blocks.map((b) => b.toJson()).toList(),

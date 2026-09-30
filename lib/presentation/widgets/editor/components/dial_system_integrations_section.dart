@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/android_widget_service.dart';
-import '../../../controllers/clock_controller.dart';
+import '../../../controllers/widget_sync_coordinator.dart';
 import '../../../screens/debug/dial_lab_screen.dart';
 import '../../common/bouncy_pressable.dart';
 import 'dial_editor_styles.dart';
@@ -101,25 +101,9 @@ class DialSystemIntegrationsSection extends ConsumerWidget {
                 width: double.infinity,
                 child: BouncyPressable(
                   onTap: () async {
-                    final events =
-                        ref.read(allEventsProvider).value ??
-                        ref.read(dayEventsProvider).value ??
-                        const [];
-                    final activeEvent = ref.read(currentActiveEventProvider);
-                    final currentTime =
-                        ref.read(currentTimeProvider).value ?? DateTime.now();
-                    final settings = ref.read(dialSettingsProvider);
-                    final theme = Theme.of(context);
-
                     await ref
-                        .read(syncDialWidgetUseCaseProvider)
-                        .execute(
-                          events: events,
-                          activeEvent: activeEvent,
-                          currentTime: currentTime,
-                          settings: settings,
-                          theme: theme,
-                        );
+                        .read(widgetSyncCoordinatorProvider.notifier)
+                        .syncNow(theme: Theme.of(context));
 
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(

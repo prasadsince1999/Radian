@@ -155,7 +155,7 @@ class DialModelBuilder {
     // 8. WarpKey (Cache Key)
     final warpKey = _computeWarpKey(horizon, prefs);
 
-    // 9. Stable 64-bit Signature
+    // 9. Stable 64-bit Signature (overall, including needle)
     final signature = DialModel.computeSignature(
       blocks: blocks,
       needle: needle,
@@ -164,8 +164,18 @@ class DialModelBuilder {
       is24HourMode: is24,
     );
 
+    // 10. Stable 64-bit Layout Signature (static face layout, excluding needle)
+    final layoutSignature = DialModel.computeLayoutSignature(
+      blocks: blocks,
+      hidden: horizon.hidden,
+      warp: warp,
+      is24HourMode: is24,
+      activeTitle: centerTitle,
+    );
+
     return DialModel(
       signature: signature,
+      layoutSignature: layoutSignature,
       warpKey: warpKey,
       is24HourMode: is24,
       blocks: blocks,

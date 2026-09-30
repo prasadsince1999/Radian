@@ -160,6 +160,12 @@ class MainActivity : FlutterActivity() {
                             )
                         )
                     }
+                    "updateFrameStrip" -> {
+                        WidgetFrameStore.invalidateCache()
+                        SectographWidgetProvider.updateAll(this@MainActivity)
+                        SectographWidgetProvider.scheduleNextMinuteAlarm(this@MainActivity)
+                        result.success(true)
+                    }
                     "getInitialAction" -> {
                         val action = pendingAction
                         pendingAction = null

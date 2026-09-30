@@ -113,9 +113,23 @@ class SectographWidgetProvider : AppWidgetProvider() {
         const val KEY_INNER_RADIUS_RATIO = "innerRadiusRatio"
         const val KEY_PREVIOUS_BLOCKS_COUNT = "previousBlocksCount"
         const val KEY_FUTURE_BLOCKS_COUNT = "futureBlocksCount"
+        const val KEY_DIAL_HALF = "dialHalf"
+        const val KEY_CONTENT_SIGNATURE = "contentSignature"
         const val MAX_IDLE_BITMAP_AGE_MS = 12 * 3600 * 1000L // 12 hours (full dial cycle)
         const val ACTION_ADD_BLOCK = "com.ksmxtech.sectograph_mcp.ACTION_ADD_BLOCK"
         const val ACTION_MINUTE_TICK = "com.ksmxtech.sectograph_mcp.ACTION_MINUTE_TICK"
+
+        fun currentDialHalf(is24HourMode: Boolean, timestamp: Long): String {
+            if (is24HourMode) return "24H"
+            val cal = Calendar.getInstance().apply { timeInMillis = timestamp }
+            return if (cal.get(Calendar.HOUR_OF_DAY) < 12) "AM" else "PM"
+        }
+
+        fun contentSignature(eventsJson: String?, is24HourMode: Boolean, timestamp: Long): String {
+            val half = currentDialHalf(is24HourMode, timestamp)
+            val jsonHash = eventsJson?.hashCode() ?: 0
+            return "${half}_$jsonHash"
+        }
 
         private fun normalizeDegrees(deg: Double): Double {
             var d = deg % 360.0
@@ -162,21 +176,30 @@ class SectographWidgetProvider : AppWidgetProvider() {
             )
             val now = System.currentTimeMillis()
             val nextMinute = (now / 60000 + 1) * 60000
+
+            // If a precomputed frame has an earlier boundary transition, wake up at that exact boundary (§6.2)
+            val activeFrame = WidgetFrameStore.getActiveFrame(context, now)
+            val targetAlarm = if (activeFrame != null && activeFrame.frame.toMs in (now + 1000L)..(nextMinute - 500L)) {
+                activeFrame.frame.toMs
+            } else {
+                nextMinute
+            }
+
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     if (alarmManager.canScheduleExactAlarms()) {
-                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextMinute, pendingIntent)
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, targetAlarm, pendingIntent)
                     } else {
-                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextMinute, pendingIntent)
+                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, targetAlarm, pendingIntent)
                     }
                 } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextMinute, pendingIntent)
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, targetAlarm, pendingIntent)
                 } else {
-                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, nextMinute, pendingIntent)
+                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, targetAlarm, pendingIntent)
                 }
             } catch (_: Exception) {
                 try {
-                    alarmManager.set(AlarmManager.RTC_WAKEUP, nextMinute, pendingIntent)
+                    alarmManager.set(AlarmManager.RTC_WAKEUP, targetAlarm, pendingIntent)
                 } catch (_: Exception) {}
             }
         }
@@ -237,9 +260,18 @@ class SectographWidgetProvider : AppWidgetProvider() {
          * and live center clock face in pure native Android Canvas.
          */
         fun renderCompositeDial(context: Context): Bitmap? {
+            val nowMs = System.currentTimeMillis()
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val is24HourMode = prefs.getBoolean(KEY_IS_24_HOUR, false)
+            val dialBgColor = prefs.getInt(KEY_DIAL_BG_COLOR, Color.parseColor("#0F172A"))
+
+            // Phase 6: Query native Frame Strip Store first (§6.1, §6.2)
+            val activeFrameResult = WidgetFrameStore.getActiveFrame(context, nowMs)
             val baseFile = File(context.filesDir, "widget_dial_base.png")
             val fallbackFile = File(context.filesDir, "widget_dial.png")
-            val targetFile = if (baseFile.exists() && baseFile.canRead()) {
+            val targetFile = if (activeFrameResult != null && activeFrameResult.bitmapFile.exists()) {
+                activeFrameResult.bitmapFile
+            } else if (baseFile.exists() && baseFile.canRead()) {
                 baseFile
             } else if (fallbackFile.exists() && fallbackFile.canRead()) {
                 fallbackFile
@@ -247,11 +279,11 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 null
             }
 
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val is24HourMode = prefs.getBoolean(KEY_IS_24_HOUR, false)
-            val dialBgColor = prefs.getInt(KEY_DIAL_BG_COLOR, Color.parseColor("#0F172A"))
-            val nowMs = System.currentTimeMillis()
-            val isStale = isBitmapStale(targetFile, prefs, nowMs)
+            val isStale = if (activeFrameResult != null) {
+                activeFrameResult.isStale
+            } else {
+                isBitmapStale(targetFile, prefs, nowMs)
+            }
 
             val baseBitmap = if (targetFile != null && !isStale) {
                 try {
@@ -402,7 +434,9 @@ class SectographWidgetProvider : AppWidgetProvider() {
             val effectiveFocusAngle = if (baseBitmap != null) storedFocusAngle else dynamicFocusAngle
             val effectiveMagnification = if (baseBitmap != null) storedMagnification else dynamicMagnification
 
-            val warpedDialDeg = if (isLensEnabled && effectiveFocusAngle >= 0f && effectiveMagnification > 1.001f) {
+            val warpedDialDeg = if (activeFrameResult != null && activeFrameResult.frame.warp.isNotEmpty()) {
+                NeedleInterpolator.interpolate(dialDeg.toDouble(), activeFrameResult.frame.warp).toFloat()
+            } else if (isLensEnabled && effectiveFocusAngle >= 0f && effectiveMagnification > 1.001f) {
                 warpAngle(dialDeg.toDouble(), effectiveFocusAngle.toDouble(), effectiveMagnification.toDouble()).toFloat()
             } else {
                 dialDeg
@@ -515,7 +549,9 @@ class SectographWidgetProvider : AppWidgetProvider() {
                 } catch (_: Exception) {}
             }
 
-            if (activeTitle == null) {
+            if (activeFrameResult?.frame?.center?.activeTitle != null) {
+                activeTitle = activeFrameResult.frame.center.activeTitle
+            } else if (activeTitle == null) {
                 val savedTitle = prefs.getString(KEY_TITLE, null)
                 if (!savedTitle.isNullOrEmpty() && savedTitle != "Dial is clear") {
                     activeTitle = savedTitle
@@ -640,6 +676,26 @@ class SectographWidgetProvider : AppWidgetProvider() {
 
                 val textY = chipTop + (chipRectH / 2f) - ((chipTextPaint.descent() + chipTextPaint.ascent()) / 2f)
                 canvas.drawText(ellipsized, centerX, textY, chipTextPaint)
+            }
+
+            // 5. Freshness Contract Indicator Dot (§6.2)
+            // If data is stale (validUntilMs passed or layout expired), render a small amber dot on the outer bezel
+            if (isStale) {
+                val dotRadius = 3.5f * scale
+                val dotX = centerX + (baseRadius - 12f * scale)
+                val dotY = centerY - (baseRadius - 12f * scale)
+
+                val staleDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.parseColor("#F59E0B") // Amber #F59E0B
+                    style = Paint.Style.FILL
+                }
+                val staleBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.WHITE
+                    style = Paint.Style.STROKE
+                    strokeWidth = 1.0f * scale
+                }
+                canvas.drawCircle(dotX, dotY, dotRadius, staleDotPaint)
+                canvas.drawCircle(dotX, dotY, dotRadius, staleBorderPaint)
             }
 
             return compositeBitmap

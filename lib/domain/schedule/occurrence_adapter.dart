@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../core/time/zone_clock.dart';
 import '../../engine/dial_input.dart';
 import '../models/sector_event.dart';
 import '../models/subtask_item.dart';
@@ -126,5 +127,40 @@ class OccurrenceAdapter {
         );
       }).toList(),
     ).withComputedAngles(is24HourMode: is24HourMode);
+  }
+
+  /// Projects occurrences across a rolling horizon window (e.g. 36h) for widget frame planning.
+  static List<Occurrence> projectOccurrencesForHorizon({
+    required List<SectorEvent> events,
+    required ZoneClockSnapshot clock,
+    required bool is24HourMode,
+    Duration horizon = const Duration(hours: 36),
+  }) {
+    final now = clock.localNow;
+    final dayStart = DateTime(now.year, now.month, now.day);
+    final displayLocation = now.location;
+
+    final daysToProject = (horizon.inHours / 24).ceil() + 1;
+    final uniqueOccurrences = <String, Occurrence>{};
+
+    for (int i = 0; i <= daysToProject; i++) {
+      final day = dayStart.add(Duration(days: i));
+      final occs = zone.ZoneDayProjector.projectAllOccurrences(
+        events: events,
+        targetDay: day,
+        displayZone: displayLocation,
+        is24HourMode: is24HourMode,
+      );
+      for (final occ in occs) {
+        final occurrenceId =
+            '${occ.event.id}_${occ.startLocal.millisecondsSinceEpoch}';
+        final engineOcc = fromZoneOccurrence(
+          occ,
+          occurrenceId: occurrenceId,
+        );
+        uniqueOccurrences[occurrenceId] = engineOcc;
+      }
+    }
+    return uniqueOccurrences.values.toList();
   }
 }

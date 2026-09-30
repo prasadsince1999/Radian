@@ -1,0 +1,66 @@
+{
+  "description": "Shared test vectors for piecewise-linear needle warp interpolation (Dart WarpMap <-> Kotlin NeedleInterpolator)",
+  "testSuites": [
+    {
+      "name": "identity_warp",
+      "breakpoints": [
+        [0.0, 0.0],
+        [360.0, 360.0]
+      ],
+      "cases": [
+        {"inputNaturalDeg": 0.0, "expectedDisplayDeg": 0.0},
+        {"inputNaturalDeg": 45.0, "expectedDisplayDeg": 45.0},
+        {"inputNaturalDeg": 90.0, "expectedDisplayDeg": 90.0},
+        {"inputNaturalDeg": 180.0, "expectedDisplayDeg": 180.0},
+        {"inputNaturalDeg": 270.0, "expectedDisplayDeg": 270.0},
+        {"inputNaturalDeg": 359.5, "expectedDisplayDeg": 359.5},
+        {"inputNaturalDeg": 360.0, "expectedDisplayDeg": 360.0}
+      ]
+    },
+    {
+      "name": "single_stretched_block",
+      "breakpoints": [
+        [0.0, 0.0],
+        [90.0, 60.0],
+        [150.0, 180.0],
+        [270.0, 300.0],
+        [360.0, 360.0]
+      ],
+      "cases": [
+        {"inputNaturalDeg": 0.0, "expectedDisplayDeg": 0.0},
+        {"inputNaturalDeg": 45.0, "expectedDisplayDeg": 30.0},
+        {"inputNaturalDeg": 90.0, "expectedDisplayDeg": 60.0},
+        {"inputNaturalDeg": 120.0, "expectedDisplayDeg": 120.0},
+        {"inputNaturalDeg": 150.0, "expectedDisplayDeg": 180.0},
+        {"inputNaturalDeg": 210.0, "expectedDisplayDeg": 240.0},
+        {"inputNaturalDeg": 270.0, "expectedDisplayDeg": 300.0},
+        {"inputNaturalDeg": 315.0, "expectedDisplayDeg": 330.0},
+        {"inputNaturalDeg": 360.0, "expectedDisplayDeg": 360.0}
+      ]
+    },
+    {
+      "name": "heavily_magnified_focus_lens",
+      "breakpoints": [
+        [0.0, 0.0],
+        [120.0, 80.0],
+        [135.0, 150.0],
+        [150.0, 220.0],
+        [240.0, 280.0],
+        [360.0, 360.0]
+      ],
+      "cases": [
+        {"inputNaturalDeg": 0.0, "expectedDisplayDeg": 0.0},
+        {"inputNaturalDeg": 60.0, "expectedDisplayDeg": 40.0},
+        {"inputNaturalDeg": 120.0, "expectedDisplayDeg": 80.0},
+        {"inputNaturalDeg": 127.5, "expectedDisplayDeg": 115.0},
+        {"inputNaturalDeg": 135.0, "expectedDisplayDeg": 150.0},
+        {"inputNaturalDeg": 142.5, "expectedDisplayDeg": 185.0},
+        {"inputNaturalDeg": 150.0, "expectedDisplayDeg": 220.0},
+        {"inputNaturalDeg": 195.0, "expectedDisplayDeg": 250.0},
+        {"inputNaturalDeg": 240.0, "expectedDisplayDeg": 280.0},
+        {"inputNaturalDeg": 300.0, "expectedDisplayDeg": 320.0},
+        {"inputNaturalDeg": 360.0, "expectedDisplayDeg": 360.0}
+      ]
+    }
+  ]
+}

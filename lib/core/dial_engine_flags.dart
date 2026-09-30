@@ -22,7 +22,7 @@ abstract final class DialEngineFlags {
 
   /// When `true`, the widget uses the Frame Strip architecture (Phase 6)
   /// instead of the per-minute Flutter re-render.
-  static bool widgetFrameStrip = false;
+  static bool widgetFrameStrip = true;
 
   /// When `true`, time is stored with timezone info (Phase 1).
   /// Existing offset-less data is migrated on first launch.

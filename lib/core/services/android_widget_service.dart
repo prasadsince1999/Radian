@@ -183,4 +183,25 @@ class AndroidWidgetService {
       debugPrint('syncWidget error: $e\n$st');
     }
   }
+
+  /// Notifies the native Android widget provider that a new precomputed Frame Strip
+  /// has been deployed to the filesystem (§6.1, §6.2).
+  static Future<void> notifyFrameStripUpdated({
+    required String dataVersion,
+    required String tzid,
+    required int validUntilMs,
+    required int framesCount,
+  }) async {
+    if (!isSupported) return;
+    try {
+      await _channel.invokeMethod('updateFrameStrip', {
+        'dataVersion': dataVersion,
+        'tzid': tzid,
+        'validUntilMs': validUntilMs,
+        'framesCount': framesCount,
+      });
+    } catch (e, st) {
+      debugPrint('notifyFrameStripUpdated error: $e\n$st');
+    }
+  }
 }
