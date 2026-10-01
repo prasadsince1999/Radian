@@ -2,11 +2,15 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sectograph_mcp/core/time/zone_clock.dart';
 import 'package:sectograph_mcp/domain/models/dial_settings.dart';
 import 'package:sectograph_mcp/domain/models/sector_event.dart';
+import 'package:sectograph_mcp/domain/schedule/occurrence_adapter.dart';
+import 'package:sectograph_mcp/engine/dial_input.dart';
+import 'package:sectograph_mcp/engine/dial_model_builder.dart';
 import 'package:sectograph_mcp/presentation/widgets/dial/components/sector_content_renderer.dart';
 import 'package:sectograph_mcp/presentation/widgets/dial/components/sector_pill_renderer.dart';
-import 'package:sectograph_mcp/presentation/widgets/dial/sectograph_painter.dart';
+import 'package:sectograph_mcp/presentation/widgets/dial/dial_painter.dart';
 
 void main() {
   group('Squeezed Time Geometry and Zero-Overlap Tests', () {
@@ -62,7 +66,7 @@ void main() {
       expect(squeezedPath.getBounds().height, greaterThan(0));
     });
 
-    test('SectographPainter paints contiguous 1h and 1.5h sectors cleanly without errors', () {
+    test('DialPainter paints contiguous 1h and 1.5h sectors cleanly without errors', () {
       final today = DateTime(2026, 9, 11, 19, 30);
       final events = [
         SectorEvent(
@@ -70,8 +74,6 @@ void main() {
           title: 'Flexible Hours',
           start: DateTime(today.year, today.month, today.day, 17, 30),
           end: DateTime(today.year, today.month, today.day, 20, 30),
-          startAngle: 262.5,
-          sweepAngle: 45.0,
           colorHex: '#0EA5E9',
           subtasks: ['LeetCode', 'Mock Prep'],
         ),
@@ -80,8 +82,6 @@ void main() {
           title: 'Cooking+Lunch',
           start: DateTime(today.year, today.month, today.day, 20, 30),
           end: DateTime(today.year, today.month, today.day, 21, 30),
-          startAngle: 307.5,
-          sweepAngle: 15.0, // 1 hour = 15° in 24h
           colorHex: '#10B981',
           subtasks: ['Meal Prep', 'Quick Lunch'],
         ),
@@ -90,20 +90,22 @@ void main() {
           title: 'Study Time',
           start: DateTime(today.year, today.month, today.day, 21, 30),
           end: DateTime(today.year, today.month, today.day, 23, 30),
-          startAngle: 322.5,
-          sweepAngle: 30.0,
           colorHex: '#F97316',
           subtasks: ['LinAlg', 'PyTorch'],
         ),
       ];
 
-      final painter = SectographPainter(
-        events: events,
-        selectedEvent: null,
-        activeEvent: events[0],
-        currentTime: today,
-        scrubAngle: null,
+      final input = DialInput(
+        clock: ZoneClockSnapshot.fromDateTime(today),
+        occurrences: OccurrenceAdapter.fromSectorEvents(events),
+        prefs: const DialPrefs(is24HourMode: true),
+      );
+      final model = DialModelBuilder.build(input);
+
+      final painter = DialPainter(
+        model: model,
         settings: const DialSettings(is24HourMode: true),
+        theme: ThemeData.dark(),
         colorScheme: const ColorScheme.dark(),
         showCenterClock: true,
       );
@@ -117,7 +119,7 @@ void main() {
       expect(picture, isNotNull);
     });
 
-    test('SectographPainter paints 12H Flexible Hours sector with 3 subtasks (LeetCode, Mock, PyTorch) cleanly', () {
+    test('DialPainter paints 12H Flexible Hours sector with 3 subtasks (LeetCode, Mock, PyTorch) cleanly', () {
       final today = DateTime(2026, 9, 15, 18, 30);
       final events = [
         SectorEvent(
@@ -125,20 +127,22 @@ void main() {
           title: 'Flexible Hours',
           start: DateTime(today.year, today.month, today.day, 17, 30),
           end: DateTime(today.year, today.month, today.day, 20, 30),
-          startAngle: 75.0, // 5:30 on 12h dial (30 deg/h * 5.5 = 165 deg from 12 or standard dial)
-          sweepAngle: 90.0, // 3 hours = 90°
           colorHex: '#0EA5E9',
           subtasks: ['LeetCode', 'Mock Prep', 'PyTorch'],
         ),
       ];
 
-      final painter = SectographPainter(
-        events: events,
-        selectedEvent: null,
-        activeEvent: events[0],
-        currentTime: today,
-        scrubAngle: null,
+      final input = DialInput(
+        clock: ZoneClockSnapshot.fromDateTime(today),
+        occurrences: OccurrenceAdapter.fromSectorEvents(events),
+        prefs: const DialPrefs(is24HourMode: false),
+      );
+      final model = DialModelBuilder.build(input);
+
+      final painter = DialPainter(
+        model: model,
         settings: const DialSettings(is24HourMode: false),
+        theme: ThemeData.dark(),
         colorScheme: const ColorScheme.dark(),
         showCenterClock: true,
       );
@@ -152,26 +156,28 @@ void main() {
       expect(picture, isNotNull);
     });
 
-    test('SectographPainter paints active 12H Workout block with Gym, Cardio, Stretch cleanly with zero cap collision', () {
+    test('DialPainter paints active 12H Workout block with Gym, Cardio, Stretch cleanly with zero cap collision', () {
       final now = DateTime(2026, 9, 20, 16, 0); // Active inside 15:30 - 16:30
       final workoutEvent = SectorEvent(
         id: 'workout',
         title: 'Workout',
         start: DateTime(2026, 9, 20, 15, 30),
         end: DateTime(2026, 9, 20, 16, 30),
-        startAngle: 105.0,
-        sweepAngle: 72.0, // Stretched
         colorHex: '#FF7043',
         subtasks: ['Gym', 'Cardio', 'Stretch'],
       );
 
-      final painter = SectographPainter(
-        events: [workoutEvent],
-        selectedEvent: null,
-        activeEvent: workoutEvent,
-        currentTime: now,
-        scrubAngle: null,
+      final input = DialInput(
+        clock: ZoneClockSnapshot.fromDateTime(now),
+        occurrences: OccurrenceAdapter.fromSectorEvents([workoutEvent]),
+        prefs: const DialPrefs(is24HourMode: false),
+      );
+      final model = DialModelBuilder.build(input);
+
+      final painter = DialPainter(
+        model: model,
         settings: const DialSettings(is24HourMode: false),
+        theme: ThemeData.dark(),
         colorScheme: const ColorScheme.dark(),
         showCenterClock: true,
       );

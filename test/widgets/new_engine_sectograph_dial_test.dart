@@ -38,7 +38,7 @@ void main() {
     });
 
     tearDown(() {
-      DialEngineFlags.newEngine = false;
+      // New engine is permanent in Phase 9
     });
 
     testWidgets('renders new engine dial stack with DialPainter and Semantics label', (tester) async {
@@ -132,10 +132,7 @@ void main() {
       expect(container.read(dialScrubAngleProvider), isNull);
     });
 
-    testWidgets('can seamlessly toggle DialEngineFlags.newEngine between false and true', (tester) async {
-      // First with false
-      DialEngineFlags.newEngine = false;
-
+    testWidgets('unconditionally renders new engine DialPainter across rebuilds', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -159,38 +156,11 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      // With false, old dial is rendered (no DialPainter CustomPaint)
+      // Assert new engine dial is rendered unconditionally
       final newCustomPaintFinder = find.byWidgetPredicate(
         (widget) => widget is CustomPaint && widget.painter is DialPainter,
       );
-      expect(newCustomPaintFinder, findsNothing);
-
-      // Toggle to true
-      DialEngineFlags.newEngine = true;
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            clockProvider.overrideWithValue(FixedClock(fixedTime)),
-            currentTimeProvider.overrideWith((ref) => Stream.value(fixedTime)),
-            selectedDayProvider.overrideWith((ref) => DateTime(2026, 9, 29)),
-            eventRepositoryProvider.overrideWithValue(fakeRepo),
-          ],
-          child: const MaterialApp(
-            home: Scaffold(
-              body: SizedBox(
-                width: 400,
-                height: 500,
-                child: SectographDial(),
-              ),
-            ),
-          ),
-        ),
-      );
-
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-
-      expect(find.byWidgetPredicate((widget) => widget is CustomPaint && widget.painter is DialPainter), findsOneWidget);
+      expect(newCustomPaintFinder, findsOneWidget);
     });
   });
 }

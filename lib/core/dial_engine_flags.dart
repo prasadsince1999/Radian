@@ -1,30 +1,18 @@
-/// Feature flags for the new Dial Engine.
+/// Central feature flags for the Radian dial engine.
 ///
-/// All new engine code runs behind these flags so the old code path stays
-/// runnable until Phase 9 sign-off.
+/// Post-Phase 9: The new Dial Engine and Widget Frame Strip architecture
+/// are permanent defaults. Legacy solvers have been removed.
 library;
 
-/// Central feature flags for the dial engine rewrite.
-///
-/// Defaults are chosen so the app ships with the **old** pipeline until
-/// each phase is signed off.
+/// Central architecture flags for the Radian engine.
 abstract final class DialEngineFlags {
-  /// Master switch for the new engine pipeline.
-  ///
-  /// When `false` (default), the app uses the existing `FisheyeTimeLens` +
-  /// `DialSectorLayoutStretcher` + `ConcentricSolver` path.
-  ///
-  /// When `true`, the app uses the new `DialModelBuilder` pipeline:
+  /// Unified [DialModelBuilder] engine pipeline (Permanent default: true).
   /// `HorizonSelector → WarpSolver → RingAssigner → ContentPlanner → DialModel`.
-  ///
-  /// Flipped to `true` at the end of Phase 5 after owner sign-off.
   static bool newEngine = true;
 
-  /// When `true`, the widget uses the Frame Strip architecture (Phase 6)
-  /// instead of the per-minute Flutter re-render.
+  /// Native home screen widget Frame Strip architecture (Permanent default: true).
   static bool widgetFrameStrip = true;
 
-  /// When `true`, time is stored with timezone info (Phase 1).
-  /// Existing offset-less data is migrated on first launch.
-  static bool timeZoneAware = false;
+  /// Timezone-aware schedule storage (Phase 1).
+  static bool timeZoneAware = true;
 }
