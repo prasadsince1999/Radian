@@ -26,6 +26,7 @@ import '../../controllers/dial_model_controller.dart';
 import '../common/bouncy_pressable.dart';
 import '../editor/event_edit_modal.dart';
 import 'center_summary.dart';
+import 'components/hidden_blocks_sheet.dart';
 import 'dial_gesture_controller.dart';
 import 'dial_painter.dart';
 import 'sectograph_painter.dart';
@@ -1187,6 +1188,61 @@ class SectographDial extends ConsumerWidget {
                 ),
               ),
             ),
+            if (model.hidden.hiddenCount > 0 &&
+                settings.showHiddenBlocksIndicator)
+              Positioned(
+                bottom: 6,
+                right: 6,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      HiddenBlocksSheet.show(
+                        context,
+                        model: model,
+                        settings: settings,
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color:
+                            const Color(0xFFF59E0B).withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: const Color(0xFFF59E0B)
+                              .withValues(alpha: 0.5),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.visibility_off_rounded,
+                            size: 13,
+                            color: Color(0xFFF59E0B),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '+${model.hidden.hiddenCount}',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: const Color(0xFFF59E0B),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

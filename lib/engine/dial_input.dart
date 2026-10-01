@@ -77,6 +77,10 @@ class DialPrefs {
   final bool isFocusLensEnabled;
   final double lensMagnification;
   final NumeralSystem numeralSystem;
+  final bool showTrueTimeRing;
+  final String? secondaryTimeZone;
+  final bool showSubtaskPaceRing;
+  final bool showHiddenBlocksIndicator;
 
   int get previousBlocks => previousBlocksCount;
   int get nextBlocks => futureBlocksCount;
@@ -92,6 +96,10 @@ class DialPrefs {
     bool? lensEnabled,
     this.lensMagnification = 1.8,
     this.numeralSystem = NumeralSystem.latin,
+    this.showTrueTimeRing = true,
+    this.secondaryTimeZone,
+    this.showSubtaskPaceRing = true,
+    this.showHiddenBlocksIndicator = true,
   }) : previousBlocksCount = previousBlocksCount ?? previousBlocks ?? 1,
        futureBlocksCount = futureBlocksCount ?? nextBlocks ?? 3,
        isFocusLensEnabled = isFocusLensEnabled ?? lensEnabled ?? true;
@@ -103,6 +111,11 @@ class DialPrefs {
     bool? isFocusLensEnabled,
     double? lensMagnification,
     NumeralSystem? numeralSystem,
+    bool? showTrueTimeRing,
+    String? secondaryTimeZone,
+    bool clearSecondaryTimeZone = false,
+    bool? showSubtaskPaceRing,
+    bool? showHiddenBlocksIndicator,
   }) {
     return DialPrefs(
       is24HourMode: is24HourMode ?? this.is24HourMode,
@@ -111,12 +124,19 @@ class DialPrefs {
       isFocusLensEnabled: isFocusLensEnabled ?? this.isFocusLensEnabled,
       lensMagnification: lensMagnification ?? this.lensMagnification,
       numeralSystem: numeralSystem ?? this.numeralSystem,
+      showTrueTimeRing: showTrueTimeRing ?? this.showTrueTimeRing,
+      secondaryTimeZone: clearSecondaryTimeZone
+          ? null
+          : (secondaryTimeZone ?? this.secondaryTimeZone),
+      showSubtaskPaceRing: showSubtaskPaceRing ?? this.showSubtaskPaceRing,
+      showHiddenBlocksIndicator:
+          showHiddenBlocksIndicator ?? this.showHiddenBlocksIndicator,
     );
   }
 
   @override
   String toString() =>
-      'DialPrefs(24H: $is24HourMode, P: $previousBlocksCount, N: $futureBlocksCount, lens: $isFocusLensEnabled, mag: $lensMagnification, digits: $numeralSystem)';
+      'DialPrefs(24H: $is24HourMode, P: $previousBlocksCount, N: $futureBlocksCount, lens: $isFocusLensEnabled, mag: $lensMagnification, digits: $numeralSystem, secTZ: $secondaryTimeZone)';
 }
 
 /// Subtask occurrence within a scheduled block.

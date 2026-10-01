@@ -242,6 +242,40 @@ class NeedleModel {
       'NeedleModel(display: ${displayDeg.toStringAsFixed(1)}°, natural: ${naturalDeg.toStringAsFixed(1)}°)';
 }
 
+/// Secondary needle representation for tracking a remote time zone (§9 Feature 3).
+class SecondaryNeedleModel {
+  final double displayDeg;
+  final double naturalDeg;
+  final String timeZoneId;
+  final String label;
+
+  const SecondaryNeedleModel({
+    required this.displayDeg,
+    required this.naturalDeg,
+    required this.timeZoneId,
+    required this.label,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'displayDeg': displayDeg,
+    'naturalDeg': naturalDeg,
+    'timeZoneId': timeZoneId,
+    'label': label,
+  };
+
+  factory SecondaryNeedleModel.fromJson(Map<String, dynamic> json) =>
+      SecondaryNeedleModel(
+        displayDeg: (json['displayDeg'] as num).toDouble(),
+        naturalDeg: (json['naturalDeg'] as num).toDouble(),
+        timeZoneId: json['timeZoneId'] as String,
+        label: json['label'] as String,
+      );
+
+  @override
+  String toString() =>
+      'SecondaryNeedleModel($label, display: ${displayDeg.toStringAsFixed(1)}°)';
+}
+
 class TickModel {
   final int hour;
   final double displayDeg;
@@ -324,6 +358,7 @@ class DialModel {
   final NeedleModel needle;
   final List<TickModel> ticks;
   final CenterModel center;
+  final SecondaryNeedleModel? secondaryNeedle;
 
   const DialModel({
     this.schemaVersion = currentSchemaVersion,
@@ -337,6 +372,7 @@ class DialModel {
     required this.needle,
     required this.ticks,
     required this.center,
+    this.secondaryNeedle,
   }) : layoutSignature = layoutSignature ?? signature;
 
   /// Computes a deterministic 64-bit FNV-1a hex signature over the canonical layout.
@@ -346,10 +382,14 @@ class DialModel {
     required HiddenSummary hidden,
     required WarpMap warp,
     required bool is24HourMode,
+    SecondaryNeedleModel? secondaryNeedle,
   }) {
     final sb = StringBuffer();
     sb.write('mode:$is24HourMode;');
     sb.write('needle:${needle.displayDeg.toStringAsFixed(2)};');
+    if (secondaryNeedle != null) {
+      sb.write('secNeedle:${secondaryNeedle.displayDeg.toStringAsFixed(2)};');
+    }
     sb.write('hidden:${hidden.hiddenCount};');
 
     for (final b in blocks) {
@@ -380,11 +420,15 @@ class DialModel {
     required WarpMap warp,
     required bool is24HourMode,
     required String activeTitle,
+    SecondaryNeedleModel? secondaryNeedle,
   }) {
     final sb = StringBuffer();
     sb.write('mode:$is24HourMode;');
     sb.write('active:$activeTitle;');
     sb.write('hidden:${hidden.hiddenCount};');
+    if (secondaryNeedle != null) {
+      sb.write('secNeedle:${secondaryNeedle.timeZoneId};');
+    }
 
     for (final b in blocks) {
       sb.write(
@@ -415,9 +459,39 @@ class DialModel {
     'hidden': hidden.toJson(),
     'warp': warp.toJson(),
     'needle': needle.toJson(),
+    if (secondaryNeedle != null) 'secondaryNeedle': secondaryNeedle!.toJson(),
     'ticks': ticks.map((t) => t.toJson()).toList(),
     'center': center.toJson(),
   };
+
+  factory DialModel.fromJson(Map<String, dynamic> json) {
+    return DialModel(
+      schemaVersion: json['schemaVersion'] as int? ?? currentSchemaVersion,
+      signature: json['signature'] as String,
+      layoutSignature: json['layoutSignature'] as String?,
+      warpKey: json['warpKey'] as String,
+      is24HourMode: json['is24HourMode'] as bool? ?? false,
+      blocks: (json['blocks'] as List<dynamic>?)
+              ?.map((b) => DialBlock.fromJson(b as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      hidden: json['hidden'] != null
+          ? HiddenSummary.fromJson(json['hidden'] as Map<String, dynamic>)
+          : const HiddenSummary.empty(),
+      warp: WarpMap.fromJson(json['warp'] as Map<String, dynamic>),
+      needle: NeedleModel.fromJson(json['needle'] as Map<String, dynamic>),
+      secondaryNeedle: json['secondaryNeedle'] != null
+          ? SecondaryNeedleModel.fromJson(
+              json['secondaryNeedle'] as Map<String, dynamic>,
+            )
+          : null,
+      ticks: (json['ticks'] as List<dynamic>?)
+              ?.map((t) => TickModel.fromJson(t as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      center: CenterModel.fromJson(json['center'] as Map<String, dynamic>),
+    );
+  }
 
   @override
   String toString() =>

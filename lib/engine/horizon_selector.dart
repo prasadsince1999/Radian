@@ -70,21 +70,51 @@ class HiddenEventInfo {
   final String eventId;
   final String title;
   final String reason;
+  final double naturalAngleDeg;
+  final double naturalSweepDeg;
+  final DateTime? start;
+  final DateTime? end;
+  final String category;
+  final String colorHex;
 
   const HiddenEventInfo({
     required this.eventId,
     required this.title,
     required this.reason,
+    this.naturalAngleDeg = 0.0,
+    this.naturalSweepDeg = 0.0,
+    this.start,
+    this.end,
+    this.category = 'General',
+    this.colorHex = '#6366F1',
   });
 
   Map<String, dynamic> toJson() => {
     'eventId': eventId,
     'title': title,
     'reason': reason,
+    'naturalAngleDeg': naturalAngleDeg,
+    'naturalSweepDeg': naturalSweepDeg,
+    if (start != null) 'start': start!.toIso8601String(),
+    if (end != null) 'end': end!.toIso8601String(),
+    'category': category,
+    'colorHex': colorHex,
   };
 
+  factory HiddenEventInfo.fromJson(Map<String, dynamic> json) => HiddenEventInfo(
+    eventId: json['eventId'] as String,
+    title: json['title'] as String,
+    reason: json['reason'] as String,
+    naturalAngleDeg: (json['naturalAngleDeg'] as num?)?.toDouble() ?? 0.0,
+    naturalSweepDeg: (json['naturalSweepDeg'] as num?)?.toDouble() ?? 0.0,
+    start: json['start'] != null ? DateTime.tryParse(json['start'] as String) : null,
+    end: json['end'] != null ? DateTime.tryParse(json['end'] as String) : null,
+    category: json['category'] as String? ?? 'General',
+    colorHex: json['colorHex'] as String? ?? '#6366F1',
+  );
+
   @override
-  String toString() => 'HiddenEventInfo($eventId "$title": $reason)';
+  String toString() => 'HiddenEventInfo($eventId "$title": $reason @ ${naturalAngleDeg.toStringAsFixed(1)}°)';
 }
 
 class HiddenSummary {
@@ -99,6 +129,14 @@ class HiddenSummary {
     'hiddenCount': hiddenCount,
     'hiddenEvents': hiddenEvents.map((e) => e.toJson()).toList(),
   };
+
+  factory HiddenSummary.fromJson(Map<String, dynamic> json) => HiddenSummary(
+    hiddenCount: json['hiddenCount'] as int? ?? 0,
+    hiddenEvents: (json['hiddenEvents'] as List<dynamic>?)
+            ?.map((e) => HiddenEventInfo.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        const [],
+  );
 
   @override
   String toString() => 'HiddenSummary(count: $hiddenCount)';
@@ -392,6 +430,50 @@ class HorizonSelector {
     final visibleSegments = <OccurrenceSegment>[];
     final hiddenEvents = <HiddenEventInfo>[];
 
+    // Collect candidates excluded by N horizon limit (§4.3, I2, I10)
+    for (int i = nLimit; i < upcomingCandidates.length; i++) {
+      final occ = upcomingCandidates[i];
+      if (occ.id != selected?.id && occ.id != active?.id) {
+        final startAngle = naturalAngleDeg(occ.start, is24HourMode: is24);
+        final sweepAngle = naturalSweepDeg(occ.duration, is24HourMode: is24);
+        hiddenEvents.add(
+          HiddenEventInfo(
+            eventId: occ.eventId,
+            title: occ.title,
+            reason: 'exceedsHorizon:next>$nLimit',
+            naturalAngleDeg: startAngle,
+            naturalSweepDeg: sweepAngle,
+            start: occ.start,
+            end: occ.end,
+            category: occ.category,
+            colorHex: occ.colorHex,
+          ),
+        );
+      }
+    }
+
+    // Collect candidates excluded by P horizon limit (§4.3, I2, I10)
+    for (int i = pLimit; i < previousCandidates.length; i++) {
+      final occ = previousCandidates[i];
+      if (occ.id != selected?.id && occ.id != active?.id) {
+        final startAngle = naturalAngleDeg(occ.start, is24HourMode: is24);
+        final sweepAngle = naturalSweepDeg(occ.duration, is24HourMode: is24);
+        hiddenEvents.add(
+          HiddenEventInfo(
+            eventId: occ.eventId,
+            title: occ.title,
+            reason: 'exceedsHorizon:prev>$pLimit',
+            naturalAngleDeg: startAngle,
+            naturalSweepDeg: sweepAngle,
+            start: occ.start,
+            end: occ.end,
+            category: occ.category,
+            colorHex: occ.colorHex,
+          ),
+        );
+      }
+    }
+
     for (final candidate in orderedCandidates) {
       final occ = candidate.occurrence;
       final startAngle = naturalAngleDeg(occ.start, is24HourMode: is24);
@@ -409,6 +491,12 @@ class HorizonSelector {
               eventId: occ.eventId,
               title: occ.title,
               reason: 'aliasesWith:$conflictingId',
+              naturalAngleDeg: startAngle,
+              naturalSweepDeg: sweepAngle,
+              start: occ.start,
+              end: occ.end,
+              category: occ.category,
+              colorHex: occ.colorHex,
             ),
           );
           continue;

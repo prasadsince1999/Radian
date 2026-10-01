@@ -1,3 +1,5 @@
+import 'package:timezone/timezone.dart' as tz;
+
 import '../core/i18n/numeral_system.dart';
 import 'content_planner.dart';
 import 'dial_input.dart';
@@ -48,6 +50,56 @@ class DialModelBuilder {
       isInsideActiveBlock: isInsideActive,
       activeEventId: horizon.activeEvent?.eventId,
     );
+
+    // 4b. Secondary needle for remote time zone (§9 Feature 3)
+    SecondaryNeedleModel? secondaryNeedle;
+    if (prefs.secondaryTimeZone != null &&
+        prefs.secondaryTimeZone!.isNotEmpty) {
+      try {
+        final tz.Location secZone;
+        if (prefs.secondaryTimeZone!.toUpperCase() == 'UTC' ||
+            prefs.secondaryTimeZone!.toUpperCase() == 'GMT') {
+          secZone = tz.UTC;
+        } else {
+          secZone = tz.getLocation(prefs.secondaryTimeZone!);
+        }
+        final secTime = tz.TZDateTime.from(input.clock.utcNow, secZone);
+        final secMinutes =
+            secTime.hour * 60.0 + secTime.minute + secTime.second / 60.0;
+        final double secNaturalDeg;
+        if (is24) {
+          secNaturalDeg = (secMinutes * 0.25) % 360.0;
+        } else {
+          secNaturalDeg = ((secMinutes % 720.0) * 0.5) % 360.0;
+        }
+        final secDisplayDeg = warp.forward(secNaturalDeg);
+
+        final String tzShort;
+        if (prefs.secondaryTimeZone!.contains('/')) {
+          tzShort =
+              prefs.secondaryTimeZone!.split('/').last.replaceAll('_', ' ');
+        } else {
+          tzShort = prefs.secondaryTimeZone!;
+        }
+
+        final hStr = secTime.hour.toString().padLeft(2, '0');
+        final mStr = secTime.minute.toString().padLeft(2, '0');
+        final rawTime = '$hStr:$mStr';
+        final formattedTime = NumeralConverter.convert(
+          rawTime,
+          prefs.numeralSystem,
+        );
+
+        secondaryNeedle = SecondaryNeedleModel(
+          displayDeg: secDisplayDeg,
+          naturalDeg: secNaturalDeg,
+          timeZoneId: prefs.secondaryTimeZone!,
+          label: '$tzShort $formattedTime',
+        );
+      } catch (_) {
+        // Unknown or invalid timezone string ignored gracefully
+      }
+    }
 
     // 5. Dial Blocks with Content Mode, Caps, and Subtask Capsules (§4.5)
     final blocks = <DialBlock>[];
@@ -165,6 +217,7 @@ class DialModelBuilder {
       hidden: horizon.hidden,
       warp: warp,
       is24HourMode: is24,
+      secondaryNeedle: secondaryNeedle,
     );
 
     // 10. Stable 64-bit Layout Signature (static face layout, excluding needle)
@@ -174,6 +227,7 @@ class DialModelBuilder {
       warp: warp,
       is24HourMode: is24,
       activeTitle: centerTitle,
+      secondaryNeedle: secondaryNeedle,
     );
 
     return DialModel(
@@ -185,6 +239,7 @@ class DialModelBuilder {
       hidden: horizon.hidden,
       warp: warp,
       needle: needle,
+      secondaryNeedle: secondaryNeedle,
       ticks: ticks,
       center: center,
     );

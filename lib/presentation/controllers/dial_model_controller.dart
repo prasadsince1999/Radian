@@ -149,6 +149,11 @@ final dialModelProvider = Provider<DialModel>((ref) {
     futureBlocksCount: settings.futureBlocksCount,
     isFocusLensEnabled: settings.isFocusLensEnabled,
     lensMagnification: settings.lensMagnification,
+    numeralSystem: settings.numeralSystem,
+    showTrueTimeRing: settings.showTrueTimeRing,
+    secondaryTimeZone: settings.secondaryTimeZone,
+    showSubtaskPaceRing: settings.showSubtaskPaceRing,
+    showHiddenBlocksIndicator: settings.showHiddenBlocksIndicator,
   );
 
   const surface = engine.DialSurface(

@@ -130,6 +130,11 @@ class WidgetSyncCoordinator extends StateNotifier<WidgetSyncState> {
           futureBlocksCount: settings.futureBlocksCount,
           isFocusLensEnabled: settings.isFocusLensEnabled,
           lensMagnification: settings.lensMagnification,
+          numeralSystem: settings.numeralSystem,
+          showTrueTimeRing: settings.showTrueTimeRing,
+          secondaryTimeZone: settings.secondaryTimeZone,
+          showSubtaskPaceRing: settings.showSubtaskPaceRing,
+          showHiddenBlocksIndicator: settings.showHiddenBlocksIndicator,
         );
 
         final plan = WidgetFramePlanner.plan(

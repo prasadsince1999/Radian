@@ -49,6 +49,10 @@ class DialSettings {
   final TravelBehavior travelBehavior;
   final NumeralSystem numeralSystem;
   final bool enableColorBlindPatterns;
+  final bool showTrueTimeRing;
+  final String? secondaryTimeZone;
+  final bool showSubtaskPaceRing;
+  final bool showHiddenBlocksIndicator;
 
   const DialSettings({
     this.is24HourMode = false,
@@ -72,6 +76,10 @@ class DialSettings {
     this.travelBehavior = TravelBehavior.followDevice,
     this.numeralSystem = NumeralSystem.latin,
     this.enableColorBlindPatterns = false,
+    this.showTrueTimeRing = true,
+    this.secondaryTimeZone,
+    this.showSubtaskPaceRing = true,
+    this.showHiddenBlocksIndicator = true,
   });
 
   Color get seedColor {
@@ -108,6 +116,11 @@ class DialSettings {
     TravelBehavior? travelBehavior,
     NumeralSystem? numeralSystem,
     bool? enableColorBlindPatterns,
+    bool? showTrueTimeRing,
+    String? secondaryTimeZone,
+    bool clearSecondaryTimeZone = false,
+    bool? showSubtaskPaceRing,
+    bool? showHiddenBlocksIndicator,
   }) {
     return DialSettings(
       is24HourMode: is24HourMode ?? this.is24HourMode,
@@ -138,6 +151,13 @@ class DialSettings {
       numeralSystem: numeralSystem ?? this.numeralSystem,
       enableColorBlindPatterns:
           enableColorBlindPatterns ?? this.enableColorBlindPatterns,
+      showTrueTimeRing: showTrueTimeRing ?? this.showTrueTimeRing,
+      secondaryTimeZone: clearSecondaryTimeZone
+          ? null
+          : (secondaryTimeZone ?? this.secondaryTimeZone),
+      showSubtaskPaceRing: showSubtaskPaceRing ?? this.showSubtaskPaceRing,
+      showHiddenBlocksIndicator:
+          showHiddenBlocksIndicator ?? this.showHiddenBlocksIndicator,
     );
   }
 
@@ -163,6 +183,10 @@ class DialSettings {
     'travelBehavior': travelBehavior.name,
     'numeralSystem': numeralSystem.name,
     'enableColorBlindPatterns': enableColorBlindPatterns,
+    'showTrueTimeRing': showTrueTimeRing,
+    if (secondaryTimeZone != null) 'secondaryTimeZone': secondaryTimeZone,
+    'showSubtaskPaceRing': showSubtaskPaceRing,
+    'showHiddenBlocksIndicator': showHiddenBlocksIndicator,
   };
 
   factory DialSettings.fromJson(Map<String, dynamic> json) {
@@ -224,6 +248,11 @@ class DialSettings {
       ),
       enableColorBlindPatterns:
           json['enableColorBlindPatterns'] as bool? ?? false,
+      showTrueTimeRing: json['showTrueTimeRing'] as bool? ?? true,
+      secondaryTimeZone: json['secondaryTimeZone'] as String?,
+      showSubtaskPaceRing: json['showSubtaskPaceRing'] as bool? ?? true,
+      showHiddenBlocksIndicator:
+          json['showHiddenBlocksIndicator'] as bool? ?? true,
     );
   }
 }

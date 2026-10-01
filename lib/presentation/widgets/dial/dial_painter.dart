@@ -11,6 +11,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/color_contrast.dart';
 import '../../../domain/models/dial_settings.dart';
 import '../../../engine/dial_model.dart';
+import '../../../engine/horizon_selector.dart';
 import '../../../engine/ring_assigner.dart';
 import 'components/hour_needle_renderer.dart';
 import 'components/sector_pattern_renderer.dart';
@@ -90,6 +91,11 @@ class DialPainter extends CustomPainter {
       scallopAmp: scallopAmp,
     );
 
+    // 1b. True-time reference ring (Phase 8, §9 Feature 2)
+    if (settings.isFocusLensEnabled && settings.showTrueTimeRing) {
+      _drawTrueTimeRing(canvas, center, baseRadius);
+    }
+
     // 2. Render all visible DialBlocks (single-ring or dual concentric tracks)
     _drawDialBlocks(
       canvas,
@@ -98,6 +104,22 @@ class DialPainter extends CustomPainter {
       routineTrackOut,
       ringDividerRadius,
     );
+
+    // 2b. Subtask pace ring for active block (Phase 8, §9 Feature 6, I11)
+    if (settings.showSubtaskPaceRing) {
+      _drawSubtaskPaceRing(
+        canvas,
+        center,
+        routineTrackIn,
+        ringDividerRadius,
+        routineTrackOut,
+      );
+    }
+
+    // 2c. Hidden blocks bezel notches (Phase 8, I10)
+    if (model.hidden.hiddenCount > 0 && settings.showHiddenBlocksIndicator) {
+      _drawHiddenBlocksIndicator(canvas, center, baseRadius);
+    }
 
     // 3. Dial outline ring
     _drawDialOutline(
@@ -114,6 +136,17 @@ class DialPainter extends CustomPainter {
     // 5. Hour needle & celestial beacon strictly from model.needle
     if (showNeedle) {
       _drawNeedle(canvas, center, innerRadius, routineTrackOut, baseRadius);
+    }
+
+    // 5b. Secondary time zone needle (Phase 8, §9 Feature 3)
+    if (showNeedle && model.secondaryNeedle != null) {
+      _drawSecondaryNeedle(
+        canvas,
+        center,
+        innerRadius,
+        routineTrackOut,
+        baseRadius,
+      );
     }
 
     // 6. Center hub clock face if enabled
@@ -876,6 +909,242 @@ class DialPainter extends CustomPainter {
         canvas,
         Offset(center.dx - remainingPainter.width / 2.0, y),
       );
+    }
+  }
+
+  void _drawTrueTimeRing(Canvas canvas, Offset center, double baseRadius) {
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final ringPaint = Paint()
+      ..color = (isDark ? Colors.white : Colors.black).withValues(alpha: 0.12)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.75;
+
+    final tickPaint = Paint()
+      ..color = (isDark ? Colors.white : Colors.black).withValues(alpha: 0.22)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round;
+
+    final dotPaint = Paint()
+      ..color = colorScheme.primary.withValues(alpha: 0.40)
+      ..style = PaintingStyle.fill;
+
+    final ringR = baseRadius - 1.5;
+    canvas.drawCircle(center, ringR, ringPaint);
+
+    final totalTicks = model.is24HourMode ? 24 : 12;
+    for (int h = 0; h < totalTicks; h++) {
+      final naturalDeg = h * (model.is24HourMode ? 15.0 : 30.0);
+      final rad = SectorMath.dialAngleToCanvasRadians(naturalDeg);
+      final isMajor = model.is24HourMode ? (h % 6 == 0) : (h % 3 == 0);
+
+      final pOuter = Offset(
+        center.dx + ringR * math.cos(rad),
+        center.dy + ringR * math.sin(rad),
+      );
+      final tickLength = isMajor ? 3.5 : 2.0;
+      final pInner = Offset(
+        center.dx + (ringR - tickLength) * math.cos(rad),
+        center.dy + (ringR - tickLength) * math.sin(rad),
+      );
+      canvas.drawLine(pInner, pOuter, tickPaint);
+
+      if (isMajor) {
+        canvas.drawCircle(
+          Offset(
+            center.dx + (ringR - 5.5) * math.cos(rad),
+            center.dy + (ringR - 5.5) * math.sin(rad),
+          ),
+          1.0,
+          dotPaint,
+        );
+      }
+    }
+  }
+
+  void _drawSecondaryNeedle(
+    Canvas canvas,
+    Offset center,
+    double innerRadius,
+    double routineTrackOut,
+    double baseRadius,
+  ) {
+    final secNeedle = model.secondaryNeedle;
+    if (secNeedle == null) return;
+
+    final rad = SectorMath.dialAngleToCanvasRadians(secNeedle.displayDeg);
+    final isDark = colorScheme.brightness == Brightness.dark;
+
+    // Slender dual-line / accent secondary needle
+    final needleColor = colorScheme.tertiary;
+    final needlePaint = Paint()
+      ..color = needleColor.withValues(alpha: 0.85)
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+
+    final pStart = Offset(
+      center.dx + (innerRadius + 4.0) * math.cos(rad),
+      center.dy + (innerRadius + 4.0) * math.sin(rad),
+    );
+    final pEnd = Offset(
+      center.dx + (routineTrackOut - 2.0) * math.cos(rad),
+      center.dy + (routineTrackOut - 2.0) * math.sin(rad),
+    );
+    canvas.drawLine(pStart, pEnd, needlePaint);
+
+    // Tip pip
+    final pipPaint = Paint()
+      ..color = needleColor
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(pEnd, 2.5, pipPaint);
+
+    // Bezel badge label (e.g. "NYC 18:30")
+    final badgeRad = rad;
+    final badgeR = baseRadius + 1.0;
+    final badgePos = Offset(
+      center.dx + badgeR * math.cos(badgeRad),
+      center.dy + badgeR * math.sin(badgeRad),
+    );
+
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: secNeedle.label,
+        style: TextStyle(
+          fontSize: 8.0,
+          fontWeight: FontWeight.w700,
+          color: isDark ? Colors.white : Colors.black87,
+          fontFamilyFallback: AppTypography.fontFamilyFallback,
+          letterSpacing: 0.2,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    canvas.save();
+    canvas.translate(badgePos.dx, badgePos.dy);
+    var tangent = badgeRad + math.pi / 2.0;
+    if (math.cos(tangent) < 0.05) tangent += math.pi;
+    canvas.rotate(tangent);
+
+    final badgeRRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset.zero,
+        width: textPainter.width + 6.0,
+        height: textPainter.height + 3.0,
+      ),
+      const Radius.circular(4.0),
+    );
+
+    canvas.drawRRect(
+      badgeRRect,
+      Paint()
+        ..color = (isDark
+            ? const Color(0xFF1E293B)
+            : const Color(0xFFF1F5F9)),
+    );
+    canvas.drawRRect(
+      badgeRRect,
+      Paint()
+        ..color = needleColor.withValues(alpha: 0.6)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.8,
+    );
+
+    textPainter.paint(
+      canvas,
+      Offset(-textPainter.width / 2.0, -textPainter.height / 2.0),
+    );
+    canvas.restore();
+  }
+
+  void _drawSubtaskPaceRing(
+    Canvas canvas,
+    Offset center,
+    double routineTrackIn,
+    double ringDividerRadius,
+    double routineTrackOut,
+  ) {
+    // Find active block with subtasks
+    final activeBlock = model.blocks
+        .where((b) => b.role == BlockRole.active && b.subtasks.isNotEmpty)
+        .firstOrNull;
+    if (activeBlock == null) return;
+
+    final totalSubtasks = activeBlock.subtasks.length;
+    final completedCount =
+        activeBlock.capsules.where((c) => c.isCompleted).length;
+    if (totalSubtasks == 0) return;
+
+    final isSingleRing = model.blocks.every((b) => b.ring == RingLevel.outer);
+    final rIn = (isSingleRing || activeBlock.ring == RingLevel.inner)
+        ? routineTrackIn
+        : ringDividerRadius;
+
+    final paceR = rIn + 2.5;
+    final startRad =
+        SectorMath.dialAngleToCanvasRadians(activeBlock.startDeg);
+    final sweepRad = activeBlock.sweepDeg * math.pi / 180.0;
+
+    // Track arc
+    final trackPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.18)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round;
+
+    final rect = Rect.fromCircle(center: center, radius: paceR);
+    canvas.drawArc(rect, startRad, sweepRad, false, trackPaint);
+
+    // Completed subtasks ratio (Invariant I11: calm neutral tone)
+    final subtaskRatio = (completedCount / totalSubtasks).clamp(0.0, 1.0);
+    if (subtaskRatio > 0) {
+      final paceFillPaint = Paint()
+        ..color = const Color(0xFFE2D9CC)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4
+        ..strokeCap = StrokeCap.round;
+      canvas.drawArc(
+        rect,
+        startRad,
+        sweepRad * subtaskRatio,
+        false,
+        paceFillPaint,
+      );
+    }
+  }
+
+  void _drawHiddenBlocksIndicator(
+    Canvas canvas,
+    Offset center,
+    double baseRadius,
+  ) {
+    if (model.hidden.hiddenCount == 0) return;
+
+    final notchPaint = Paint()
+      ..color = const Color(0xFFF59E0B) // Amber
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round;
+
+    final pipPaint = Paint()
+      ..color = const Color(0xFFF59E0B)
+      ..style = PaintingStyle.fill;
+
+    // Draw bezel notch for each hidden block
+    for (final hidden in model.hidden.hiddenEvents) {
+      final displayAngle = model.warp.forward(hidden.naturalAngleDeg);
+      final rad = SectorMath.dialAngleToCanvasRadians(displayAngle);
+
+      final p1 = Offset(
+        center.dx + (baseRadius - 1.0) * math.cos(rad),
+        center.dy + (baseRadius - 1.0) * math.sin(rad),
+      );
+      final p2 = Offset(
+        center.dx + (baseRadius + 3.5) * math.cos(rad),
+        center.dy + (baseRadius + 3.5) * math.sin(rad),
+      );
+      canvas.drawLine(p1, p2, notchPaint);
+      canvas.drawCircle(p2, 1.5, pipPaint);
     }
   }
 
