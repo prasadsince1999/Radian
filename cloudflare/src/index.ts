@@ -266,7 +266,7 @@ export default {
       try {
         const ghRes = await fetch('https://api.github.com/repos/prasadsince1999/Radian/releases/latest', {
           headers: {
-            'User-Agent': 'Radian-Updater/1.0.24',
+            'User-Agent': 'Radian-Updater/1.0.25',
             Accept: 'application/vnd.github.v3+json',
           },
           cf: forceRefresh
@@ -279,7 +279,7 @@ export default {
 
         if (ghRes.ok) {
           const release: any = await ghRes.json();
-          const tag = release.tag_name || 'v1.0.24';
+          const tag = release.tag_name || 'v1.0.25';
           const version = tag.replace(/^v/, '');
           const apkAsset =
             release.assets?.find(
@@ -327,16 +327,16 @@ export default {
         JSON.stringify(
           {
             success: true,
-            tag: 'v1.0.24',
-            version: '1.0.24',
+            tag: 'v1.0.25',
+            version: '1.0.25',
             downloadUrl:
-              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.24/Radian-v1.0.24.apk',
-            apkName: 'Radian-v1.0.24.apk',
+              'https://github.com/prasadsince1999/Radian/releases/download/v1.0.25/Radian-v1.0.25.apk',
+            apkName: 'Radian-v1.0.25.apk',
             sizeBytes: 74865132,
             releaseNotes:
-              '### Radian v1.0.24 - Once vs Routine Projection & Dual-Painter Parity\n\n- **Live EventDayProjector Engine**: Wired canonical projection across both in-app dial and local event repository. Overnight events crossing midnight and single-day events remain strictly bounded to their scheduled days.\n- **Once vs Every day Repeat Selector**: Material 3 animated toggle pill in Time Block Editor allowing instant switching between one-off blocks and daily routines.\n- **Sector Content Renderer Fitting Rules**: Strict boundary fitting for subtask chips, rendering chips only when whole chip fits without title or cap overlap.\n- **Android Widget All-Day Photo Caching**: Native Kotlin widget retains high-res Flutter dial photo all day, eliminating secondary painter drift.\n- **Zero-Blank Home Sync Guard**: Prevents empty day snapshots from overwriting valid widget photos during initial stream load.',
+              '### Radian v1.0.25 - Complete Pure Engine Architecture & Smart Dial Features\\n\\n- **Pure Immutable Dial Engine**: 10-stage unidirectional geometry & layout pipeline with zero state mutations or visual drift.\\n- **Fisheye Time Lens & Sector Stretcher**: Elastic angular expansion of dense/short blocks with organic non-linear scaling.\\n- **Concentric Multi-Tier Collision Solver**: True multi-tiered concentric arcs (up to 4 tiers) preventing block occlusion.\\n- **Hidden Blocks Overflow Indicator**: Non-intrusive perimeter badges indicating hidden dense clusters.\\n- **True-Time Reference Ring & Dual-Time Needle**: Real-time 24h astronomical outer ring and secondary timezone needle.\\n- **Subtask Pace Ring**: Live neutral pace tracking showing subtask completion progress.\\n- **Radian Backup Service**: Robust versioned JSON backup, export, and single-tap restore.\\n- **Timeline Frame Strip**: Interactive timeline scrub bar with real-time dial time travel.',
             publishedAt: new Date().toISOString(),
-            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.24',
+            htmlUrl: 'https://github.com/prasadsince1999/Radian/releases/tag/v1.0.25',
           },
           null,
           2
