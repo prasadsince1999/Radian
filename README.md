@@ -187,3 +187,7 @@ sectograph_mcp/
 Built with passion and intention by [**KSM × Tech Studio**](https://ksmxtech.com/) (Founder: [**PrasaD**](https://x.com/otto_explorer)).  
 *“Built on family values. Guided by truth.”* — **सत्यं · मांगल्यम् · रूपान्तरम्**  
 Licensed under the [MIT License](LICENSE).
+
+---
+
+Created with ❤️ by Prasad at KSM × Tech Studio.
